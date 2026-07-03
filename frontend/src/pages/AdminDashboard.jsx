@@ -337,7 +337,7 @@ export default function AdminDashboard() {
                       <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-lg">☺</div>
                       <div>
                         <div className="font-bold text-sm">Chat Support</div>
-                        <div className="text-xs opacity-90">We&apos;re online</div>
+                        <div className="text-xs opacity-90">We’re online</div>
                       </div>
                     </div>
                     <div className="flex-1 p-4 space-y-2 bg-slate-50/50">

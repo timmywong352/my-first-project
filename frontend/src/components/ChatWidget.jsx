@@ -236,7 +236,7 @@ export default function ChatWidget() {
         <button
           data-testid="chat-launcher"
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform"
+          className="fixed bottom-24 right-6 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform"
           style={{ backgroundColor: color, boxShadow: `0 10px 30px -5px ${color}66` }}
           aria-label="Open chat"
         >
@@ -251,7 +251,7 @@ export default function ChatWidget() {
       {open && (
         <div
           data-testid="chat-widget"
-          className="fixed bottom-6 right-6 z-50 w-[360px] h-[600px] max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-100"
+          className="fixed bottom-24 right-6 z-50 w-[360px] h-[600px] max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-100"
           style={{ animation: "widget-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
         >
           {/* Header */}
@@ -267,7 +267,7 @@ export default function ChatWidget() {
                 <div className="font-bold text-sm">Chat Support</div>
                 <div className="text-xs opacity-90 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  {connected || phase === "prechat" ? "We&apos;re online" : "Reconnecting…"}
+                  {connected || phase === "prechat" ? "We’re online" : "Reconnecting…"}
                 </div>
               </div>
             </div>
