@@ -1,0 +1,21 @@
+{
+  "summary": "Iteration-4 targeted retest of Fix 2 (agent WS reconnect auto_busy persistence). PASSED. Test hits cap with 20 sessions → agent auto_busy, disconnects WS, reconnects → GET /api/auth/me returns status='busy' (previously 'offline'), then closes one session → status flips back to 'online' via _sync_agent_capacity.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter3_fixes.py",
+    "/app/test_reports/pytest/iter4_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:1000-1011 now correctly persists {status:'busy', auto_busy:true} on reconnect when at cap, and finally-block at ~1072-1080 skips the offline write when auto_busy && active>=cap. Both branches of Fix 2 are implemented as recommended in iteration-3 RCA."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (1/1 targeted test passing)", "frontend": "n/a (backend-only)"},
+  "test_credentials": "admin@livechat.com/admin123 used; ephemeral TEST_ReconnectAgent created and cleaned up per test.",
+  "seed_data_creation": "Test creates 1 ephemeral agent + 20 chat sessions per run. Agent deleted in finally; closed sessions remain marked closed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Fix 2 fully verified. Run: REACT_APP_BACKEND_URL=http://localhost:8001 pytest backend/tests/test_iter3_fixes.py -v -o addopts=''  (the -o override is needed because pytest.ini enables xdist loadscope which the single-worker test doesn't require; test does pass with xdist too but slower).",
+  "rca of the issue": "Resolved in iteration-4. server.py ws_agent reconnect branch (lines 1000-1005) now db.users.update_one({'status':'busy','auto_busy':true}) when the agent is auto_busy at cap. Additionally the finally block (lines 1072-1080) checks u.auto_busy && active_left>=MAX_ACTIVE_CHATS_PER_AGENT and skips the offline write, preserving busy across disconnect race windows."
+}

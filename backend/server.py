@@ -998,6 +998,10 @@ async def ws_agent(websocket: WebSocket, token: str = Query(...)):
     # Mark online (unless auto-busy at cap — preserve that state)
     active_now = await _agent_active_count(agent_id)
     if user.get("auto_busy") and active_now >= MAX_ACTIVE_CHATS_PER_AGENT:
+        await db.users.update_one(
+            {"id": agent_id},
+            {"$set": {"status": "busy", "auto_busy": True}},
+        )
         await manager.send_to_agents({"type": "agent_status", "agent_id": agent_id, "status": "busy"})
     else:
         await db.users.update_one(
@@ -1064,10 +1068,16 @@ async def ws_agent(websocket: WebSocket, token: str = Query(...)):
         logger.error(f"Agent WS error: {e}")
     finally:
         manager.disconnect_agent(agent_id, websocket)
-        # If no more sockets for agent, mark offline
+        # If no more sockets for agent, mark offline (but keep 'busy' if auto_busy at cap)
         if agent_id not in manager.agent_conns:
-            await db.users.update_one({"id": agent_id}, {"$set": {"status": "offline"}})
-            await manager.send_to_agents({"type": "agent_status", "agent_id": agent_id, "status": "offline"})
+            u = await db.users.find_one({"id": agent_id})
+            active_left = await _agent_active_count(agent_id)
+            if u and u.get("auto_busy") and active_left >= MAX_ACTIVE_CHATS_PER_AGENT:
+                # Preserve busy state even when disconnected
+                pass
+            else:
+                await db.users.update_one({"id": agent_id}, {"$set": {"status": "offline"}})
+                await manager.send_to_agents({"type": "agent_status", "agent_id": agent_id, "status": "offline"})
 
 
 @app.websocket("/api/ws/customer")
