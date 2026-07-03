@@ -35,6 +35,8 @@ APP_NAME = os.environ.get("APP_NAME", "livechat")
 STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
 EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
 
+MAX_ACTIVE_CHATS_PER_AGENT = 20
+
 ALLOWED_MIME_EXT = {
     "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif",
     "pdf": "application/pdf",
@@ -331,7 +333,11 @@ async def me(user: dict = Depends(get_current_user)):
 async def update_status(body: UpdateAgentStatusBody, user: dict = Depends(get_current_user)):
     if body.status not in ("online", "offline", "busy"):
         raise HTTPException(status_code=400, detail="Invalid status")
-    await db.users.update_one({"id": user["id"]}, {"$set": {"status": body.status, "status_updated_at": now_iso()}})
+    # Manual change clears the auto-busy flag
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"status": body.status, "status_updated_at": now_iso(), "auto_busy": False}}
+    )
     await manager.send_to_agents({"type": "agent_status", "agent_id": user["id"], "status": body.status})
     return {"ok": True, "status": body.status}
 
@@ -341,12 +347,33 @@ async def list_agents(user: dict = Depends(get_current_user)):
     cur = db.users.find({"role": {"$in": ["agent", "admin"]}})
     out = []
     async for u in cur:
+        active = await db.sessions.count_documents({
+            "assigned_agent_id": u["id"], "status": "open"
+        })
         out.append({
             "id": u["id"], "email": u["email"], "name": u["name"],
             "role": u["role"], "status": u.get("status", "offline"),
             "created_at": u.get("created_at"),
+            "active_chat_count": active,
+            "max_active_chats": MAX_ACTIVE_CHATS_PER_AGENT,
         })
     return out
+
+
+async def _agent_active_count(agent_id: str) -> int:
+    return await db.sessions.count_documents({
+        "assigned_agent_id": agent_id, "status": "open"
+    })
+
+
+@api.get("/agents/me/load")
+async def get_my_load(user: dict = Depends(get_current_user)):
+    count = await _agent_active_count(user["id"])
+    return {
+        "active_chat_count": count,
+        "max_active_chats": MAX_ACTIVE_CHATS_PER_AGENT,
+        "at_capacity": count >= MAX_ACTIVE_CHATS_PER_AGENT,
+    }
 
 
 @api.post("/agents")
@@ -517,14 +544,95 @@ async def close_session(session_id: str, user: dict = Depends(get_current_user))
     s = await db.sessions.find_one({"id": session_id})
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
+    if s.get("status") == "closed":
+        return {"ok": True, "summary": s.get("summary", ""), "already_closed": True}
     # AI summary (best-effort)
     summary = await ai_summarize(session_id)
+    closed_at = now_iso()
     await db.sessions.update_one(
         {"id": session_id},
-        {"$set": {"status": "closed", "closed_at": now_iso(), "summary": summary, "updated_at": now_iso()}}
+        {"$set": {
+            "status": "closed",
+            "closed_at": closed_at,
+            "archived_at": closed_at,
+            "closed_by": user["id"],
+            "summary": summary,
+            "updated_at": closed_at,
+        }}
     )
     await manager.broadcast_to_session(session_id, {"type": "session_closed", "session_id": session_id, "summary": summary})
+    # If the closer was the assigned agent and they were at capacity, may drop them below limit
+    if s.get("assigned_agent_id"):
+        await _sync_agent_capacity(s["assigned_agent_id"])
     return {"ok": True, "summary": summary}
+
+
+async def _sync_agent_capacity(agent_id: str) -> None:
+    """If agent has < max active chats and is 'busy' (auto), move back to online."""
+    user = await db.users.find_one({"id": agent_id})
+    if not user:
+        return
+    active = await _agent_active_count(agent_id)
+    # We only auto-toggle status if the agent hasn't manually chosen 'offline' or 'busy'
+    # via the auto_busy flag we set when reaching cap.
+    if user.get("auto_busy") and active < MAX_ACTIVE_CHATS_PER_AGENT:
+        await db.users.update_one({"id": agent_id}, {"$set": {"status": "online", "auto_busy": False}})
+        await manager.send_to_agents({"type": "agent_status", "agent_id": agent_id, "status": "online"})
+
+
+# ---------- Archive ----------
+@api.get("/chat/archive/search")
+async def archive_search(
+    q: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    limit: int = 50,
+    user: dict = Depends(get_current_user),
+):
+    """Search archived (closed) sessions by customer name/email/subject and by keywords inside messages."""
+    session_query: Dict[str, Any] = {"status": "closed"}
+    if date_from:
+        session_query.setdefault("created_at", {})["$gte"] = date_from
+    if date_to:
+        session_query.setdefault("created_at", {})["$lte"] = date_to
+    if q:
+        q_regex = {"$regex": q, "$options": "i"}
+        # Sessions that match on customer info
+        or_clauses = [
+            {"customer_name": q_regex},
+            {"customer_email": q_regex},
+            {"subject": q_regex},
+            {"summary": q_regex},
+        ]
+        # Also search inside message content
+        msg_cur = db.messages.find({"content": q_regex, "deleted": {"$ne": True}}, {"session_id": 1})
+        msg_ids = set()
+        async for m in msg_cur:
+            msg_ids.add(m["session_id"])
+        if msg_ids:
+            or_clauses.append({"id": {"$in": list(msg_ids)}})
+        session_query["$or"] = or_clauses
+    cur = db.sessions.find(session_query).sort("closed_at", -1).limit(int(limit))
+    out = []
+    async for s in cur:
+        clean = _clean_session(s)
+        # Compute duration
+        try:
+            t0 = datetime.fromisoformat(s.get("created_at", ""))
+            t1 = datetime.fromisoformat(s.get("closed_at", s.get("created_at", "")))
+            clean["duration_seconds"] = int((t1 - t0).total_seconds())
+        except Exception:
+            clean["duration_seconds"] = None
+        # Agent name
+        if s.get("assigned_agent_id"):
+            ag = await db.users.find_one({"id": s["assigned_agent_id"]})
+            clean["agent_name"] = ag.get("name") if ag else None
+        # Message count
+        clean["message_count"] = await db.messages.count_documents(
+            {"session_id": s["id"], "deleted": {"$ne": True}}
+        )
+        out.append(clean)
+    return out
 
 
 @api.post("/chat/public/{session_id}/csat")
@@ -900,11 +1008,31 @@ async def ws_agent(websocket: WebSocket, token: str = Query(...)):
                 attachments = data.get("attachments") or []
                 if not session_id or (not content.strip() and not attachments):
                     continue
-                # Auto-assign agent to session if unassigned
-                await db.sessions.update_one(
-                    {"id": session_id, "assigned_agent_id": None},
-                    {"$set": {"assigned_agent_id": agent_id}}
-                )
+                # Refuse to post into a closed session
+                sess = await db.sessions.find_one({"id": session_id})
+                if not sess or sess.get("status") == "closed":
+                    await websocket.send_json({
+                        "type": "error", "code": "session_closed",
+                        "message": "This chat has been closed.",
+                    })
+                    continue
+                # Auto-assign agent to session if unassigned and agent has capacity
+                if not sess.get("assigned_agent_id"):
+                    active = await _agent_active_count(agent_id)
+                    if active < MAX_ACTIVE_CHATS_PER_AGENT:
+                        await db.sessions.update_one(
+                            {"id": session_id, "assigned_agent_id": None},
+                            {"$set": {"assigned_agent_id": agent_id}}
+                        )
+                        # If we just hit the cap after assigning, flip to busy
+                        if active + 1 >= MAX_ACTIVE_CHATS_PER_AGENT:
+                            await db.users.update_one(
+                                {"id": agent_id},
+                                {"$set": {"status": "busy", "auto_busy": True}}
+                            )
+                            await manager.send_to_agents({
+                                "type": "agent_status", "agent_id": agent_id, "status": "busy",
+                            })
                 msg = await _save_message(session_id, "agent", agent_id, agent_name, content, attachments)
                 await manager.broadcast_to_session(session_id, {"type": "message", "message": msg})
             elif t == "typing":
@@ -943,6 +1071,12 @@ async def ws_customer(websocket: WebSocket, session_id: str = Query(...), sessio
         return
     customer_name = s.get("customer_name", "Customer")
     await manager.connect_customer(session_id, websocket)
+    # If the session is already closed, inform immediately (customer will disable input)
+    if s.get("status") == "closed":
+        try:
+            await websocket.send_json({"type": "session_closed", "session_id": session_id, "summary": s.get("summary", "")})
+        except Exception:
+            pass
     try:
         while True:
             data = await websocket.receive_json()
@@ -952,13 +1086,24 @@ async def ws_customer(websocket: WebSocket, session_id: str = Query(...), sessio
                 attachments = data.get("attachments") or []
                 if not content.strip() and not attachments:
                     continue
+                # Re-fetch session state (may have been closed by agent)
+                sess = await db.sessions.find_one({"id": session_id})
+                if not sess or sess.get("status") == "closed":
+                    await websocket.send_json({
+                        "type": "error", "code": "session_closed",
+                        "message": "This chat has ended. Start a new chat to continue.",
+                    })
+                    continue
                 msg = await _save_message(session_id, "customer", session_id, customer_name, content, attachments)
                 await manager.broadcast_to_session(session_id, {"type": "message", "message": msg})
             elif t == "typing":
                 is_typing = bool(data.get("is_typing"))
+                # Include current text for live preview (agent-side only)
+                preview_text = data.get("content", "")
                 await manager.send_to_agents({
                     "type": "typing", "session_id": session_id, "sender_type": "customer",
-                    "is_typing": is_typing, "name": customer_name
+                    "is_typing": is_typing, "name": customer_name,
+                    "preview": preview_text if is_typing else "",
                 })
             elif t == "read":
                 await db.messages.update_many(

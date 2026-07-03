@@ -74,6 +74,7 @@ export default function ChatWidget() {
   const [pendingAttachments, setPendingAttachments] = useState([]);
   const [csatRating, setCsatRating] = useState(0);
   const [csatSubmitted, setCsatSubmitted] = useState(false);
+  const [closedNotice, setClosedNotice] = useState("");
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -137,6 +138,12 @@ export default function ChatWidget() {
       setMessages((prev) => prev.map((m) => (m.sender_type === "customer" ? { ...m, status: "read" } : m)));
     } else if (data.type === "session_closed") {
       setPhase("closed");
+      setClosedNotice("This chat has ended. Start a new chat to continue.");
+    } else if (data.type === "error") {
+      if (data.code === "session_closed") {
+        setPhase("closed");
+        setClosedNotice(data.message || "This chat has ended. Start a new chat to continue.");
+      }
     }
   }, []);
 
@@ -167,20 +174,23 @@ export default function ChatWidget() {
   };
 
   const sendMessage = () => {
+    if (phase === "closed") return;
     if (!text.trim() && pendingAttachments.length === 0) return;
     send({ type: "message", content: text.trim(), attachments: pendingAttachments });
     setText("");
     setPendingAttachments([]);
-    send({ type: "typing", is_typing: false });
+    send({ type: "typing", is_typing: false, content: "" });
   };
 
   const handleTyping = (val) => {
+    if (phase === "closed") return;
     setText(val);
-    send({ type: "typing", is_typing: true });
+    send({ type: "typing", is_typing: true, content: val });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      send({ type: "typing", is_typing: false });
-    }, 1200);
+      // On pause: keep last text as preview (do not clear content)
+      send({ type: "typing", is_typing: false, content: val });
+    }, 2000);
   };
 
   const handleFile = async (e) => {
@@ -283,7 +293,7 @@ export default function ChatWidget() {
                 <div className="text-2xl font-extrabold text-slate-900 tracking-tight leading-snug">
                   {settings.welcome_message || "Hi there! 👋"}
                 </div>
-                <div className="text-sm text-slate-500 mt-2">Tell us about yourself and we'll get right back to you.</div>
+                <div className="text-sm text-slate-500 mt-2">Tell us about yourself and we&rsquo;ll get right back to you.</div>
               </div>
               <form onSubmit={startChat} className="space-y-3">
                 <div>

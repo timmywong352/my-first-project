@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { Toaster } from "@/components/ui/sonner";
 import LoginPage from "@/pages/Login";
 import AgentDashboard from "@/pages/AgentDashboard";
@@ -26,23 +27,25 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<WidgetDemo />} />
-            <Route path="/widget-demo" element={<WidgetDemo />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/dashboard"
-              element={<ProtectedRoute><AgentDashboard /></ProtectedRoute>}
-            />
-            <Route
-              path="/admin"
-              element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>}
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          <Toaster position="top-right" />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<WidgetDemo />} />
+              <Route path="/widget-demo" element={<WidgetDemo />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route
+                path="/dashboard"
+                element={<ProtectedRoute><AgentDashboard /></ProtectedRoute>}
+              />
+              <Route
+                path="/admin"
+                element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>}
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <Toaster position="top-right" />
+          </AuthProvider>
+        </ThemeProvider>
       </BrowserRouter>
     </div>
   );

@@ -1,0 +1,46 @@
+{
+  "summary": "Iteration-2 testing. All 40 backend pytest tests pass (32 regression + 8 new). Verified: closed-chat bug fix (customer WS rejected with error+session_closed code and message count doesn't grow), closed-session auto-notify on connect, archive fields (archived_at/closed_at) + archive/search by subject and by message content + enriched fields (duration_seconds, message_count, agent_name), typing preview with 'preview' text relay to agents, /api/agents/me/load endpoint, list_agents contains active_chat_count/max_active_chats, 20-active-chat cap (auto_busy=busy flip at cap, no auto-assign on 21st unassigned session, auto-flip back to online on close). Frontend tested: agent dashboard active-chat-counter with N/20 progress bar, theme-toggle applies 'dark' class + persists in localStorage under pulse_theme across reload, tab-active/tab-archived switching, archive-search-input+btn triggers backend call, widget-demo prechat->chat flow, customer widget correctly switches to 'closed' phase after admin close (rate CSAT + start-new-chat controls shown, message input NOT rendered). ONE FRONTEND GAP: the required banner text 'This chat has ended. Start a new chat to continue.' is not rendered in the closed phase — the closedNotice state is set (ChatWidget.jsx line 141/145) but never used inside the closed JSX branch (line 458-488). ONE MINOR BACKEND BUG: on WS reconnect the agent status is unconditionally reset to 'online' (server.py line 999) which wipes out the auto_busy 'busy' state; while the WS is connected everything works and the 20-cap gate at line 1022 still blocks auto-assignment even if status was reset.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "WS /api/ws/agent (connect)", "issue": "server.py line 999 unconditionally sets status='online' when an agent WS connects, overriding the 'busy' state that auto_busy left. Should skip the online update when user.auto_busy is true and active_chat_count >= MAX_ACTIVE_CHATS_PER_AGENT."},
+      {"endpoint": "WS /api/ws/agent (disconnect)", "issue": "Finally block at line 1062 sets status='offline' on last-socket disconnect, which is fine but combined with the reconnect override means auto_busy never persists across sessions."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ChatWidget closed phase", "issue": "Required banner text 'This chat has ended. Start a new chat to continue.' is NOT rendered. `closedNotice` state variable is set on session_closed / error(code=session_closed) at lines 141 and 145 but there is no {closedNotice} in the JSX inside the phase==='closed' branch (lines 458-488). Users only see 'Rate your experience' + CSAT stars + Start-a-new-chat button.", "selector": "[data-testid=\"chat-widget\"] (closed phase)", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_new_features.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "ChatWidget.jsx: render {closedNotice} (or the literal 'This chat has ended. Start a new chat to continue.') as a visible banner at the top of the phase==='closed' branch (around line 459) so customers see the required message.",
+    "server.py line 999: instead of unconditionally setting status='online' on WS connect, check the user's current auto_busy flag and active chat count; keep status='busy' if user.auto_busy && active >= MAX_ACTIVE_CHATS_PER_AGENT. This makes the auto-busy state persist across reconnects.",
+    "(carryover from iter-1) ChatWidget.jsx line ~280: literal '&apos;' HTML entity — user visible text still shows correctly here because it is rendered inside JSX where the actual glyph is used ('We’re online') — this is FIXED already, ignore.",
+    "(carryover from iter-1) Move chat launcher out of Emergent-badge overlap zone."
+  ],
+  "critical_code_review_comments": [
+    "server.py grew from 1074 to 1219 lines; even more urgent to split into modules (auth, chat, ws_agent, ws_customer, archive, admin).",
+    "close_session sets archived_at = closed_at automatically; if you later add a manual-archive action this coupling will need decoupling.",
+    "archive_search date filter uses created_at rather than closed_at (server.py lines 595-597), which is slightly counter-intuitive for an 'archive' search — probably closed_at is what users expect to filter on.",
+    "_agent_active_count is invoked serially inside list_agents for every agent (server.py ~355); at scale this is N sequential Mongo queries. Consider a single aggregation.",
+    "In WS agent handler the auto-busy update ($set status=busy, auto_busy=true) happens after assigning the session but is fire-and-forget; if the session update raced (e.g. concurrent WS from second tab) counts could be off — consider using find_one_and_update on the sessions collection and computing atomically.",
+    "AgentDashboard.jsx is 909 lines and mixes list rendering, WS handling, archive search, theme, typing preview — should be split into sub-components/hooks for maintainability."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_new_features.py (new — 8 tests covering iter-2 features)"
+  ],
+  "success_rate": {"backend": "100% (40/40 pytest)", "frontend": "~90% — dashboard features all pass; widget closed-phase missing required banner text"},
+  "test_credentials": "admin@livechat.com/admin123 and agent@livechat.com/agent123 (verified working). test_credentials.md is present and correct.",
+  "seed_data_creation": "20+2 TEST_Cap* sessions were created + closed during the 20-cap test; the created test agent is deleted in the test's finally block. Test residue is minimal (soft residue only).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All new backend features work end-to-end. Only fix needed on frontend is rendering the {closedNotice} banner inside the widget's closed phase (line ~459 of ChatWidget.jsx). If the WS reconnect status-override bug is fixed, add a regression test that: (1) connect WS, (2) send 20 messages, (3) disconnect, (4) reconnect and immediately verify /auth/me still returns 'busy'. Playwright typing-preview UI check was skipped because it requires two simultaneous browser contexts (customer + agent) — the backend WS relay is already covered by test_new_features.py TestTypingPreview.",
+  "rca_of_the_issue": "Closed-chat bug (highest priority): server-side reproduction verified in test_customer_send_after_close_is_rejected. Server correctly refuses posts after close (server.py lines 1090-1096) and message count does not increase. session_closed notice on WS connect verified. Frontend: reproduction shows widget-demo flow correctly disables the message input and transitions to closed phase; however the mandated banner text is missing due to closedNotice being state-but-not-rendered. Mitigation: two-line JSX addition inside the phase==='closed' JSX block."
+}
