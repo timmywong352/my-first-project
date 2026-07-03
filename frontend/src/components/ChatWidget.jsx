@@ -1,0 +1,483 @@
+import { useEffect, useRef, useState, useCallback } from "react";
+import { API, WS_BASE, api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import {
+  MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
+  Loader2, FileText, Image as ImageIcon, Star,
+} from "lucide-react";
+
+const ATTACH_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.mp4,.zip";
+
+function fileIcon(ct) {
+  if (ct && ct.startsWith("image/")) return <ImageIcon className="w-4 h-4" />;
+  return <FileText className="w-4 h-4" />;
+}
+
+function TypingDots({ label }) {
+  return (
+    <div className="flex items-center gap-2 px-4 py-2">
+      <div className="flex space-x-1">
+        <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+        <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+        <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+      </div>
+      <span className="text-xs text-slate-500">{label} is typing…</span>
+    </div>
+  );
+}
+
+function AttachmentBubble({ att, sessionId, sessionToken, isCustomerSide }) {
+  const url = `${API}/files/${att.id}?session_id=${sessionId}&session_token=${sessionToken}`;
+  const isImage = att.content_type && att.content_type.startsWith("image/");
+  if (isImage) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="block">
+        <img src={url} alt={att.filename} className="rounded-lg max-w-[220px] max-h-[220px] object-cover" />
+      </a>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs border ${
+        isCustomerSide ? "bg-white/10 border-white/20 text-white" : "bg-white border-slate-200 text-slate-700"
+      }`}
+    >
+      {fileIcon(att.content_type)}
+      <span className="truncate max-w-[160px]">{att.filename}</span>
+    </a>
+  );
+}
+
+export default function ChatWidget() {
+  const [open, setOpen] = useState(false);
+  const [phase, setPhase] = useState("prechat"); // prechat | chat | closed
+  const [settings, setSettings] = useState({
+    widget_color: "#0057FF",
+    welcome_message: "Hi there! 👋 How can we help you today?",
+  });
+  const [form, setForm] = useState({ name: "", email: "", subject: "" });
+  const [formErr, setFormErr] = useState("");
+  const [starting, setStarting] = useState(false);
+
+  const [session, setSession] = useState(null); // { session_id, session_token, customer_name, ... }
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [agentTyping, setAgentTyping] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState([]);
+  const [csatRating, setCsatRating] = useState(0);
+  const [csatSubmitted, setCsatSubmitted] = useState(false);
+
+  const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    api.get("/public/settings").then(({ data }) => setSettings(data)).catch(() => {});
+  }, []);
+
+  // Persist session
+  useEffect(() => {
+    const raw = localStorage.getItem("customer_session");
+    if (raw) {
+      try {
+        const s = JSON.parse(raw);
+        if (s && s.session_id) {
+          setSession(s);
+          setPhase("chat");
+          // Load history
+          fetch(`${API}/chat/public/${s.session_id}/messages?session_token=${s.session_token}`)
+            .then((r) => r.ok ? r.json() : [])
+            .then((msgs) => setMessages(msgs))
+            .catch(() => {});
+        }
+      } catch { /* ignore */ }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, agentTyping]);
+
+  const wsUrl = session
+    ? `${WS_BASE}/api/ws/customer?session_id=${session.session_id}&session_token=${session.session_token}`
+    : null;
+
+  const handleWsMessage = useCallback((data) => {
+    if (data.type === "message") {
+      setMessages((prev) => {
+        if (prev.find((m) => m.id === data.message.id)) return prev;
+        return [...prev, data.message];
+      });
+      if (data.message.sender_type === "agent") {
+        setAgentTyping(false);
+        // Optional: play a sound
+        try {
+          const audio = new Audio("data:audio/wav;base64,UklGRnQBAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YVABAAB6/3v/e/97/3v/e/97/3v/e/98/3z/fP98/3z/fP99/33/ff99/33/fv9+/37/fv9+/3//f/9//3//f/9//4D/gP+A/4D/gP+A/4H/gf+B/4H/gf+B/4L/gv+C/4L/gv+D/4P/g/+D/4P/g/+E/4T/hP+E/4T/hP+F/4X/hf+F/4X/hf+G/4b/hv+G/4b/hv+H/4f/h/+H/4f/h/+I/4j/iP+I/4j/if+J/4n/if+J/4n/if+K/4r/iv+K/4r/iv+L/4v/i/+L/4v/i/+M/4z/jP+M/4z/jf+N/43/jf+N/43/jf+O/47/jv+O/47/jv+P/4//j/+P/4//j/+Q/5D/kP+Q/5D/kf+R/5H/kf+R/5H/kf+S/5L/kv+S/5L/kv+T/5P/k/+T/5P/lP+U/5T/lP+U/5T/lf+V/5X/lf+V/5U=");
+          audio.volume = 0.3;
+          audio.play().catch(() => {});
+        } catch { /* ignore */ }
+      }
+    } else if (data.type === "message_edited") {
+      setMessages((prev) => prev.map((m) => (m.id === data.message.id ? data.message : m)));
+    } else if (data.type === "message_deleted") {
+      setMessages((prev) => prev.filter((m) => m.id !== data.message_id));
+    } else if (data.type === "typing") {
+      if (data.sender_type === "agent") setAgentTyping(data.is_typing);
+    } else if (data.type === "read_receipt") {
+      setMessages((prev) => prev.map((m) => (m.sender_type === "customer" ? { ...m, status: "read" } : m)));
+    } else if (data.type === "session_closed") {
+      setPhase("closed");
+    }
+  }, []);
+
+  const { send, connected } = useWebSocket(wsUrl, handleWsMessage);
+
+  const startChat = async (e) => {
+    e.preventDefault();
+    if (!form.name || !form.email || !form.subject) {
+      setFormErr("Please fill in all fields.");
+      return;
+    }
+    setFormErr("");
+    setStarting(true);
+    try {
+      const { data } = await api.post("/chat/session", {
+        ...form,
+        page: window.location.href,
+      });
+      setSession(data);
+      localStorage.setItem("customer_session", JSON.stringify(data));
+      setMessages([]);
+      setPhase("chat");
+    } catch (err) {
+      setFormErr("Couldn't start chat. Please try again.");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const sendMessage = () => {
+    if (!text.trim() && pendingAttachments.length === 0) return;
+    send({ type: "message", content: text.trim(), attachments: pendingAttachments });
+    setText("");
+    setPendingAttachments([]);
+    send({ type: "typing", is_typing: false });
+  };
+
+  const handleTyping = (val) => {
+    setText(val);
+    send({ type: "typing", is_typing: true });
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      send({ type: "typing", is_typing: false });
+    }, 1200);
+  };
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !session) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("session_id", session.session_id);
+      fd.append("session_token", session.session_token);
+      const res = await fetch(`${API}/upload`, { method: "POST", body: fd });
+      if (!res.ok) throw new Error("upload failed");
+      const data = await res.json();
+      setPendingAttachments((prev) => [...prev, data]);
+    } catch {
+      /* silent */
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const submitCsat = async (rating) => {
+    if (!session) return;
+    setCsatRating(rating);
+    try {
+      await fetch(`${API}/chat/public/${session.session_id}/csat?session_token=${session.session_token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating }),
+      });
+      setCsatSubmitted(true);
+    } catch { /* ignore */ }
+  };
+
+  const endChat = () => {
+    localStorage.removeItem("customer_session");
+    setSession(null);
+    setMessages([]);
+    setPhase("prechat");
+    setForm({ name: "", email: "", subject: "" });
+    setCsatRating(0);
+    setCsatSubmitted(false);
+  };
+
+  const color = settings.widget_color || "#0057FF";
+
+  return (
+    <>
+      {/* Launcher */}
+      {!open && (
+        <button
+          data-testid="chat-launcher"
+          onClick={() => setOpen(true)}
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform"
+          style={{ backgroundColor: color, boxShadow: `0 10px 30px -5px ${color}66` }}
+          aria-label="Open chat"
+        >
+          <div className="relative">
+            <MessageCircle className="w-6 h-6" strokeWidth={2.5} />
+            <Smile className="w-3 h-3 absolute -top-1 -right-1 text-white" />
+          </div>
+        </button>
+      )}
+
+      {/* Window */}
+      {open && (
+        <div
+          data-testid="chat-widget"
+          className="fixed bottom-6 right-6 z-50 w-[360px] h-[600px] max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-100"
+          style={{ animation: "widget-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+        >
+          {/* Header */}
+          <div
+            className="p-4 flex items-center justify-between text-white"
+            style={{ backgroundColor: color }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+                <Smile className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold text-sm">Chat Support</div>
+                <div className="text-xs opacity-90 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  {connected || phase === "prechat" ? "We&apos;re online" : "Reconnecting…"}
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" data-testid="chat-close-btn">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Body */}
+          {phase === "prechat" && (
+            <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-blue-50/50 to-white">
+              <div className="mb-6">
+                <div className="text-2xl font-extrabold text-slate-900 tracking-tight leading-snug">
+                  {settings.welcome_message || "Hi there! 👋"}
+                </div>
+                <div className="text-sm text-slate-500 mt-2">Tell us about yourself and we'll get right back to you.</div>
+              </div>
+              <form onSubmit={startChat} className="space-y-3">
+                <div>
+                  <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Name</Label>
+                  <Input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="Jane Doe"
+                    required
+                    data-testid="prechat-name"
+                    className="mt-1 h-11 rounded-xl border-slate-200"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Email</Label>
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    placeholder="jane@company.com"
+                    required
+                    data-testid="prechat-email"
+                    className="mt-1 h-11 rounded-xl border-slate-200"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Subject</Label>
+                  <Input
+                    value={form.subject}
+                    onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                    placeholder="I need help with…"
+                    required
+                    data-testid="prechat-subject"
+                    className="mt-1 h-11 rounded-xl border-slate-200"
+                  />
+                </div>
+                {formErr && <div className="text-xs text-red-600">{formErr}</div>}
+                <Button
+                  type="submit"
+                  data-testid="prechat-start-btn"
+                  disabled={starting}
+                  className="w-full h-11 rounded-xl font-semibold text-white"
+                  style={{ backgroundColor: color }}
+                >
+                  {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start Chatting →"}
+                </Button>
+              </form>
+            </div>
+          )}
+
+          {phase === "chat" && session && (
+            <>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30" data-testid="chat-messages">
+                {messages.map((m) => {
+                  const isCustomer = m.sender_type === "customer";
+                  return (
+                    <div key={m.id} className={`flex ${isCustomer ? "justify-end" : "justify-start"}`}>
+                      <div className="max-w-[85%] space-y-1.5" data-testid={`msg-${m.id}`}>
+                        {(m.attachments || []).map((att, i) => (
+                          <div key={i} className={isCustomer ? "flex justify-end" : ""}>
+                            <AttachmentBubble
+                              att={att}
+                              sessionId={session.session_id}
+                              sessionToken={session.session_token}
+                              isCustomerSide={isCustomer}
+                            />
+                          </div>
+                        ))}
+                        {m.content && (
+                          <div
+                            className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm ${
+                              isCustomer
+                                ? "text-white rounded-tr-sm"
+                                : "bg-white text-slate-900 rounded-tl-sm border border-slate-100"
+                            }`}
+                            style={isCustomer ? { backgroundColor: color } : {}}
+                          >
+                            {m.content}
+                            {m.edited && <span className="text-[10px] opacity-70 ml-1.5 italic">(edited)</span>}
+                          </div>
+                        )}
+                        {isCustomer && (
+                          <div className="flex justify-end items-center gap-1 text-[10px] text-slate-400 pr-1">
+                            {m.status === "read"
+                              ? <CheckCheck className="w-3 h-3 text-blue-500" />
+                              : <Check className="w-3 h-3" />}
+                            <span>{m.status === "read" ? "Read" : "Sent"}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {agentTyping && <TypingDots label="Agent" />}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Pending attachments preview */}
+              {pendingAttachments.length > 0 && (
+                <div className="px-3 py-2 border-t border-slate-100 bg-slate-50 flex gap-2 overflow-x-auto">
+                  {pendingAttachments.map((a) => (
+                    <div key={a.id} className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs">
+                      {fileIcon(a.content_type)}
+                      <span className="truncate max-w-[100px]">{a.filename}</span>
+                      <button
+                        onClick={() => setPendingAttachments((prev) => prev.filter((x) => x.id !== a.id))}
+                        className="text-slate-400 hover:text-slate-700"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="p-3 border-t border-slate-100 bg-white">
+                <div className="flex items-end gap-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                    data-testid="chat-attach-btn"
+                    disabled={uploading}
+                  >
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={ATTACH_ACCEPT}
+                    onChange={handleFile}
+                    className="hidden"
+                    data-testid="chat-file-input"
+                  />
+                  <Textarea
+                    value={text}
+                    onChange={(e) => handleTyping(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                    placeholder="Type your message…"
+                    rows={1}
+                    data-testid="chat-input"
+                    className="flex-1 resize-none min-h-[40px] max-h-32 rounded-xl border-slate-200 text-sm focus-visible:ring-blue-500"
+                  />
+                  <Button
+                    onClick={sendMessage}
+                    size="icon"
+                    className="rounded-xl h-10 w-10 shrink-0 text-white"
+                    style={{ backgroundColor: color }}
+                    data-testid="chat-send-btn"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {phase === "closed" && (
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center">
+              {!csatSubmitted ? (
+                <>
+                  <h3 className="text-xl font-extrabold text-slate-900 mb-2">Rate your experience</h3>
+                  <p className="text-sm text-slate-500 mb-6">How was your chat with us today?</p>
+                  <div className="flex gap-2 mb-8">
+                    {[1, 2, 3, 4, 5].map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => submitCsat(r)}
+                        className="p-2 transition-transform hover:scale-125"
+                        data-testid={`csat-star-${r}`}
+                      >
+                        <Star className={`w-8 h-8 ${r <= csatRating ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                    <CheckCheck className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <h3 className="text-xl font-extrabold text-slate-900 mb-2">Thanks for your feedback!</h3>
+                  <p className="text-sm text-slate-500 mb-6">We appreciate you taking the time to rate us.</p>
+                </>
+              )}
+              <Button onClick={endChat} variant="outline" data-testid="start-new-chat-btn">Start a new chat</Button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}

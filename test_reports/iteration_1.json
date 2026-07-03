@@ -1,0 +1,41 @@
+{
+  "summary": "First iteration end-to-end testing of LiveChat app. 32/32 backend pytest tests passed covering auth, chat sessions, websocket bidirectional messaging (agent<->customer), file upload/download (agent & customer), disallowed extension rejection, message edit/delete permissions, AI suggest/summarize (LLM works), quick replies CRUD, agents CRUD + admin RBAC, admin metrics, settings, public settings, CSAT. Frontend Playwright covered: wrong-password error, agent login->/dashboard with status toggle+sound+menu, agent status change, logout->/login, admin login->/admin with metrics chart, add-agent dialog succeeds and appears in list, branding tab loads, widget-demo full flow: launcher opens, prechat submits, message sent via WebSocket (Sent indicator confirmed), file attach uploads image and previews via /api/files/{id}.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ChatWidget header", "issue": "Text renders literally as 'We&apos;re online' instead of 'We\u2019re online' (HTML entity in JSX string not decoded). Location: /app/frontend/src/components/ChatWidget.jsx line 270.", "selector": "[data-testid=\"chat-widget\"] header", "priority": "LOW"},
+      {"component": "ChatWidget", "issue": "Chat launcher button can be intercepted by the Emergent badge overlay at bottom-right (same position, z-index conflict) when hover/click via real user. Consider offsetting launcher position (e.g., bottom-24 or right-24) to avoid overlap.", "selector": "[data-testid=\"chat-launcher\"]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin > Dialogs", "issues": ["React accessibility warning: DialogContent missing Description or aria-describedby (both Add Agent + Edit Message dialogs). Add <DialogDescription> for a11y."]},
+      {"screen": "Admin overview chart", "issues": ["Recharts logs 'width(-1) height(-1)' warning briefly during initial mount; disappears once container has size but suggests missing min-height on the flex parent during first paint."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Replace the literal '&apos;' in ChatWidget header with a proper apostrophe (use {\"We're online\"} or a plain '\u2019').",
+    "Move floating chat launcher off the Emergent badge's overlap zone (e.g., bottom-24 right-6) or increase z-index and add pointer-events handling; real users will find the badge blocks the launcher in preview.",
+    "Add <DialogDescription> to Dialogs to silence a11y warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py is ~1074 lines; consider splitting into modules (auth, chat, ws, admin, storage) as it grows.",
+    "CORSMiddleware uses allow_origins=['*'] with allow_credentials=True which browsers reject for cookie auth in strict mode; login flow currently works because frontend uses localStorage Bearer, but the httpOnly cookie set at login is effectively unusable cross-origin. Either restrict origins or drop cookie.",
+    "broadcast_to_session sends to ALL connected agents unconditionally \u2014 potential noise/privacy issue in multi-tenant contexts. OK for MVP.",
+    "put_object/get_object are sync requests inside async endpoints; will block event loop for large uploads. Consider run_in_executor or httpx.AsyncClient.",
+    "ai_suggest/ai_summarize return empty string/list on LLM failure which is correct (no 500); however when LLM library is missing the errors log every call \u2014 fine for now.",
+    "Password field on CreateAgentBody has no min length validation."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "~95%"},
+  "test_credentials": "admin@livechat.com/admin123, agent@livechat.com/agent123 (from /app/memory/test_credentials.md; verified working).",
+  "seed_data_creation": "Backend tests create TEST_-prefixed sessions, agents, quick-replies which may remain in DB (soft residue only, no interference).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend fully green. WebSocket flow verified with real python-websockets client. If retesting frontend widget launcher, use JS-click to bypass the Emergent badge overlay: page.evaluate(\"document.querySelector('[data-testid=\\\"chat-launcher\\\"]').click()\"). Customer session persists in localStorage under key 'customer_session' \u2014 clear before each fresh prechat test."
+}
