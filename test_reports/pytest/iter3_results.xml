@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="7.107" timestamp="2026-07-03T05:16:29.810215+00:00" hostname="agent-env-db8c8dfe-b217-4c04-badc-9aede97bfe33"><testcase classname="tests.test_iter3_fixes.TestReconnectPreservesAutoBusy" name="test_reconnect_does_not_flip_busy_to_online" time="6.467"><failure message="AssertionError: FIX 2 REGRESSION: reconnect overrode auto_busy — status=offline&#10;assert 'offline' == 'busy'&#10;  &#10;  - busy&#10;  + offline">backend/tests/test_iter3_fixes.py:102: in test_reconnect_does_not_flip_busy_to_online
+    assert state["status_after_reconnect"] == "busy", (
+E   AssertionError: FIX 2 REGRESSION: reconnect overrode auto_busy — status=offline
+E   assert 'offline' == 'busy'
+E     
+E     - busy
+E     + offline</failure></testcase></testsuite></testsuites>

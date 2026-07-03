@@ -995,9 +995,16 @@ async def ws_agent(websocket: WebSocket, token: str = Query(...)):
     agent_id = user["id"]
     agent_name = user["name"]
     await manager.connect_agent(agent_id, websocket)
-    # Mark online
-    await db.users.update_one({"id": agent_id}, {"$set": {"status": "online"}})
-    await manager.send_to_agents({"type": "agent_status", "agent_id": agent_id, "status": "online"})
+    # Mark online (unless auto-busy at cap — preserve that state)
+    active_now = await _agent_active_count(agent_id)
+    if user.get("auto_busy") and active_now >= MAX_ACTIVE_CHATS_PER_AGENT:
+        await manager.send_to_agents({"type": "agent_status", "agent_id": agent_id, "status": "busy"})
+    else:
+        await db.users.update_one(
+            {"id": agent_id},
+            {"$set": {"status": "online", "auto_busy": False}},
+        )
+        await manager.send_to_agents({"type": "agent_status", "agent_id": agent_id, "status": "online"})
     try:
         while True:
             data = await websocket.receive_json()

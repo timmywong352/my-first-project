@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration-3 targeted retest. Fix 1 (ChatWidget closed banner) PASSES — banner with exact text 'This chat has ended. Start a new chat to continue.' is rendered and chat-input is not rendered in closed phase. Fix 2 (Agent WS reconnect preserving auto_busy) FAILS — after disconnect the DB status is set to 'offline' and the reconnect handler only broadcasts a busy websocket message without updating DB, so GET /api/auth/me returns 'offline' instead of 'busy'.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "WS /api/ws/agent (reconnect while at cap)",
+        "issue": "Reconnect preserves user.auto_busy=true and broadcasts status=busy over websocket, but never writes {'status':'busy'} to Mongo. Because the WebSocketDisconnect finally-block (server.py line 1069) already set status='offline' during the previous disconnect, GET /api/auth/me returns status='offline' after the fresh reconnect. Expected 'busy'.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter3_fixes.py",
+    "/app/test_reports/pytest/iter3_results.xml"
+  ],
+  "action_items": [
+    "In /app/backend/server.py inside ws_agent connect logic (around line 1000-1001), when preserving auto_busy at cap, also persist status to DB. Suggested change: replace the current busy-branch with `await db.users.update_one({'id': agent_id}, {'$set': {'status': 'busy', 'auto_busy': True}}); await manager.send_to_agents(...)`. This ensures /api/auth/me sees status='busy' after reconnect since the WebSocketDisconnect handler at line 1069 unconditionally sets status='offline' when the previous socket dropped."
+  ],
+  "critical_code_review_comments": [
+    "server.py ws_agent finally-block (~line 1066-1070) sets status='offline' unconditionally on disconnect, without checking auto_busy. Combined with the incomplete fix in the reconnect branch (broadcasts busy but does not update DB), agents at cap appear offline between reconnects. Consider also skipping the offline write when the agent is auto_busy at cap on disconnect."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter3_fixes.py (new focused reconnect test)"
+  ],
+  "success_rate": {"backend": "0% (1/1 targeted fix failing)", "frontend": "100% (Fix 1 verified end-to-end)"},
+  "test_credentials": "admin@livechat.com/admin123 (admin), agent@livechat.com/agent123 (agent). New TEST_ agents created per test are auto-deleted.",
+  "seed_data_creation": "Test creates ephemeral agent (TEST_ReconnectAgent) + 20 sessions per run and cleans up the agent in finally block. Closed sessions remain but are marked closed.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Only Fix 2 needs re-verification once main agent updates ws_agent connect logic to persist status='busy' to DB when auto_busy && active_count>=cap. Re-run: pytest /app/backend/tests/test_iter3_fixes.py -v. The test already asserts (a) status='busy' after reconnect while at cap, and (b) status flips to 'online' after closing one session. Fix 1 is fully verified via Playwright and does not need retesting.",
+  "rca of the issue": "1) On WS disconnect, ws_agent's finally block writes {'status':'offline'} to users doc. 2) On subsequent WS reconnect at cap, the new branch at server.py:1000 checks user.auto_busy && active>=cap and only broadcasts an 'agent_status:busy' websocket event without a db.users.update_one to reset status to 'busy'. 3) Therefore DB continues to hold status='offline' from step 1, and /api/auth/me (which reads from DB) returns 'offline'. Reproduction: create agent, WS-connect and message on 20 sessions to hit cap (auto_busy=true), disconnect WS, reconnect fresh WS, GET /api/auth/me → status='offline' (expected 'busy'). Mitigation: in the reconnect busy-branch, also persist status='busy' (and re-affirm auto_busy=True) via db.users.update_one before broadcasting."
+}

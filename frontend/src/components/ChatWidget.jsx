@@ -456,7 +456,10 @@ export default function ChatWidget() {
           )}
 
           {phase === "closed" && (
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center">
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center" data-testid="chat-closed-view">
+              <div className="w-full mb-4 px-4 py-3 rounded-xl bg-slate-100 text-slate-700 text-sm border border-slate-200" data-testid="chat-closed-banner">
+                {closedNotice || "This chat has ended. Start a new chat to continue."}
+              </div>
               {!csatSubmitted ? (
                 <>
                   <h3 className="text-xl font-extrabold text-slate-900 mb-2">Rate your experience</h3>
