@@ -1,0 +1,130 @@
+{
+  "theme": "Light",
+  "archetype": "3 (Pastel & Soft) mixed with 4 (Swiss & High-Contrast)",
+  "design_philosophy": "A 'Friendly SaaS' approach. The agent dashboard leverages Archetype 4 for clarity, dense information hierarchy, and professional minimalism. The customer widget leans into Archetype 3 for approachability, using friendly rounded corners, vibrant blue accents, and subtle glassmorphism to emulate Intercom's welcoming feel.",
+  "colors": {
+    "primary": {
+      "DEFAULT": "#0057FF",
+      "hover": "#0046CC",
+      "light": "#E5EFFF"
+    },
+    "background": {
+      "app": "#F8FAFC",
+      "widget": "#FFFFFF",
+      "chat_bubble_agent": "#F1F5F9",
+      "chat_bubble_customer": "#0057FF"
+    },
+    "surface": {
+      "card": "#FFFFFF",
+      "glass": "rgba(255, 255, 255, 0.7)"
+    },
+    "text": {
+      "primary": "#0F172A",
+      "secondary": "#475569",
+      "tertiary": "#94A3B8",
+      "on_primary": "#FFFFFF"
+    },
+    "border": {
+      "light": "#E2E8F0",
+      "focus": "#93C5FD"
+    },
+    "status": {
+      "online": "#10B981",
+      "busy": "#F59E0B",
+      "offline": "#94A3B8",
+      "error": "#EF4444"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Manrope, sans-serif",
+      "body": "Figtree, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-4xl tracking-tight font-extrabold",
+      "h2": "text-2xl tracking-tight font-bold",
+      "h3": "text-xl font-semibold",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm text-secondary",
+      "tiny": "text-xs tracking-wider uppercase font-semibold text-tertiary"
+    }
+  },
+  "spacing": {
+    "dashboard_padding": "p-6 lg:p-8",
+    "widget_padding": "p-4 md:p-6",
+    "chat_gap": "gap-3",
+    "section_gap": "gap-8"
+  },
+  "layout": {
+    "agent_dashboard": {
+      "structure": "grid-cols-1 lg:grid-cols-[280px_1fr_320px] h-screen overflow-hidden",
+      "left_sidebar": "Border-r border-slate-200 bg-slate-50 flex flex-col h-full",
+      "main_chat": "bg-white flex flex-col h-full relative",
+      "right_sidebar": "Border-l border-slate-200 bg-white flex flex-col h-full p-6 overflow-y-auto"
+    },
+    "customer_widget": {
+      "position": "fixed bottom-6 right-6 z-50",
+      "dimensions": "w-[360px] h-[600px] max-h-[85vh]",
+      "launcher": "w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center cursor-pointer hover:scale-105 transition-transform",
+      "container": "bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-100",
+      "header": "backdrop-blur-xl bg-primary/95 text-white p-4 flex items-center justify-between"
+    },
+    "admin_dashboard": {
+      "metrics_grid": "grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
+    }
+  },
+  "components": {
+    "chat_bubble": {
+      "customer": "bg-primary text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] shadow-sm",
+      "agent": "bg-slate-100 text-slate-900 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%]"
+    },
+    "input_area": {
+      "wrapper": "p-4 border-t border-slate-100 bg-white",
+      "input": "w-full bg-slate-50 border-none focus:ring-0 rounded-xl px-4 py-3 resize-none max-h-32 text-sm",
+      "actions": "flex items-center justify-between mt-2"
+    },
+    "quick_reply": {
+      "badge": "inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 cursor-pointer hover:bg-blue-100 transition-colors border border-blue-200"
+    },
+    "ai_suggestion": {
+      "container": "relative p-4 rounded-xl border border-transparent bg-clip-padding before:absolute before:inset-0 before:-z-10 before:rounded-xl before:bg-gradient-to-r before:from-purple-500 before:to-blue-500 before:p-[1px]",
+      "text": "text-sm text-slate-700 italic"
+    }
+  },
+  "motion": {
+    "default_transition": "transition-all duration-200 ease-out",
+    "widget_enter": "animate-in slide-in-from-bottom-5 fade-in duration-300",
+    "message_enter": "animate-in slide-in-from-bottom-2 fade-in duration-200",
+    "typing_indicator": "flex space-x-1 items-center h-4; dots: w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
+  },
+  "accessibility": {
+    "focus_ring": "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+    "contrast": "Ensure white text on primary blue meets 4.5:1 ratio.",
+    "aria": "Include aria-labels for all icon buttons (attachments, send, close widget)."
+  },
+  "media": {
+    "images": {
+      "agent_avatar": {
+        "url": "https://images.unsplash.com/photo-1581065178047-8ee15951ede6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBmZW1hbGUlMjBzdXBwb3J0JTIwYWdlbnQlMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODMwNDI1NDF8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Professional female support agent portrait, used for agent dashboard profile and widget header."
+      },
+      "customer_avatar": {
+        "url": "https://images.unsplash.com/photo-1625241152315-4a698f74ceb7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwxfHxzbWlsaW5nJTIwbWFsZSUyMGN1c3RvbWVyJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzgzMDQyNTQxfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Smiling male customer portrait, used in agent dashboard for active chat customer profile."
+      },
+      "brand_logo": {
+        "url": "https://images.unsplash.com/photo-1781313079038-089cfe75f7f4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMHRlY2hub2xvZ3klMjBsb2dvJTIwYmx1ZXxlbnwwfHx8fDE3ODMwNDI1NDF8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract technology logo, used in the Admin and Dashboard headers."
+      }
+    }
+  },
+  "instructions_to_main_agent": [
+    "Use pure Tailwind CSS for structural layouts (Dashboard grid, Widget absolute positioning).",
+    "Use Shadcn UI components for complex interactions: DropdownMenu for agent status, Tabs for switching views in Admin, Dialog for settings.",
+    "Add data-testid attributes to all interactive elements (e.g., data-testid='chat-launcher', data-testid='send-message-btn').",
+    "Implement real-time typing indicator with CSS animations.",
+    "Ensure the chat widget launcher is a rounded button with a primary color background and a smiling chat icon.",
+    "The AI suggestion block should have a subtle gradient border using the 'ai_suggestion' class setup to visually distinguish it as AI-generated."
+  ]
+}
