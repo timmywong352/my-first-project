@@ -21,12 +21,12 @@ Build a live chat web application with customer widget, agent dashboard, and adm
 - ✅ File uploads via Emergent object storage (25MB limit, allowed extensions enforced).
 - ✅ AI summary written to session on close.
 
-## Update — Feb 2026 (iteration 2-4)
-- ✅ **BUG FIX**: Closed chats reject new customer messages both server-side (WS `error` event) and client-side (banner + hidden input). WS reconnect to a closed session immediately notifies the customer.
-- ✅ **Archive system**: Active / Archived tabs in agent dashboard; `archived_at` set on close; new `/api/chat/archive/search` endpoint with keyword + date range; read-only view for archived chats; enriched with duration, message_count, agent name.
-- ✅ **Live typing preview**: Customer typing events carry `content`; agents see a "Live preview" bubble showing the actual text being typed (persists 2s after pause, disappears on send).
-- ✅ **Dark mode**: `ThemeProvider` with localStorage persistence (`pulse_theme`); dark palette uses #1a1a2e range; toggle in agent dashboard header.
-- ✅ **Agent 20-chat cap**: `active_chat_count` in `/api/agents` and `/api/agents/me/load`; visual counter with warning at 18 and lock at 20; auto-flip to busy at cap, restore to online on session close; state persists across WS reconnects.
+## Update — Feb 2026 (iteration 5)
+- ✅ **Two-way typing preview** — both directions now stream partial text via WS `content` field. Customer sees an `[data-testid=agent-typing-preview]` bubble showing what the agent is typing; agents keep the existing `[data-testid=typing-preview]` bubble.
+- ✅ **Backend split** — `server.py` is now a thin composition file. Modules: `config`, `utils`, `models`, `deps`, `ws_manager`, `services`, `storage`, `llm`, plus `routers/{auth,agents,chat,quick_replies,admin,files,ws}.py`. All existing endpoints keep the same paths.
+- ✅ **Frontend hooks** — `useAgentSessions`, `useArchiveSearch`, `useAgentLoad`; `AgentDashboard.jsx` now composes them instead of holding all state locally.
+- ✅ **Aggregation optimization** — `list_agents_with_load()` uses a single `$lookup + $arrayElemAt` MongoDB aggregation instead of N serial `count_documents` calls (was O(N+1) queries, now O(1)).
+- ✅ 43/43 backend pytest pass; frontend Playwright 100% of tested flows (login, dashboard, tabs, dark mode, quick replies, send/edit/delete, archive search, two-way typing preview).
 
 ## Prioritized Backlog
 
