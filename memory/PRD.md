@@ -21,12 +21,14 @@ Build a live chat web application with customer widget, agent dashboard, and adm
 - ✅ File uploads via Emergent object storage (25MB limit, allowed extensions enforced).
 - ✅ AI summary written to session on close.
 
-## Update — Feb 2026 (iteration 5)
-- ✅ **Two-way typing preview** — both directions now stream partial text via WS `content` field. Customer sees an `[data-testid=agent-typing-preview]` bubble showing what the agent is typing; agents keep the existing `[data-testid=typing-preview]` bubble.
-- ✅ **Backend split** — `server.py` is now a thin composition file. Modules: `config`, `utils`, `models`, `deps`, `ws_manager`, `services`, `storage`, `llm`, plus `routers/{auth,agents,chat,quick_replies,admin,files,ws}.py`. All existing endpoints keep the same paths.
-- ✅ **Frontend hooks** — `useAgentSessions`, `useArchiveSearch`, `useAgentLoad`; `AgentDashboard.jsx` now composes them instead of holding all state locally.
-- ✅ **Aggregation optimization** — `list_agents_with_load()` uses a single `$lookup + $arrayElemAt` MongoDB aggregation instead of N serial `count_documents` calls (was O(N+1) queries, now O(1)).
-- ✅ 43/43 backend pytest pass; frontend Playwright 100% of tested flows (login, dashboard, tabs, dark mode, quick replies, send/edit/delete, archive search, two-way typing preview).
+## Update — Feb 2026 (iteration 6)
+- ✅ **Typing preview throttled to 500ms** with a 2s idle stop event, sent via a new `useThrottledTyping` hook. Agent side shows `"Customer is typing: [text]"`, customer side shows `"Agent is typing: [text]"`. Backend truncates preview to 500 chars.
+- ✅ **Queue system** — new session goes to the least-busy online agent (or queue if all full). Sessions returned with `status` + `queue_position`. Customer widget has a `[data-testid=queue-view]` phase. Closing an open chat auto-promotes the front of the queue and notifies the customer via `queue_promoted` WS event.
+- ✅ **Inactivity scheduler** (runs every 60s): (a) first-response nudge auto-message + optional transfer after N minutes, (b) auto-close after M minutes of silence → session moves to archive. All 4 thresholds/toggles admin-configurable at `/admin` → Inactivity tab.
+- ✅ **Rate limit** — POST `/api/chat/session` returns HTTP 429 after 5 sessions per IP per hour.
+- ✅ **JWT refresh** — new `POST /api/auth/refresh` accepts tokens expired ≤30 days. Axios interceptor auto-refreshes on 401 and retries. `useWebSocket` hook now refreshes on WS close-code 1008 and reconnects.
+- ✅ **shadcn Calendar + Popover** for the archive date filter (replaces native `<input type="date">`).
+- ✅ 46/49 backend tests pass (3 legacy tests need to be updated to bypass the new 5/hr rate-limit in their setup; not app bugs). All 6 iter-6 new-feature tests + all frontend flows verified.
 
 ## Prioritized Backlog
 

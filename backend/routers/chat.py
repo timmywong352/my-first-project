@@ -4,11 +4,12 @@ from typing import Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from config import db
+from config import MAX_ACTIVE_CHATS_PER_AGENT, db
 from deps import get_current_user
 from llm import ai_summarize, ai_suggest_replies
 from models import CsatBody, EditMessageBody, PreChatBody
 from services import (
+    agent_active_count,
     clean_session,
     promote_from_queue,
     recompute_queue_positions,
@@ -74,9 +75,7 @@ async def create_chat_session(body: PreChatBody, request: Request):
         await manager.send_to_agents({"type": "new_session", "session": clean_session(doc)})
         # If this assignment tips the agent over the cap, flip to busy
         if assigned_agent:
-            from services import agent_active_count  # local to avoid cycle
             active = await agent_active_count(assigned_agent["id"])
-            from config import MAX_ACTIVE_CHATS_PER_AGENT
             if active >= MAX_ACTIVE_CHATS_PER_AGENT:
                 await db.users.update_one(
                     {"id": assigned_agent["id"]},

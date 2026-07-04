@@ -76,7 +76,7 @@ async def ws_agent(websocket: WebSocket, token: str = Query(...)):
             elif t == "typing":
                 session_id = data.get("session_id")
                 is_typing = bool(data.get("is_typing"))
-                preview_text = data.get("content", "")
+                preview_text = (data.get("content", "") or "")[:500]
                 await manager.send_to_customer(session_id, {
                     "type": "typing",
                     "sender_type": "agent",
@@ -152,7 +152,7 @@ async def ws_customer(
                 await manager.broadcast_to_session(session_id, {"type": "message", "message": msg})
             elif t == "typing":
                 is_typing = bool(data.get("is_typing"))
-                preview_text = data.get("content", "")
+                preview_text = (data.get("content", "") or "")[:500]
                 await manager.send_to_agents({
                     "type": "typing",
                     "session_id": session_id,
