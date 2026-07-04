@@ -1,0 +1,53 @@
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, EmailStr
+
+
+class LoginBody(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class CreateAgentBody(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+    role: str = "agent"
+
+
+class UpdateAgentStatusBody(BaseModel):
+    status: str  # online, offline, busy
+
+
+class PreChatBody(BaseModel):
+    name: str
+    email: EmailStr
+    subject: str
+    page: Optional[str] = None
+    location: Optional[str] = None
+
+
+class SendMessageBody(BaseModel):
+    content: str = ""
+    attachments: Optional[List[Dict[str, Any]]] = None
+
+
+class EditMessageBody(BaseModel):
+    content: str
+
+
+class QuickReplyBody(BaseModel):
+    title: str
+    content: str
+
+
+class SettingsBody(BaseModel):
+    widget_color: Optional[str] = None
+    widget_accent: Optional[str] = None
+    welcome_message: Optional[str] = None
+    business_hours_start: Optional[str] = None
+    business_hours_end: Optional[str] = None
+    business_days: Optional[List[int]] = None
+
+
+class CsatBody(BaseModel):
+    rating: int

@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration-5 full regression + new feature testing after big backend split, hook extraction, aggregation optimization, and two-way typing preview. Backend: 43/43 pytest passed (backend_test.py 32, test_new_features.py 8, test_iter5_refactor.py 2, test_iter3_fixes.py 1). Frontend: dashboard, tabs, dark-mode, quick replies, send/edit/delete, archive search all work. Two-way typing preview verified end-to-end via Playwright: customer typing shows on agent [data-testid=typing-preview] and agent typing shows on customer widget [data-testid=agent-typing-preview]. Aggregation dynamic count verified: fresh agent 0 -> 3 open sessions -> count=3 -> close one -> count=2.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AgentDashboard > Archived tab", "issues": ["Date range filter uses browser-native <input type='date'> pickers instead of the shadcn Calendar component (inconsistent with rest of the design system)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_new_features.py",
+    "/app/backend/tests/test_iter5_refactor.py",
+    "/app/backend/tests/test_iter3_fixes.py",
+    "/app/test_reports/pytest/iter5_results.xml",
+    "/app/test_reports/pytest/iter5_new_results.xml"
+  ],
+  "action_items": [
+    "(Optional/design) Swap native date inputs in archive filter for shadcn Calendar/DatePicker to keep UI consistent."
+  ],
+  "critical_code_review_comments": [
+    "Backend split is clean: absolute imports work under supervisor CWD=/app/backend. Routers all mounted with correct /api prefixes. server.py is now a thin composition.",
+    "services.list_agents_with_load() correctly replaces N serial count_documents calls with a single $lookup+$arrayElemAt aggregation. Projection includes all required fields (id, email, name, role, status, active_chat_count) and appends max_active_chats per-agent — good.",
+    "routers/ws.py ws_agent 'typing' branch (lines 76-86) and ws_customer 'typing' branch (lines 153-163) both send preview=content when is_typing else empty string — matches the new-feature spec exactly.",
+    "Closed-chat guard on both WS sides (ws.py L52-58 and L144-150) preserved after refactor.",
+    "Auto_busy reconnect logic preserved in ws_agent connect block (L28-40) and finally block (L102-111)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter5_refactor.py"],
+  "success_rate": {"backend": "100% (43/43)", "frontend": "100% of tested flows"},
+  "test_credentials": "admin@livechat.com/admin123 and agent@livechat.com/agent123 (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "Ephemeral: test agent + 20 sessions (test_iter3_fixes cap flow), test agent + 3 sessions (test_iter5_refactor aggregation), various TEST_ prefixed sessions from other tests. Test agents cleaned up in finally blocks; sessions remain closed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All regression + new-feature tests green. To rerun: cd /app/backend && REACT_APP_BACKEND_URL=http://localhost:8001 pytest tests/ -v -o addopts='' — the -o override is needed because pytest.ini enables xdist which slows down single-worker tests. Frontend testids: tab-active/tab-archived (not dashboard-tab-*), theme-toggle (not dark-mode-toggle). Two-way typing preview elements: [data-testid=typing-preview] on agent side, [data-testid=agent-typing-preview] on customer widget.",
+  "rca of the issue": "N/A — no issues found this iteration."
+}

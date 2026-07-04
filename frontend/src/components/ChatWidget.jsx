@@ -75,6 +75,7 @@ export default function ChatWidget() {
   const [csatRating, setCsatRating] = useState(0);
   const [csatSubmitted, setCsatSubmitted] = useState(false);
   const [closedNotice, setClosedNotice] = useState("");
+  const [agentPreview, setAgentPreview] = useState("");
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -121,6 +122,7 @@ export default function ChatWidget() {
       });
       if (data.message.sender_type === "agent") {
         setAgentTyping(false);
+        setAgentPreview("");
         // Optional: play a sound
         try {
           const audio = new Audio("data:audio/wav;base64,UklGRnQBAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YVABAAB6/3v/e/97/3v/e/97/3v/e/98/3z/fP98/3z/fP99/33/ff99/33/fv9+/37/fv9+/3//f/9//3//f/9//4D/gP+A/4D/gP+A/4H/gf+B/4H/gf+B/4L/gv+C/4L/gv+D/4P/g/+D/4P/g/+E/4T/hP+E/4T/hP+F/4X/hf+F/4X/hf+G/4b/hv+G/4b/hv+H/4f/h/+H/4f/h/+I/4j/iP+I/4j/if+J/4n/if+J/4n/if+K/4r/iv+K/4r/iv+L/4v/i/+L/4v/i/+M/4z/jP+M/4z/jf+N/43/jf+N/43/jf+O/47/jv+O/47/jv+P/4//j/+P/4//j/+Q/5D/kP+Q/5D/kf+R/5H/kf+R/5H/kf+S/5L/kv+S/5L/kv+T/5P/k/+T/5P/lP+U/5T/lP+U/5T/lf+V/5X/lf+V/5U=");
@@ -133,7 +135,12 @@ export default function ChatWidget() {
     } else if (data.type === "message_deleted") {
       setMessages((prev) => prev.filter((m) => m.id !== data.message_id));
     } else if (data.type === "typing") {
-      if (data.sender_type === "agent") setAgentTyping(data.is_typing);
+      if (data.sender_type === "agent") {
+        setAgentTyping(data.is_typing);
+        if (typeof data.preview === "string") {
+          setAgentPreview(data.preview);
+        }
+      }
     } else if (data.type === "read_receipt") {
       setMessages((prev) => prev.map((m) => (m.sender_type === "customer" ? { ...m, status: "read" } : m)));
     } else if (data.type === "session_closed") {
@@ -388,6 +395,14 @@ export default function ChatWidget() {
                   );
                 })}
                 {agentTyping && <TypingDots label="Agent" />}
+                {agentPreview && (
+                  <div className="flex justify-start" data-testid="agent-typing-preview">
+                    <div className="max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm bg-slate-100 text-slate-500 italic border border-dashed border-slate-300">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 not-italic mr-1.5">Typing…</span>
+                      {agentPreview}
+                    </div>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
