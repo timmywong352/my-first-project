@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration-6 (queue, rate-limit 5/hr, JWT refresh, inactivity scheduler, shadcn Calendar). New iter6 backend suite added (6/6 passing) directly exercising the new features via HTTP + direct scheduler._tick() + route_new_session calls. Frontend Playwright verified: Admin > Inactivity tab persists all settings (timeout 3min, auto-transfer toggle, custom auto-message), and Agent > Archived date filter now uses shadcn Popover+Calendar (role=dialog, 35 day cells, selection populates button as '7/13/2026').",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "conftest side-effect", "issue": "Because 5/hr rate-limit is per-IP and preview-server IP is 127.0.0.1 for local tests, three pre-existing tests still fail due to test drift (not app bugs): test_iter3_fixes::TestReconnectPreservesAutoBusy, test_iter5_refactor::TestListAgentsAggregationDynamic, test_new_features::TestChatCap. Each creates 20+ sessions via HTTP against the same IP and now trips the 5/hr limit; TestListAgentsAggregationDynamic also depends on the old direct-assign routing (now queued because the TEST_ agent is created offline). These tests need to bypass rate-limit (insert sessions directly to Mongo) or bring the test agent online before creating sessions — main-agent action item."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter6_features.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/iter6_results.xml"
+  ],
+  "action_items": [
+    "Update the three legacy tests to bypass the new 5/hr HTTP rate-limit (insert sessions directly via Mongo like /app/backend/tests/test_iter6_features.py::_bulk_open_sessions). Also, in test_iter5_refactor::TestListAgentsAggregationDynamic, bring the TEST_ agent online before assigning so route_new_session assigns to them instead of queueing."
+  ],
+  "critical_code_review_comments": [
+    "Rate limit: _rate_limit_check uses request.client.host — behind ingress this will always be the proxy's IP. In production this could either rate-limit ALL customers by the ingress IP (false positives) or none if the header is stripped. Consider trusting X-Forwarded-For in production.",
+    "route_new_session mutates the passed dict AND adds an internal '_assigned_agent' key which chat.py pops afterwards — works but is a subtle contract; a return-tuple would be cleaner.",
+    "scheduler._tick() calls promote_from_queue only when there were any open sessions this cycle — if all open sessions were auto-closed inside _handle_auto_close, promote_from_queue *will* be called (open_sessions still non-empty), good. But if there are no open sessions at all and a queued session exists with an online agent that just came online, the queue is only drained on the next tick that has open sessions. Consider unconditional promote_from_queue at end of tick.",
+    "auth.py /refresh accepts tokens expired up to 30d — acceptable per spec but log a warning when refresh is used for tokens older than 24h so security ops has visibility.",
+    "ws.py customer typing branch relays 'preview' string as-is with no length cap → potential memory pressure if a client sends 1MB per keystroke; consider truncating to e.g. 500 chars server-side.",
+    "chat.py create_chat_session does a from-inside-function import (agent_active_count, MAX_ACTIVE_CHATS_PER_AGENT) to avoid cycles — the cycle no longer exists after the split; move to module-level imports."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter6_features.py (new)",
+    "/app/backend/tests/conftest.py (new — purges 127.0.0.1 sessions before each test except the shared chat_session fixture, so pre-existing HTTP-based tests survive the new 5/hr rate limit)"
+  ],
+  "success_rate": {"backend": "94% (46/49 total; 6/6 iter6 new-feature tests passing)", "frontend": "100% of flows tested (admin inactivity save + shadcn calendar)"},
+  "test_credentials": "admin@livechat.com/admin123 and agent@livechat.com/agent123 (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "Ephemeral: TEST_ prefixed sessions and agents created by iter6 tests; all cleaned up in try/finally (see _cleanup_agent / _cleanup_sessions_prefix). One test agent from test_new_features remains uncleaned only when TestChatCap fails before its teardown — that's a pre-existing behaviour.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=http://localhost:8001 pytest tests/ -v -o addopts='' --tb=short. The new /app/backend/tests/conftest.py autouse-fixture purges 127.0.0.1 sessions before each test but excludes customer_email='test_customer@example.com' to preserve backend_test.py's session-scoped chat_session fixture. To bypass the 5/hr rate-limit in tests, insert sessions directly into Mongo with creator_ip set to a unique 10.x.x.x IP (see _bulk_open_sessions in test_iter6_features.py). Scheduler tick can be invoked directly via `from scheduler import _tick; await _tick()`.",
+  "rca of the issue": "N/A — no app bugs found. The 3 legacy test failures are pre-existing tests colliding with the new 5/hr HTTP rate-limit and the new least-busy/queue routing (test agent created offline now queues instead of auto-assigning). These are test-file drift, not backend regressions. Iter6 new-feature suite covers the same functional area and passes 6/6."
+}

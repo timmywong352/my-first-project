@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -8,19 +8,44 @@ from config import db
 from deps import get_current_user
 from llm import ai_summarize, ai_suggest_replies
 from models import CsatBody, EditMessageBody, PreChatBody
-from services import clean_session, sync_agent_capacity
+from services import (
+    clean_session,
+    promote_from_queue,
+    recompute_queue_positions,
+    route_new_session,
+    sync_agent_capacity,
+)
 from utils import now_iso
 from ws_manager import manager
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+RATE_LIMIT_PER_HOUR = 5
+
 
 # ---------- Session ----------
+async def _rate_limit_check(ip: str) -> None:
+    if not ip:
+        return
+    one_hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    recent = await db.sessions.count_documents({
+        "creator_ip": ip,
+        "created_at": {"$gte": one_hour_ago},
+    })
+    if recent >= RATE_LIMIT_PER_HOUR:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many chats started. Please wait a while and try again (limit: {RATE_LIMIT_PER_HOUR}/hour).",
+        )
+
+
 @router.post("/session")
 async def create_chat_session(body: PreChatBody, request: Request):
+    client_ip = request.client.host if request.client else ""
+    await _rate_limit_check(client_ip)
+
     session_id = str(uuid.uuid4())
     session_token = str(uuid.uuid4())
-    client_ip = request.client.host if request.client else ""
     doc = {
         "id": session_id,
         "session_token": session_token,
@@ -29,22 +54,46 @@ async def create_chat_session(body: PreChatBody, request: Request):
         "subject": body.subject,
         "page": body.page or "",
         "location": body.location or client_ip,
-        "status": "open",
+        "creator_ip": client_ip,
         "assigned_agent_id": None,
         "created_at": now_iso(),
         "updated_at": now_iso(),
         "last_message_at": now_iso(),
         "csat_rating": None,
         "summary": None,
+        "auto_msg_sent": False,
     }
+
+    # Route: assign least-busy agent OR queue
+    await route_new_session(doc)
+    assigned_agent = doc.pop("_assigned_agent", None)
+
     await db.sessions.insert_one(doc)
-    await manager.send_to_agents({"type": "new_session", "session": clean_session(doc)})
+
+    if doc["status"] == "open":
+        await manager.send_to_agents({"type": "new_session", "session": clean_session(doc)})
+        # If this assignment tips the agent over the cap, flip to busy
+        if assigned_agent:
+            from services import agent_active_count  # local to avoid cycle
+            active = await agent_active_count(assigned_agent["id"])
+            from config import MAX_ACTIVE_CHATS_PER_AGENT
+            if active >= MAX_ACTIVE_CHATS_PER_AGENT:
+                await db.users.update_one(
+                    {"id": assigned_agent["id"]},
+                    {"$set": {"status": "busy", "auto_busy": True}},
+                )
+                await manager.send_to_agents({
+                    "type": "agent_status", "agent_id": assigned_agent["id"], "status": "busy",
+                })
+
     return {
         "session_id": session_id,
         "session_token": session_token,
         "customer_name": body.name,
         "customer_email": body.email,
         "subject": body.subject,
+        "status": doc["status"],
+        "queue_position": doc.get("queue_position"),
     }
 
 
@@ -168,6 +217,8 @@ async def close_session(session_id: str, user: dict = Depends(get_current_user))
     )
     if s.get("assigned_agent_id"):
         await sync_agent_capacity(s["assigned_agent_id"])
+    # Promote next queued sessions to freed capacity
+    await promote_from_queue()
     return {"ok": True, "summary": summary}
 
 

@@ -11,6 +11,7 @@ All business logic lives in submodules:
 - llm         AI (Claude) helpers
 - routers/*   FastAPI routers (auth, agents, chat, quick_replies, admin, files, ws)
 """
+import asyncio
 import logging
 import uuid
 
@@ -25,6 +26,7 @@ from routers import chat as chat_router
 from routers import files as files_router
 from routers import quick_replies as qr_router
 from routers import ws as ws_router
+from scheduler import scheduler_loop
 from storage import init_storage
 from utils import hash_password, now_iso, verify_password
 
@@ -142,6 +144,9 @@ async def startup_event():
         })
 
     init_storage()
+
+    # Kick off background inactivity scheduler
+    asyncio.create_task(scheduler_loop(interval_seconds=60))
 
 
 @app.on_event("shutdown")

@@ -7,6 +7,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAgentSessions } from "@/hooks/useAgentSessions";
 import { useArchiveSearch } from "@/hooks/useArchiveSearch";
 import { useAgentLoad, MAX_ACTIVE_CHATS } from "@/hooks/useAgentLoad";
+import { useThrottledTyping } from "@/hooks/useThrottledTyping";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -16,11 +17,13 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import {
   MessageCircle, Send, Paperclip, MoreVertical, Edit2, Trash2, X,
   Search, User, Sparkles, LogOut, Circle, Loader2, FileText, Image as ImageIcon,
   Check, CheckCheck, Volume2, VolumeX, ShieldCheck, Sun, Moon, Archive,
-  Inbox, Lock, AlertTriangle,
+  Inbox, Lock, AlertTriangle, Calendar as CalendarIcon,
 } from "lucide-react";
 
 const STATUS_STYLES = {
@@ -104,7 +107,7 @@ export default function AgentDashboard() {
 
   const messagesEndRef = useRef(null);
   const fileRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
+  const sendRef = useRef(null);
 
   const token = localStorage.getItem("token");
   const wsUrl = token ? `${WS_BASE}/api/ws/agent?token=${token}` : null;
@@ -113,6 +116,16 @@ export default function AgentDashboard() {
   const listSource = isArchivedView ? arch.results : sess.filtered;
   const currentSession = (isArchivedView ? arch.results : sess.sessions).find((s) => s.id === selectedId);
   const isReadOnly = isArchivedView || (currentSession && currentSession.status === "closed");
+
+  const { onChange: onTypingChange, flushStop: flushTyping } = useThrottledTyping({
+    send: (payload) => sendRef.current && sendRef.current(payload),
+    buildPayload: (val, isTyping) => ({
+      type: "typing", session_id: selectedId, is_typing: isTyping, content: val,
+    }),
+    intervalMs: 500,
+    stopMs: 2000,
+    enabled: !!selectedId && !isReadOnly,
+  });
 
   const loadMessages = useCallback(async (id) => {
     try {
@@ -220,12 +233,7 @@ export default function AgentDashboard() {
   const handleTyping = (v) => {
     setText(v);
     if (!selectedId || isReadOnly) return;
-    // Two-way live preview: include content
-    send({ type: "typing", session_id: selectedId, is_typing: true, content: v });
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      send({ type: "typing", session_id: selectedId, is_typing: false, content: v });
-    }, 2000);
+    onTypingChange(v);
   };
 
   const handleFile = async (e) => {
@@ -375,10 +383,32 @@ export default function AgentDashboard() {
                 className="pl-8 h-8 rounded-lg text-xs bg-white dark:bg-slate-800 dark:border-slate-700" data-testid="archive-search-input" />
             </div>
             <div className="grid grid-cols-2 gap-1.5">
-              <Input type="date" value={arch.from} onChange={(e) => arch.setFrom(e.target.value)}
-                className="h-8 text-xs rounded-lg bg-white dark:bg-slate-800 dark:border-slate-700" data-testid="archive-from" />
-              <Input type="date" value={arch.to} onChange={(e) => arch.setTo(e.target.value)}
-                className="h-8 text-xs rounded-lg bg-white dark:bg-slate-800 dark:border-slate-700" data-testid="archive-to" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button data-testid="archive-from"
+                    className="h-8 text-xs rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 text-left flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600">
+                    <CalendarIcon className="w-3 h-3 text-slate-400" />
+                    <span className="truncate">{arch.from ? formatDate(arch.from) : "From"}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={arch.from ? new Date(arch.from) : undefined}
+                    onSelect={(d) => arch.setFrom(d ? d.toISOString().slice(0, 10) : "")} initialFocus />
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button data-testid="archive-to"
+                    className="h-8 text-xs rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 text-left flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600">
+                    <CalendarIcon className="w-3 h-3 text-slate-400" />
+                    <span className="truncate">{arch.to ? formatDate(arch.to) : "To"}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={arch.to ? new Date(arch.to) : undefined}
+                    onSelect={(d) => arch.setTo(d ? d.toISOString().slice(0, 10) : "")} initialFocus />
+                </PopoverContent>
+              </Popover>
             </div>
             <Button size="sm" onClick={arch.run} disabled={arch.loading}
               className="w-full h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white" data-testid="archive-search-btn">
@@ -539,7 +569,7 @@ export default function AgentDashboard() {
                 <div className="flex items-start gap-2">
                   <Sparkles className="w-3 h-3 text-blue-500 mt-1 shrink-0" />
                   <div className="text-xs text-slate-600 dark:text-slate-300">
-                    <span className="font-bold text-[10px] uppercase tracking-wider text-blue-600 dark:text-blue-400 mr-1.5">Live preview</span>
+                    <span className="font-bold text-[10px] uppercase tracking-wider text-blue-600 dark:text-blue-400 mr-1.5">Customer is typing:</span>
                     <span className="italic">{customerPreview[selectedId]}</span>
                   </div>
                 </div>

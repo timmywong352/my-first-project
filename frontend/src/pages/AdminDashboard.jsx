@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -169,6 +170,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="agents" data-testid="tab-agents" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg">Agents</TabsTrigger>
             <TabsTrigger value="branding" data-testid="tab-branding" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg">Branding</TabsTrigger>
             <TabsTrigger value="hours" data-testid="tab-hours" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg">Business Hours</TabsTrigger>
+            <TabsTrigger value="inactivity" data-testid="tab-inactivity" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg">Inactivity</TabsTrigger>
             <TabsTrigger value="replies" data-testid="tab-replies" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg">Quick Replies</TabsTrigger>
           </TabsList>
 
@@ -396,6 +398,89 @@ export default function AdminDashboard() {
                 </div>
                 <Button onClick={saveSettings} disabled={savingSettings} className="bg-blue-600 hover:bg-blue-700 text-white" data-testid="save-hours-btn">
                   {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save hours"}
+                </Button>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* QUICK REPLIES */}
+          <TabsContent value="inactivity" className="space-y-6">
+            <div>
+              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-1">Inactivity Rules</h1>
+              <p className="text-sm text-slate-500">Send a nudge if no one responds, auto-transfer to another agent, and close stale chats.</p>
+            </div>
+            {settings && (
+              <Card className="p-6 border-slate-200 bg-white space-y-5 max-w-2xl">
+                <div>
+                  <Label>First-response timeout (minutes)</Label>
+                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                    {[1, 3, 5, 10].map((n) => {
+                      const active = (settings.inactivity_first_response_minutes || 3) === n;
+                      return (
+                        <button
+                          key={n}
+                          onClick={() => setSettings({ ...settings, inactivity_first_response_minutes: n })}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                            active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                          data-testid={`inactivity-timeout-${n}`}
+                        >
+                          {n} min
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5">If no agent has replied to a new chat within this window, we&rsquo;ll send the auto-message below.</p>
+                </div>
+
+                <div>
+                  <Label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!settings.inactivity_auto_transfer}
+                      onChange={(e) => setSettings({ ...settings, inactivity_auto_transfer: e.target.checked })}
+                      className="w-4 h-4 rounded accent-blue-600"
+                      data-testid="auto-transfer-toggle"
+                    />
+                    <span className="font-normal">Auto-transfer to another available agent</span>
+                  </Label>
+                </div>
+
+                <div>
+                  <Label>Auto-message shown to the customer</Label>
+                  <Textarea
+                    value={settings.inactivity_auto_message || ""}
+                    onChange={(e) => setSettings({ ...settings, inactivity_auto_message: e.target.value })}
+                    placeholder="Thanks for waiting — we&rsquo;re a bit busy right now…"
+                    rows={3}
+                    className="mt-1.5 rounded-lg"
+                    data-testid="auto-message-input"
+                  />
+                </div>
+
+                <div>
+                  <Label>Auto-close chats after (minutes of silence)</Label>
+                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                    {[5, 10, 15, 30].map((n) => {
+                      const active = (settings.inactivity_close_minutes || 10) === n;
+                      return (
+                        <button
+                          key={n}
+                          onClick={() => setSettings({ ...settings, inactivity_close_minutes: n })}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                            active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                          data-testid={`inactivity-close-${n}`}
+                        >
+                          {n} min
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <Button onClick={saveSettings} disabled={savingSettings} className="bg-blue-600 hover:bg-blue-700 text-white" data-testid="save-inactivity-btn">
+                  {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save inactivity rules"}
                 </Button>
               </Card>
             )}

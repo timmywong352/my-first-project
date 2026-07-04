@@ -47,6 +47,10 @@ class SettingsBody(BaseModel):
     business_hours_start: Optional[str] = None
     business_hours_end: Optional[str] = None
     business_days: Optional[List[int]] = None
+    inactivity_first_response_minutes: Optional[int] = None
+    inactivity_auto_transfer: Optional[bool] = None
+    inactivity_auto_message: Optional[str] = None
+    inactivity_close_minutes: Optional[int] = None
 
 
 class CsatBody(BaseModel):

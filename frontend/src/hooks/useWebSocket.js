@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { refreshToken } from "@/lib/api";
 
 /**
- * Reusable WebSocket hook.
- * @param {string} url - full ws:// url including query params
+ * Reusable WebSocket hook with:
+ *  - auto-reconnect (2s backoff)
+ *  - JWT-refresh on 1008 (invalid/expired token) — will refresh and retry once
+ *
+ * @param {string} url - full ws:// url including query params (may contain ?token=)
  * @param {(msg) => void} onMessage
- * @returns {{ send: (obj) => void, connected: boolean }}
  */
 export function useWebSocket(url, onMessage) {
   const wsRef = useRef(null);
@@ -16,32 +19,43 @@ export function useWebSocket(url, onMessage) {
     if (!url) return;
     let retry = null;
     let closed = false;
+    let refreshTried = false;
 
-    function connect() {
+    function connect(currentUrl) {
       try {
-        const ws = new WebSocket(url);
+        const ws = new WebSocket(currentUrl);
         wsRef.current = ws;
-        ws.onopen = () => setConnected(true);
-        ws.onclose = () => {
-          setConnected(false);
-          if (!closed) {
-            retry = setTimeout(connect, 2000);
-          }
+        ws.onopen = () => {
+          setConnected(true);
+          refreshTried = false;
         };
-        ws.onerror = () => { /* ignore, close handler retries */ };
+        ws.onclose = async (ev) => {
+          setConnected(false);
+          if (closed) return;
+          // 1008 = policy violation — server rejected our token
+          if (ev.code === 1008 && !refreshTried) {
+            refreshTried = true;
+            const newToken = await refreshToken();
+            if (newToken) {
+              const nextUrl = currentUrl.replace(/([?&]token=)[^&]*/, `$1${newToken}`);
+              connect(nextUrl);
+              return;
+            }
+          }
+          retry = setTimeout(() => connect(currentUrl), 2000);
+        };
+        ws.onerror = () => { /* onclose handles reconnect */ };
         ws.onmessage = (ev) => {
           try {
             const data = JSON.parse(ev.data);
             if (onMessageRef.current) onMessageRef.current(data);
-          } catch (e) {
-            // ignore
-          }
+          } catch { /* ignore */ }
         };
-      } catch (e) {
-        retry = setTimeout(connect, 2000);
+      } catch {
+        retry = setTimeout(() => connect(currentUrl), 2000);
       }
     }
-    connect();
+    connect(url);
 
     return () => {
       closed = true;

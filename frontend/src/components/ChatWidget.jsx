@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { useThrottledTyping } from "@/hooks/useThrottledTyping";
 import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
-  Loader2, FileText, Image as ImageIcon, Star,
+  Loader2, FileText, Image as ImageIcon, Star, Clock,
 } from "lucide-react";
 
 const ATTACH_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.mp4,.zip";
@@ -66,7 +67,8 @@ export default function ChatWidget() {
   const [formErr, setFormErr] = useState("");
   const [starting, setStarting] = useState(false);
 
-  const [session, setSession] = useState(null); // { session_id, session_token, customer_name, ... }
+  const [session, setSession] = useState(null); // { session_id, session_token, ... }
+  const [queuePosition, setQueuePosition] = useState(null); // number or null
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [agentTyping, setAgentTyping] = useState(false);
@@ -79,7 +81,15 @@ export default function ChatWidget() {
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
+
+  const { onChange: onTypingChange, flushStop: flushTyping } = useThrottledTyping({
+    send: (payload) => sendRef.current?.(payload),
+    buildPayload: (val, isTyping) => ({ type: "typing", is_typing: isTyping, content: val }),
+    intervalMs: 500,
+    stopMs: 2000,
+    enabled: phase === "chat",
+  });
+  const sendRef = useRef(null);
 
   useEffect(() => {
     api.get("/public/settings").then(({ data }) => setSettings(data)).catch(() => {});
@@ -93,7 +103,8 @@ export default function ChatWidget() {
         const s = JSON.parse(raw);
         if (s && s.session_id) {
           setSession(s);
-          setPhase("chat");
+          setQueuePosition(s.queue_position || null);
+          setPhase(s.status === "queued" ? "queued" : "chat");
           // Load history
           fetch(`${API}/chat/public/${s.session_id}/messages?session_token=${s.session_token}`)
             .then((r) => r.ok ? r.json() : [])
@@ -145,7 +156,14 @@ export default function ChatWidget() {
       setMessages((prev) => prev.map((m) => (m.sender_type === "customer" ? { ...m, status: "read" } : m)));
     } else if (data.type === "session_closed") {
       setPhase("closed");
-      setClosedNotice("This chat has ended. Start a new chat to continue.");
+      setClosedNotice(data.reason === "inactivity"
+        ? "This chat was closed due to inactivity. Start a new chat to continue."
+        : "This chat has ended. Start a new chat to continue.");
+    } else if (data.type === "queue_promoted") {
+      setQueuePosition(null);
+      setPhase("chat");
+    } else if (data.type === "queue_update") {
+      setQueuePosition(data.position);
     } else if (data.type === "error") {
       if (data.code === "session_closed") {
         setPhase("closed");
@@ -155,6 +173,7 @@ export default function ChatWidget() {
   }, []);
 
   const { send, connected } = useWebSocket(wsUrl, handleWsMessage);
+  sendRef.current = send;
 
   const startChat = async (e) => {
     e.preventDefault();
@@ -172,32 +191,32 @@ export default function ChatWidget() {
       setSession(data);
       localStorage.setItem("customer_session", JSON.stringify(data));
       setMessages([]);
-      setPhase("chat");
+      setQueuePosition(data.queue_position || null);
+      setPhase(data.status === "queued" ? "queued" : "chat");
     } catch (err) {
-      setFormErr("Couldn't start chat. Please try again.");
+      if (err.response?.status === 429) {
+        setFormErr(err.response.data.detail || "Too many chats started. Try again later.");
+      } else {
+        setFormErr("Couldn't start chat. Please try again.");
+      }
     } finally {
       setStarting(false);
     }
   };
 
   const sendMessage = () => {
-    if (phase === "closed") return;
+    if (phase !== "chat") return;
     if (!text.trim() && pendingAttachments.length === 0) return;
     send({ type: "message", content: text.trim(), attachments: pendingAttachments });
     setText("");
     setPendingAttachments([]);
-    send({ type: "typing", is_typing: false, content: "" });
+    flushTyping("");
   };
 
   const handleTyping = (val) => {
-    if (phase === "closed") return;
+    if (phase !== "chat") return;
     setText(val);
-    send({ type: "typing", is_typing: true, content: val });
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      // On pause: keep last text as preview (do not clear content)
-      send({ type: "typing", is_typing: false, content: val });
-    }, 2000);
+    onTypingChange(val);
   };
 
   const handleFile = async (e) => {
@@ -351,6 +370,22 @@ export default function ChatWidget() {
             </div>
           )}
 
+          {phase === "queued" && session && (
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-gradient-to-b from-blue-50/50 to-white" data-testid="queue-view">
+              <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center mb-4">
+                <Clock className="w-8 h-8 text-blue-600" />
+              </div>
+              <div className="text-4xl font-extrabold text-slate-900 tracking-tight mb-2" data-testid="queue-position">
+                #{queuePosition || "—"}
+              </div>
+              <div className="text-sm font-semibold text-slate-700 mb-1">You&rsquo;re in the queue</div>
+              <div className="text-xs text-slate-500 max-w-[240px] mb-6">
+                All our agents are busy right now. We&rsquo;ll connect you as soon as one is free — usually just a few minutes.
+              </div>
+              <div className="text-[10px] text-slate-400 uppercase tracking-widest">Position updates in real time</div>
+            </div>
+          )}
+
           {phase === "chat" && session && (
             <>
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30" data-testid="chat-messages">
@@ -398,7 +433,7 @@ export default function ChatWidget() {
                 {agentPreview && (
                   <div className="flex justify-start" data-testid="agent-typing-preview">
                     <div className="max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm bg-slate-100 text-slate-500 italic border border-dashed border-slate-300">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 not-italic mr-1.5">Typing…</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 not-italic mr-1.5">Agent is typing:</span>
                       {agentPreview}
                     </div>
                   </div>
