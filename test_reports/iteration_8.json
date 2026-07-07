@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 8 frontend-only validation of the redesigned Lily video-call stage in ChatWidget. All 11 requested UI acceptance criteria pass. Lily stage renders with big 140px avatar, subtitle bubble with Chinese greeting, 4 always-visible fixed option buttons, chat-input at bottom, handoff/tts/history controls in top bar, and correctly hides when admin toggles lily_enabled:false (falls back to queue-view).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "lily_stage_renders": "PASS — [data-testid=lily-stage] present after prechat submit",
+    "lily_avatar_size": "PASS — 140x140 px",
+    "lily_subtitle_greeting": "PASS — contains '您好' and '欢迎' (Lily opening line auto-loaded via /api/lily/open)",
+    "lily_options_4_fixed": "PASS — query_recharge, query_withdrawal, view_promotions, query_ticket all visible",
+    "lily_option_query_recharge_click": "PASS — POST /api/lily/reply?text=查询充值状态 fired; subtitle updated to new Lily response",
+    "chat_input_present": "PASS — [data-testid=chat-input] present at bottom of stage",
+    "lily_handoff_btn": "PASS — click hides lily-stage and shows queue-view",
+    "lily_tts_toggle": "PASS — toggled 3x, no crash, stage remains",
+    "lily_history_toggle": "PASS — [data-testid=lily-history] appears after toggle",
+    "lily_disabled_fallback": "PASS — after PATCH /api/admin/settings {lily_enabled:false}, refresh -> lily-stage NOT rendered, queue-view shown"
+  },
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx is ~824 lines — approaching maintainability limit; consider splitting Lily stage into a separate component (LilyStage.jsx) in a future refactor.",
+    "Duplicate [data-testid=lily-options] and [data-testid=lily-option-*] blocks exist in both the Lily stage (line ~597) AND the human-agent branch (line ~717) — the second is unreachable (lilyMode is false in that branch). Dead code; remove the lines 717-737 block.",
+    "chooseLilyOption uses a setTimeout with setText(oldText) hack (line 320-343) to send option label — brittle. Could refactor to call sendMessage(userText) directly.",
+    "Lily reply is fetched via query-string POST (text in URL) — fine for now but should move to JSON body for consistency with REST conventions."
+  ],
+  "updated_files": [],
+  "success_rate": {"frontend": "100%"},
+  "test_credentials": "admin@livechat.com/admin123 (used for PATCH /api/admin/settings toggle test)",
+  "seed_data_creation": "None; used ephemeral prechat sessions with unique timestamped emails to avoid rate limit.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter-8 visual redesign validated. Backend Lily endpoints unchanged from iter-7 (already 12/12 pass in test_iter7_lily.py). If retesting, purge db.sessions where creator_ip='127.0.0.1' to avoid prechat 429 rate limit. Restored lily_enabled=true at end of test."
+}

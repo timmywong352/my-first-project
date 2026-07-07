@@ -8,6 +8,14 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { useThrottledTyping } from "@/hooks/useThrottledTyping";
 import LilyAvatar from "@/components/LilyAvatar";
 import { speak, cancelSpeak } from "@/lib/tts";
+
+// Fixed 4 option buttons — always visible during Lily stage
+const LILY_ALL_OPTIONS = [
+  { key: "query_recharge",   label: "查询充值状态", emoji: "💳" },
+  { key: "query_withdrawal", label: "查询提现状态", emoji: "💰" },
+  { key: "view_promotions",  label: "查看优惠活动", emoji: "🎁" },
+  { key: "query_ticket",     label: "查询工单状态", emoji: "📋" },
+];
 import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
   Loader2, FileText, Image as ImageIcon, Star, Clock, UserCog, Volume2, VolumeX,
@@ -87,6 +95,8 @@ export default function ChatWidget() {
   const [lilyOptions, setLilyOptions] = useState([]);
   const [ttsOn, setTtsOn] = useState(true);
   const [lilyMode, setLilyMode] = useState(false); // true when in Lily chat (not yet human)
+  const [lilySubtitle, setLilySubtitle] = useState(""); // What Lily is currently saying
+  const [showHistory, setShowHistory] = useState(false);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -105,14 +115,16 @@ export default function ChatWidget() {
     api.get("/lily/status").then(({ data }) => setLilyEnabled(!!data.enabled)).catch(() => setLilyEnabled(false));
   }, []);
 
-  // Speak Lily's messages via TTS (browser SpeechSynthesis)
+  // Speak Lily's messages via TTS and show subtitle simultaneously
   const speakLily = useCallback((text) => {
-    if (!ttsOn || !lilyMode || !text) return;
+    if (!text) return;
+    setLilySubtitle(text);
+    if (!ttsOn) return;
     setLilySpeaking(true);
     speak(text, {
       onEnd: () => setLilySpeaking(false),
     });
-  }, [ttsOn, lilyMode]);
+  }, [ttsOn]);
 
   // Persist session
   useEffect(() => {
@@ -503,19 +515,23 @@ export default function ChatWidget() {
             </div>
           )}
 
-          {phase === "chat" && session && (
-            <>
-              {/* Lily header */}
-              {lilyMode && (
-                <div className="px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-pink-50 via-amber-50 to-pink-50 flex items-center gap-3" data-testid="lily-header">
-                  <LilyAvatar emotion={lilyEmotion} speaking={lilySpeaking} size={44} />
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                      Lily
-                      <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-100 px-1.5 rounded-full">在线</span>
-                    </div>
-                    <div className="text-[11px] text-slate-500">您的专属 AI 助手 · 提供情绪价值</div>
-                  </div>
+          {/* LILY STAGE — video-call style (avatar + subtitle + fixed options + input) */}
+          {phase === "chat" && session && lilyMode && (
+            <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="lily-stage">
+              {/* Top bar */}
+              <div className="px-4 py-2 flex items-center justify-between border-b border-pink-100/70 bg-white/50 backdrop-blur">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Lily · AI 数字客服
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setShowHistory((v) => !v)}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-white/70 text-[10px] font-semibold"
+                    data-testid="lily-history-toggle"
+                  >
+                    {showHistory ? "隐藏记录" : "查看记录"}
+                  </button>
                   <button
                     onClick={() => setTtsOn((v) => { if (v) cancelSpeak(); return !v; })}
                     className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-white/70"
@@ -532,7 +548,100 @@ export default function ChatWidget() {
                     <UserCog className="w-3 h-3 inline mr-1" /> 转人工
                   </button>
                 </div>
-              )}
+              </div>
+
+              {/* Stage area */}
+              <div className="flex-1 overflow-y-auto flex flex-col items-center px-4 py-5">
+                {/* Big avatar */}
+                <LilyAvatar
+                  emotion={lilyEmotion}
+                  speaking={lilySpeaking}
+                  size={140}
+                  showLabel
+                />
+
+                {/* Subtitle bubble */}
+                <div
+                  data-testid="lily-subtitle"
+                  className="mt-5 w-full max-w-[280px] bg-white/90 backdrop-blur border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-800 shadow-md min-h-[70px] leading-relaxed"
+                >
+                  {lilyLoading ? (
+                    <span className="text-slate-400 italic flex items-center gap-2">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Lily 正在思考…
+                    </span>
+                  ) : lilySubtitle ? (
+                    <span>{lilySubtitle}</span>
+                  ) : (
+                    <span className="text-slate-400 italic">Lily 准备就绪 …</span>
+                  )}
+                </div>
+
+                {/* Collapsible chat history */}
+                {showHistory && (
+                  <div className="mt-4 w-full space-y-2 max-h-40 overflow-y-auto pr-1" data-testid="lily-history">
+                    {messages.map((m) => (
+                      <div key={m.id} className={`text-[11px] ${m.sender_type === "customer" ? "text-right" : "text-left"}`}>
+                        <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">{m.sender_type === "customer" ? "您" : m.sender_name}</div>
+                        <div className={`inline-block px-2.5 py-1.5 rounded-lg mt-0.5 ${
+                          m.sender_type === "customer"
+                            ? "bg-blue-100 text-slate-800"
+                            : "bg-white text-slate-700 border border-slate-200"
+                        }`}>{m.content}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Fixed 4 option buttons — always visible */}
+              <div className="px-3 py-2 grid grid-cols-2 gap-2 bg-white/60 backdrop-blur border-t border-pink-100" data-testid="lily-options">
+                {LILY_ALL_OPTIONS.map((o) => (
+                  <button
+                    key={o.key}
+                    onClick={() => chooseLilyOption(o)}
+                    disabled={lilyLoading}
+                    className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-gradient-to-br from-pink-100 to-amber-100 border border-pink-200 hover:from-pink-200 hover:to-amber-200 text-slate-700 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                    data-testid={`lily-option-${o.key}`}
+                  >
+                    <span className="text-base">{o.emoji}</span>
+                    <span>{o.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Text input */}
+              <div className="p-3 border-t border-slate-100 bg-white">
+                <div className="flex items-end gap-2">
+                  <Textarea
+                    value={text}
+                    onChange={(e) => handleTyping(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                    placeholder="也可以直接打字告诉 Lily…"
+                    rows={1}
+                    data-testid="chat-input"
+                    className="flex-1 resize-none min-h-[40px] max-h-24 rounded-xl border-slate-200 text-sm focus-visible:ring-pink-400"
+                  />
+                  <Button
+                    onClick={sendMessage}
+                    size="icon"
+                    className="rounded-xl h-10 w-10 shrink-0 text-white bg-gradient-to-br from-pink-500 to-amber-500 hover:from-pink-600 hover:to-amber-600"
+                    data-testid="chat-send-btn"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* HUMAN AGENT CHAT (Lily disabled or after handoff) */}
+          {phase === "chat" && session && !lilyMode && (
+            <>
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30" data-testid="chat-messages">
                 {messages.map((m) => {
                   const isCustomer = m.sender_type === "customer";
