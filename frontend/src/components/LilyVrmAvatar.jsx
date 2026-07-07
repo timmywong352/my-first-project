@@ -148,10 +148,31 @@ export default function LilyVrmAvatar({
 
     // ── Animation loop ──────────────────────────────────
     const clock = new THREE.Clock();
-    let blinkNextIn = 3 + Math.random() * 2;
+
+    // Blink state
+    let blinkNextIn = 2.5 + Math.random() * 2;
     let blinkTimer = 0;
     let blinkState = "idle"; // idle | closing | held | opening
+    let blinkCluster = 0;    // extra blinks queued after the current one
+
+    // Eye look-around (small saccades)
+    let lookYaw = 0, lookPitch = 0;
+    let lookYawTgt = 0, lookPitchTgt = 0;
+    let lookNextIn = 1.5 + Math.random() * 2;
+    let lookTimer = 0;
+
+    // Occasional idle "life gesture" — small extra head nod / tilt.
+    let idleGestureNextIn = 6 + Math.random() * 6;
+    let idleGestureTimer = 0;
+    let idleGestureAmp = { y: 0, x: 0, z: 0 };
+
+    // Speaking gestures
     let mouthPhase = 0;
+    let speakStartT = -100;    // triggers a brief nod when speech begins
+    let wasSpeaking = false;
+
+    // Persistent per-emotion pulse (smile "breathing")
+    const emotionSmoothing = { happy: 0, sad: 0, angry: 0, relaxed: 0, surprised: 0 };
 
     const animate = () => {
       if (disposed) return;
@@ -160,7 +181,7 @@ export default function LilyVrmAvatar({
       const t = clock.getElapsedTime();
 
       if (vrm) {
-        // ── Blink FSM ──────────────────────────────
+        // ─── Blink FSM (with occasional double/triple clusters) ───
         if (vrm.expressionManager) {
           const em = vrm.expressionManager;
           blinkTimer += dt;
@@ -170,36 +191,54 @@ export default function LilyVrmAvatar({
               blinkTimer = 0;
             }
           } else if (blinkState === "closing") {
-            const v = Math.min(1, blinkTimer / 0.08);
+            const v = Math.min(1, blinkTimer / 0.07);
             em.setValue("blink", v);
             if (v >= 1) { blinkState = "held"; blinkTimer = 0; }
           } else if (blinkState === "held") {
             em.setValue("blink", 1);
-            if (blinkTimer >= 0.06) { blinkState = "opening"; blinkTimer = 0; }
+            if (blinkTimer >= 0.05) { blinkState = "opening"; blinkTimer = 0; }
           } else if (blinkState === "opening") {
-            const v = Math.max(0, 1 - blinkTimer / 0.09);
+            const v = Math.max(0, 1 - blinkTimer / 0.08);
             em.setValue("blink", v);
             if (v <= 0) {
               blinkState = "idle";
               blinkTimer = 0;
-              blinkNextIn = 3 + Math.random() * 2.5;
-              // 15% chance of a follow-up double blink
-              if (Math.random() < 0.15) blinkNextIn = 0.18;
+              if (blinkCluster > 0) {
+                blinkCluster -= 1;
+                blinkNextIn = 0.14 + Math.random() * 0.06;
+              } else {
+                blinkNextIn = 2.5 + Math.random() * 2.5;
+                const r = Math.random();
+                if (r < 0.05)      blinkCluster = 2; // rare triple
+                else if (r < 0.25) blinkCluster = 1; // ~20 % double
+              }
             }
           }
 
-          // ── Emotion blend shape ──────────────────
+          // ─── Emotion blend shape (pulsing, not static) ───
           const targetExpr = EMOTION_TO_EXPR[emotionRef.current];
+          const speaking = speakingRef.current;
+          const pulse = 0.15 * Math.sin(t * 0.9);   // ±0.15 breathing
           ALL_EMOTIONS.forEach((k) => {
-            em.setValue(k, k === targetExpr ? 0.6 : 0);
+            let goal = 0;
+            if (k === targetExpr) {
+              goal = speaking ? 0.55 + pulse : 0.7 + pulse;
+              // Small brow raise when Lily speaks a question mark line
+              if (speaking && k === "surprised") goal = Math.max(goal, 0.25);
+            }
+            // Smooth toward the goal so transitions feel "alive"
+            emotionSmoothing[k] += (goal - emotionSmoothing[k]) * Math.min(1, dt * 3.5);
+            em.setValue(k, Math.max(0, Math.min(1, emotionSmoothing[k])));
           });
 
-          // ── Mouth (lip-sync via time-driven pseudo-random cycle) ──
-          if (speakingRef.current) {
-            mouthPhase += dt * 9;
-            const aa = 0.25 + Math.abs(Math.sin(mouthPhase))         * 0.5;
-            const ih = 0.10 + Math.abs(Math.sin(mouthPhase * 1.35))  * 0.3;
-            const ou = 0.05 + Math.abs(Math.sin(mouthPhase * 0.7))   * 0.2;
+          // ─── Mouth lip-sync with jaw-drop bursts ───
+          if (speaking) {
+            mouthPhase += dt * 10;
+            // Add a slow "sentence rhythm" over the fast phoneme cycle
+            const rhythm = 0.5 + 0.5 * Math.sin(t * 1.8);
+            const aa = (0.15 + Math.abs(Math.sin(mouthPhase))         * 0.55) * rhythm;
+            const ih = (0.05 + Math.abs(Math.sin(mouthPhase * 1.35))  * 0.30) * rhythm;
+            const ou = (0.05 + Math.abs(Math.sin(mouthPhase * 0.7))   * 0.20) * rhythm;
             em.setValue("aa", aa);
             em.setValue("ih", ih);
             em.setValue("ou", ou);
@@ -208,21 +247,93 @@ export default function LilyVrmAvatar({
             em.setValue("ih", 0);
             em.setValue("ou", 0);
           }
+
+          // ─── Eye look-around (small saccades) ───
+          lookTimer += dt;
+          if (lookTimer >= lookNextIn) {
+            lookTimer = 0;
+            lookNextIn = 1.4 + Math.random() * 2.5;
+            // Small comfortable range: ±0.55 yaw, ±0.35 pitch
+            lookYawTgt   = (Math.random() * 2 - 1) * 0.55;
+            lookPitchTgt = (Math.random() * 2 - 1) * 0.35;
+            // 25 % of the time, look "back to centre" for eye contact
+            if (Math.random() < 0.25) { lookYawTgt = 0; lookPitchTgt = 0; }
+          }
+          // Ease toward target
+          lookYaw   += (lookYawTgt   - lookYaw)   * Math.min(1, dt * 5.5);
+          lookPitch += (lookPitchTgt - lookPitch) * Math.min(1, dt * 5.5);
+          em.setValue("lookLeft",  Math.max(0, -lookYaw));
+          em.setValue("lookRight", Math.max(0,  lookYaw));
+          em.setValue("lookUp",    Math.max(0,  lookPitch));
+          em.setValue("lookDown",  Math.max(0, -lookPitch));
         }
 
-        // ── Bone motion: head sway + spine breathe ─
+        // ─── Idle "life gesture" — occasional extra head motion ───
+        idleGestureTimer += dt;
+        if (idleGestureTimer >= idleGestureNextIn) {
+          idleGestureTimer = 0;
+          idleGestureNextIn = 6 + Math.random() * 8;
+          // Small extra nod / tilt combo
+          idleGestureAmp = {
+            y: (Math.random() * 2 - 1) * 0.06,
+            x: (Math.random() * 0.5 + 0.2) * 0.05,
+            z: (Math.random() * 2 - 1) * 0.04,
+          };
+        }
+        // Fade the gesture out over ~1.2 s so it feels natural
+        const gestureDecay = Math.max(0, 1 - idleGestureTimer / 1.2);
+        const gy = idleGestureAmp.y * gestureDecay;
+        const gx = idleGestureAmp.x * gestureDecay;
+        const gz = idleGestureAmp.z * gestureDecay;
+
+        // ─── Speak-start nod: a small down-then-up on speech begin ───
+        if (speakingRef.current && !wasSpeaking) {
+          speakStartT = t;
+        }
+        wasSpeaking = speakingRef.current;
+        const sinceSpeak = t - speakStartT;
+        const nodEnvelope = sinceSpeak < 0.6
+          ? Math.sin((sinceSpeak / 0.6) * Math.PI) * 0.12
+          : 0;
+        // Continuous "sentence bob" while speaking
+        const talkBob = speakingRef.current ? Math.sin(t * 3.4) * 0.025 : 0;
+
+        // ─── Head / neck / chest motion ───
+        // Head: multi-frequency sway + look yaw/pitch + gestures + speech bob
         const head = vrm.humanoid?.getNormalizedBoneNode("head");
         if (head) {
-          head.rotation.y = Math.sin(t * 0.45) * 0.10;
-          head.rotation.z = Math.sin(t * 0.7)  * 0.05 + Math.sin(t * 1.7) * 0.015;
-          head.rotation.x = Math.sin(t * 0.9)  * 0.03 - 0.05;
+          const baseY = Math.sin(t * 0.55) * 0.08 + Math.sin(t * 1.9) * 0.02;
+          const baseZ = Math.sin(t * 0.8)  * 0.045 + Math.sin(t * 2.3) * 0.012;
+          const baseX = Math.sin(t * 0.7)  * 0.025 - 0.04;
+          head.rotation.y = baseY + lookYaw * 0.20 + gy;
+          head.rotation.z = baseZ + gz;
+          head.rotation.x = baseX + nodEnvelope + talkBob + gx - lookPitch * 0.15;
         }
+        // Neck: slight counter-rotation for realism (real necks do this)
+        const neck = vrm.humanoid?.getNormalizedBoneNode("neck");
+        if (neck) {
+          neck.rotation.y = Math.sin(t * 0.55) * 0.03 + lookYaw * 0.10;
+          neck.rotation.z = Math.sin(t * 0.8)  * 0.02;
+          neck.rotation.x = -0.02 + talkBob * 0.4;
+        }
+        // Chest / spine: breathe + gentle side-sway
         const chest = vrm.humanoid?.getNormalizedBoneNode("chest")
                    || vrm.humanoid?.getNormalizedBoneNode("upperChest")
                    || vrm.humanoid?.getNormalizedBoneNode("spine");
         if (chest) {
-          const breath = Math.sin(t * 1.1) * 0.010;
+          const breath = Math.sin(t * 1.1) * 0.012;
+          const sway   = Math.sin(t * 0.35) * 0.015;
           chest.rotation.x = -0.02 + breath;
+          chest.rotation.z = sway;
+          chest.rotation.y = Math.sin(t * 0.6) * 0.02;
+        }
+        // Shoulders — tiny shrug on speaking start makes her feel present
+        const shoulderL = vrm.humanoid?.getNormalizedBoneNode("leftShoulder");
+        const shoulderR = vrm.humanoid?.getNormalizedBoneNode("rightShoulder");
+        if (shoulderL && shoulderR) {
+          const shrug = nodEnvelope * 0.15;
+          shoulderL.rotation.z =  0.02 + shrug;
+          shoulderR.rotation.z = -0.02 - shrug;
         }
 
         vrm.update(dt);
