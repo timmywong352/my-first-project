@@ -147,3 +147,38 @@ code {
         border-bottom-color: inherit;
     }
 }
+
+/* ── Lily avatar micro-animations ───────────────────────────────── */
+@keyframes lily-breathe {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.012) translateY(-0.6px); }
+}
+
+/* The React component overrides `transform` inline (for tilt/bob) so we
+   layer breathing via a compound animation on `filter` + slight opacity
+   change instead — subtle, but noticeable at rest. */
+.lily-breathe {
+  animation-name: lily-breathe-soft;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+@keyframes lily-breathe-soft {
+  0%, 100% { filter: brightness(1) saturate(1); }
+  50%      { filter: brightness(1.03) saturate(1.04); }
+}
+
+/* Ping ring that pulses OUT + fades; matches Tailwind's `animate-ping`
+   but slightly slower and softer so it doesn't look aggressive. */
+@keyframes lily-ping {
+  0%   { transform: scale(1);   opacity: 0.9; }
+  75%, 100% { transform: scale(1.35); opacity: 0; }
+}
+.lily-ping {
+  animation: lily-ping 1.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes widget-in {
+  from { transform: translateY(20px) scale(0.95); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+

@@ -508,7 +508,12 @@ export default function ChatWidget() {
             <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="lily-stage">
               {/* Stage area */}
               <div className="flex-1 overflow-y-auto flex flex-col items-center px-4 py-5">
-                <LilyAvatar speaking={lilySpeaking} size={160} showLabel />
+                <LilyAvatar
+                  speaking={lilySpeaking}
+                  emotion={lilyLoading ? "thinking" : "greeting"}
+                  size={160}
+                  showLabel
+                />
 
                 <div
                   data-testid="lily-subtitle"
@@ -597,7 +602,7 @@ export default function ChatWidget() {
           {/* Queued view */}
           {phase === "queued" && session && (
             <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="queue-view">
-              <LilyAvatar speaking={false} size={90} />
+              <LilyAvatar speaking={false} emotion="friendly" size={90} />
               <div className="mt-4 text-4xl font-extrabold text-slate-900 tracking-tight" data-testid="queue-position">
                 #{queuePosition ?? "—"}
               </div>
