@@ -3,25 +3,43 @@ import { API, WS_BASE, api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useThrottledTyping } from "@/hooks/useThrottledTyping";
 import LilyAvatar from "@/components/LilyAvatar";
-import { speak, cancelSpeak } from "@/lib/tts";
-
-// Fixed 4 option buttons — always visible during Lily stage
-const LILY_ALL_OPTIONS = [
-  { key: "query_recharge",   label: "查询充值状态", emoji: "💳" },
-  { key: "query_withdrawal", label: "查询提现状态", emoji: "💰" },
-  { key: "view_promotions",  label: "查看优惠活动", emoji: "🎁" },
-  { key: "query_ticket",     label: "查询工单状态", emoji: "📋" },
-];
+import { speak, cancelSpeak, primeTTS } from "@/lib/tts";
 import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
   Loader2, FileText, Image as ImageIcon, Star, Clock, UserCog, Volume2, VolumeX,
+  Sparkles, Mail,
 } from "lucide-react";
 
 const ATTACH_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.mp4,.zip";
+const CLIENT_ID_KEY = "pulse_client_id";
+const CUST_EMAIL_KEY = "pulse_customer_email";
+const CUST_NAME_KEY = "pulse_customer_name";
+const SESSION_KEY = "customer_session";
+
+// Default fallback labels used until /lily/status returns localised set.
+const FALLBACK_OPTIONS = [
+  { key: "query_recharge",   label: "Deposit status",    emoji: "💳" },
+  { key: "query_withdrawal", label: "Withdrawal status", emoji: "💰" },
+  { key: "view_promotions",  label: "Promotions",        emoji: "🎁" },
+  { key: "query_ticket",     label: "Ticket status",     emoji: "📋" },
+];
+
+function ensureClientId() {
+  let cid = localStorage.getItem(CLIENT_ID_KEY);
+  if (!cid) {
+    // Prefer crypto.randomUUID when available, fall back to Math.random.
+    const uid =
+      (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID().replace(/-/g, "").slice(0, 16)
+        : Math.random().toString(36).slice(2, 14);
+    cid = `anon_${uid}`;
+    localStorage.setItem(CLIENT_ID_KEY, cid);
+  }
+  return cid;
+}
 
 function fileIcon(ct) {
   if (ct && ct.startsWith("image/")) return <ImageIcon className="w-4 h-4" />;
@@ -68,17 +86,10 @@ function AttachmentBubble({ att, sessionId, sessionToken, isCustomerSide }) {
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
-  const [phase, setPhase] = useState("prechat"); // prechat | chat | closed
-  const [settings, setSettings] = useState({
-    widget_color: "#0057FF",
-    welcome_message: "Hi there! 👋 How can we help you today?",
-  });
-  const [form, setForm] = useState({ name: "", email: "", subject: "" });
-  const [formErr, setFormErr] = useState("");
-  const [starting, setStarting] = useState(false);
-
-  const [session, setSession] = useState(null); // { session_id, session_token, ... }
-  const [queuePosition, setQueuePosition] = useState(null); // number or null
+  // phase: connecting | lily | queued | chat | closed
+  const [phase, setPhase] = useState("connecting");
+  const [session, setSession] = useState(null);
+  const [queuePosition, setQueuePosition] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [agentTyping, setAgentTyping] = useState(false);
@@ -88,18 +99,26 @@ export default function ChatWidget() {
   const [csatSubmitted, setCsatSubmitted] = useState(false);
   const [closedNotice, setClosedNotice] = useState("");
   const [agentPreview, setAgentPreview] = useState("");
-  const [lilyEnabled, setLilyEnabled] = useState(false);
-  const [lilyEmotion, setLilyEmotion] = useState("neutral");
+  const [lilyEnabled, setLilyEnabled] = useState(true);
   const [lilySpeaking, setLilySpeaking] = useState(false);
   const [lilyLoading, setLilyLoading] = useState(false);
-  const [lilyOptions, setLilyOptions] = useState([]);
   const [ttsOn, setTtsOn] = useState(true);
-  const [lilyMode, setLilyMode] = useState(false); // true when in Lily chat (not yet human)
-  const [lilySubtitle, setLilySubtitle] = useState(""); // What Lily is currently saying
+  const [lilySubtitle, setLilySubtitle] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [options, setOptions] = useState(FALLBACK_OPTIONS);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Email capture (inline prompt driven by Lily)
+  const [emailPromptShown, setEmailPromptShown] = useState(false);
+  const [emailValue, setEmailValue] = useState(localStorage.getItem(CUST_EMAIL_KEY) || "");
+  const [nameValue, setNameValue] = useState(localStorage.getItem(CUST_NAME_KEY) || "");
+  const [emailSaved, setEmailSaved] = useState(!!localStorage.getItem(CUST_EMAIL_KEY));
+  const [emailSaving, setEmailSaving] = useState(false);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const bootedRef = useRef(false);
+  const sendRef = useRef(null);
 
   const { onChange: onTypingChange, flushStop: flushTyping } = useThrottledTyping({
     send: (payload) => sendRef.current?.(payload),
@@ -108,43 +127,106 @@ export default function ChatWidget() {
     stopMs: 2000,
     enabled: phase === "chat",
   });
-  const sendRef = useRef(null);
 
+  // Localised options list from server
   useEffect(() => {
-    api.get("/public/settings").then(({ data }) => setSettings(data)).catch(() => {});
-    api.get("/lily/status").then(({ data }) => setLilyEnabled(!!data.enabled)).catch(() => setLilyEnabled(false));
+    api.get("/lily/status?lang=en")
+      .then(({ data }) => {
+        setLilyEnabled(!!data.enabled);
+        if (data.options) {
+          const arr = Object.entries(data.options).map(([key, v]) => ({ key, ...v }));
+          setOptions(arr);
+        }
+      })
+      .catch(() => { /* keep fallbacks */ });
   }, []);
 
-  // Speak Lily's messages via TTS and show subtitle simultaneously
-  const speakLily = useCallback((text) => {
-    if (!text) return;
-    setLilySubtitle(text);
+  const speakLily = useCallback((textToSpeak) => {
+    if (!textToSpeak) return;
+    setLilySubtitle(textToSpeak);
     if (!ttsOn) return;
     setLilySpeaking(true);
-    speak(text, {
+    speak(textToSpeak, {
+      voice: "nova",
       onEnd: () => setLilySpeaking(false),
     });
   }, [ttsOn]);
 
-  // Persist session
-  useEffect(() => {
-    const raw = localStorage.getItem("customer_session");
+  // ---------- Bootstrap when widget opens ----------
+  const bootstrap = useCallback(async () => {
+    if (bootedRef.current) return;
+    bootedRef.current = true;
+    setErrorMsg("");
+    primeTTS();
+
+    // 1) Resume an existing session if one is persisted and still valid.
+    const raw = localStorage.getItem(SESSION_KEY);
     if (raw) {
       try {
         const s = JSON.parse(raw);
-        if (s && s.session_id) {
-          setSession(s);
-          setQueuePosition(s.queue_position || null);
-          setPhase(s.status === "queued" ? "queued" : "chat");
-          // Load history
-          fetch(`${API}/chat/public/${s.session_id}/messages?session_token=${s.session_token}`)
-            .then((r) => r.ok ? r.json() : [])
-            .then((msgs) => setMessages(msgs))
-            .catch(() => {});
+        if (s && s.session_id && s.session_token) {
+          const check = await fetch(
+            `${API}/chat/public/${s.session_id}/messages?session_token=${s.session_token}`,
+          );
+          if (check.ok) {
+            const msgs = await check.json();
+            setSession(s);
+            setMessages(msgs);
+            // If a human agent has ever spoken, we're in human chat mode.
+            const hasHuman = msgs.some((m) => m.sender_type === "agent");
+            const stillLily = !hasHuman;
+            setPhase(stillLily ? "lily" : "chat");
+            if (stillLily) {
+              const lastLily = [...msgs].reverse().find((m) => m.sender_type === "lily");
+              if (lastLily) setLilySubtitle(lastLily.content);
+            }
+            return;
+          }
+          // Server rejected the session → drop it and start fresh.
+          localStorage.removeItem(SESSION_KEY);
         }
-      } catch { /* ignore */ }
+      } catch { /* fall through */ }
     }
-  }, []);
+
+    // 2) Create a fresh anonymous session
+    try {
+      const clientId = ensureClientId();
+      const { data } = await api.post("/chat/session/anonymous", {
+        client_id: clientId,
+        language: "en",
+        page: window.location.href,
+      });
+      setSession(data);
+      localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+      setMessages([]);
+      setQueuePosition(data.queue_position || null);
+      setPhase("lily");
+
+      // Open Lily immediately
+      const resp = await fetch(
+        `${API}/lily/open?session_id=${data.session_id}&session_token=${data.session_token}&lang=en`,
+        { method: "POST" },
+      );
+      const r = await resp.json();
+      if (r?.message) {
+        setMessages((prev) => [...prev, r.message]);
+        speakLily(r.message.content);
+      }
+      if (r?.options?.length) setOptions(r.options);
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      if (err?.response?.status === 429) {
+        setErrorMsg(detail || "Too many chats started. Please wait a moment and try again.");
+      } else {
+        setErrorMsg("Sorry, we couldn't start the chat. Please try again in a moment.");
+      }
+      bootedRef.current = false; // allow retry
+    }
+  }, [speakLily]);
+
+  useEffect(() => {
+    if (open) bootstrap();
+  }, [open, bootstrap]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -152,6 +234,7 @@ export default function ChatWidget() {
     }
   }, [messages, agentTyping]);
 
+  // ---------- WebSocket ----------
   const wsUrl = session
     ? `${WS_BASE}/api/ws/customer?session_id=${session.session_id}&session_token=${session.session_token}`
     : null;
@@ -165,12 +248,6 @@ export default function ChatWidget() {
       if (data.message.sender_type === "agent") {
         setAgentTyping(false);
         setAgentPreview("");
-        // Optional: play a sound
-        try {
-          const audio = new Audio("data:audio/wav;base64,UklGRnQBAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YVABAAB6/3v/e/97/3v/e/97/3v/e/98/3z/fP98/3z/fP99/33/ff99/33/fv9+/37/fv9+/3//f/9//3//f/9//4D/gP+A/4D/gP+A/4H/gf+B/4H/gf+B/4L/gv+C/4L/gv+D/4P/g/+D/4P/g/+E/4T/hP+E/4T/hP+F/4X/hf+F/4X/hf+G/4b/hv+G/4b/hv+H/4f/h/+H/4f/h/+I/4j/iP+I/4j/if+J/4n/if+J/4n/if+K/4r/iv+K/4r/iv+L/4v/i/+L/4v/i/+M/4z/jP+M/4z/jf+N/43/jf+N/43/jf+O/47/jv+O/47/jv+P/4//j/+P/4//j/+Q/5D/kP+Q/5D/kf+R/5H/kf+R/5H/kf+S/5L/kv+S/5L/kv+T/5P/k/+T/5P/lP+U/5T/lP+U/5T/lf+V/5X/lf+V/5U=");
-          audio.volume = 0.3;
-          audio.play().catch(() => {});
-        } catch { /* ignore */ }
       }
     } else if (data.type === "message_edited") {
       setMessages((prev) => prev.map((m) => (m.id === data.message.id ? data.message : m)));
@@ -179,9 +256,7 @@ export default function ChatWidget() {
     } else if (data.type === "typing") {
       if (data.sender_type === "agent") {
         setAgentTyping(data.is_typing);
-        if (typeof data.preview === "string") {
-          setAgentPreview(data.preview);
-        }
+        if (typeof data.preview === "string") setAgentPreview(data.preview);
       }
     } else if (data.type === "read_receipt") {
       setMessages((prev) => prev.map((m) => (m.sender_type === "customer" ? { ...m, status: "read" } : m)));
@@ -189,7 +264,7 @@ export default function ChatWidget() {
       setPhase("closed");
       setClosedNotice(data.reason === "inactivity"
         ? "This chat was closed due to inactivity. Start a new chat to continue."
-        : "This chat has ended. Start a new chat to continue.");
+        : "This chat has ended. Thanks for chatting with us!");
     } else if (data.type === "queue_promoted") {
       setQueuePosition(null);
       setPhase("chat");
@@ -198,7 +273,7 @@ export default function ChatWidget() {
     } else if (data.type === "error") {
       if (data.code === "session_closed") {
         setPhase("closed");
-        setClosedNotice(data.message || "This chat has ended. Start a new chat to continue.");
+        setClosedNotice(data.message || "This chat has ended.");
       }
     }
   }, []);
@@ -206,98 +281,18 @@ export default function ChatWidget() {
   const { send, connected } = useWebSocket(wsUrl, handleWsMessage);
   sendRef.current = send;
 
-  const startChat = async (e) => {
-    e.preventDefault();
-    if (!form.name || !form.email || !form.subject) {
-      setFormErr("Please fill in all fields.");
-      return;
-    }
-    setFormErr("");
-    setStarting(true);
-    try {
-      const { data } = await api.post("/chat/session", {
-        ...form,
-        page: window.location.href,
-      });
-      setSession(data);
-      localStorage.setItem("customer_session", JSON.stringify(data));
-      setMessages([]);
-      setQueuePosition(data.queue_position || null);
-      // Route into Lily if enabled AND session was assigned to an agent (not queued)
-      // Lily engages first regardless of queue: if enabled, we always show Lily.
-      if (lilyEnabled) {
-        setPhase("chat");
-        setLilyMode(true);
-        // Open Lily
-        try {
-          const resp = await fetch(
-            `${API}/lily/open?session_id=${data.session_id}&session_token=${data.session_token}`,
-            { method: "POST" },
-          );
-          const r = await resp.json();
-          if (r?.message) {
-            setMessages((prev) => [...prev, r.message]);
-            speakLily(r.message.content);
-          }
-        } catch { /* ignore */ }
-      } else if (data.status === "queued") {
-        setPhase("queued");
-      } else {
-        setPhase("chat");
-      }
-    } catch (err) {
-      if (err.response?.status === 429) {
-        setFormErr(err.response.data.detail || "Too many chats started. Try again later.");
-      } else {
-        setFormErr("Couldn't start chat. Please try again.");
-      }
-    } finally {
-      setStarting(false);
-    }
-  };
-
-  const sendMessage = async () => {
-    if (phase !== "chat") return;
-    if (!text.trim() && pendingAttachments.length === 0) return;
-
-    if (lilyMode) {
-      // Simplified receptionist flow: any typed text immediately triggers
-      // a hand-off to a human agent. Lily's job is just to greet & route.
-      const userText = text.trim();
-      setText("");
-      setPendingAttachments([]);
-      flushTyping("");
-      setLilyLoading(true);
-      // Speak Lily's confirmation subtitle immediately for a snappy feel
-      speakLily("好的！正在为您转接人工客服，请稍候~");
-      try {
-        await handoffToHuman(userText);
-      } finally {
-        setLilyLoading(false);
-      }
-    } else {
-      // Talking to a human agent via WebSocket
-      send({ type: "message", content: text.trim(), attachments: pendingAttachments });
-      setText("");
-      setPendingAttachments([]);
-      flushTyping("");
-    }
-  };
-
+  // ---------- Hand-off ----------
   const handoffToHuman = async (customerText) => {
     if (!session) return;
     try {
       const params = new URLSearchParams({
         session_id: session.session_id,
         session_token: session.session_token,
+        lang: "en",
       });
       if (customerText) params.set("customer_text", customerText);
-      const resp = await fetch(`${API}/lily/handoff?${params.toString()}`, {
-        method: "POST",
-      });
+      const resp = await fetch(`${API}/lily/handoff?${params.toString()}`, { method: "POST" });
       const data = await resp.json();
-      setLilyMode(false);
-      setLilyOptions([]);
       cancelSpeak();
       setLilySpeaking(false);
       if (data.status === "queued") {
@@ -309,14 +304,12 @@ export default function ChatWidget() {
     } catch { /* ignore */ }
   };
 
-  const chooseLilyOption = async (opt) => {
-    // Simplified receptionist flow: clicking any option immediately triggers
-    // a hand-off to a human agent. The option's label becomes the first
-    // customer-visible message so the agent knows the intent.
-    if (!session || lilyLoading) return;
+  const chooseOption = async (opt) => {
+    if (!session || lilyLoading || phase !== "lily") return;
     setLilyLoading(true);
-    setLilyOptions([]);
-    speakLily("好的！正在为您转接人工客服，请稍候~");
+    speakLily("Great — connecting you to a human agent now.");
+    // Show email prompt inline so the customer can leave it while waiting.
+    if (!emailSaved) setEmailPromptShown(true);
     try {
       await handoffToHuman(opt.label);
     } finally {
@@ -324,8 +317,35 @@ export default function ChatWidget() {
     }
   };
 
+  // ---------- Send message ----------
+  const sendMessage = async () => {
+    if (!text.trim() && pendingAttachments.length === 0) return;
+
+    if (phase === "lily") {
+      // In Lily mode: any typed text immediately triggers hand-off.
+      const userText = text.trim();
+      setText("");
+      setPendingAttachments([]);
+      flushTyping("");
+      setLilyLoading(true);
+      speakLily("Great — connecting you to a human agent now.");
+      if (!emailSaved) setEmailPromptShown(true);
+      try {
+        await handoffToHuman(userText);
+      } finally {
+        setLilyLoading(false);
+      }
+    } else if (phase === "chat" || phase === "queued") {
+      // Human channel (works even while queued so customer can add context)
+      send({ type: "message", content: text.trim(), attachments: pendingAttachments });
+      setText("");
+      setPendingAttachments([]);
+      flushTyping("");
+    }
+  };
+
   const handleTyping = (val) => {
-    if (phase !== "chat") return;
+    if (phase !== "chat") { setText(val); return; }
     setText(val);
     onTypingChange(val);
   };
@@ -343,11 +363,36 @@ export default function ChatWidget() {
       if (!res.ok) throw new Error("upload failed");
       const data = await res.json();
       setPendingAttachments((prev) => [...prev, data]);
-    } catch {
-      /* silent */
-    } finally {
+    } catch { /* silent */ } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // ---------- Contact capture ----------
+  const saveContact = async () => {
+    if (!session) return;
+    const email = emailValue.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return;
+    }
+    setEmailSaving(true);
+    try {
+      await fetch(`${API}/chat/session/${session.session_id}/contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session.session_token,
+          email,
+          name: nameValue.trim() || undefined,
+        }),
+      });
+      localStorage.setItem(CUST_EMAIL_KEY, email);
+      if (nameValue.trim()) localStorage.setItem(CUST_NAME_KEY, nameValue.trim());
+      setEmailSaved(true);
+      setEmailPromptShown(false);
+    } catch { /* ignore */ } finally {
+      setEmailSaving(false);
     }
   };
 
@@ -365,16 +410,18 @@ export default function ChatWidget() {
   };
 
   const endChat = () => {
-    localStorage.removeItem("customer_session");
+    localStorage.removeItem(SESSION_KEY);
     setSession(null);
     setMessages([]);
-    setPhase("prechat");
-    setForm({ name: "", email: "", subject: "" });
+    setPhase("connecting");
     setCsatRating(0);
     setCsatSubmitted(false);
+    setLilySubtitle("");
+    setEmailPromptShown(false);
+    bootedRef.current = false;
+    // Re-bootstrap: create a new anonymous session immediately.
+    bootstrap();
   };
-
-  const color = settings.widget_color || "#0057FF";
 
   return (
     <>
@@ -383,13 +430,13 @@ export default function ChatWidget() {
         <button
           data-testid="chat-launcher"
           onClick={() => setOpen(true)}
-          className="fixed bottom-24 right-6 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform"
-          style={{ backgroundColor: color, boxShadow: `0 10px 30px -5px ${color}66` }}
-          aria-label="Open chat"
+          className="fixed bottom-24 right-6 z-50 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-110 transition-transform bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400"
+          style={{ boxShadow: "0 12px 40px -8px rgba(219, 39, 119, 0.55)" }}
+          aria-label="Chat with Lily"
         >
           <div className="relative">
-            <MessageCircle className="w-6 h-6" strokeWidth={2.5} />
-            <Smile className="w-3 h-3 absolute -top-1 -right-1 text-white" />
+            <Sparkles className="w-7 h-7" strokeWidth={2.2} />
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full" />
           </div>
         </button>
       )}
@@ -398,172 +445,98 @@ export default function ChatWidget() {
       {open && (
         <div
           data-testid="chat-widget"
-          className="fixed bottom-24 right-6 z-50 w-[360px] h-[600px] max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-100"
+          className="fixed bottom-24 right-6 z-50 w-[380px] h-[640px] max-h-[88vh] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-pink-100"
           style={{ animation: "widget-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
         >
-          {/* Header */}
+          {/* Header — always Lily branded */}
           <div
-            className="p-4 flex items-center justify-between text-white"
-            style={{ backgroundColor: color }}
+            className="px-4 py-3 flex items-center justify-between text-white bg-gradient-to-r from-pink-500 via-fuchsia-500 to-amber-400"
+            data-testid="widget-header"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-                <Smile className="w-5 h-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-white/25 backdrop-blur flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
               </div>
               <div>
-                <div className="font-bold text-sm">Chat Support</div>
-                <div className="text-xs opacity-90 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  {connected || phase === "prechat" ? "We’re online" : "Reconnecting…"}
+                <div className="font-bold text-sm leading-tight">Lily · Support</div>
+                <div className="text-[10px] opacity-90 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                  {phase === "closed"
+                    ? "Chat ended"
+                    : phase === "queued"
+                      ? `In queue · #${queuePosition ?? "—"}`
+                      : phase === "chat"
+                        ? (connected ? "Live agent" : "Reconnecting…")
+                        : phase === "lily"
+                          ? "AI Assistant · Online"
+                          : "Connecting…"}
                 </div>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" data-testid="chat-close-btn">
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setTtsOn((v) => { if (v) cancelSpeak(); return !v; })}
+                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                title={ttsOn ? "Mute voice" : "Enable voice"}
+                data-testid="lily-tts-toggle"
+              >
+                {ttsOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                data-testid="chat-close-btn"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          {/* Body */}
-          {phase === "prechat" && (
-            <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-blue-50/50 to-white">
-              <div className="mb-6">
-                <div className="text-2xl font-extrabold text-slate-900 tracking-tight leading-snug">
-                  {settings.welcome_message || "Hi there! 👋"}
-                </div>
-                <div className="text-sm text-slate-500 mt-2">Tell us about yourself and we&rsquo;ll get right back to you.</div>
-              </div>
-              <form onSubmit={startChat} className="space-y-3">
-                <div>
-                  <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Name</Label>
-                  <Input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="Jane Doe"
-                    required
-                    data-testid="prechat-name"
-                    className="mt-1 h-11 rounded-xl border-slate-200"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Email</Label>
-                  <Input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="jane@company.com"
-                    required
-                    data-testid="prechat-email"
-                    className="mt-1 h-11 rounded-xl border-slate-200"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Subject</Label>
-                  <Input
-                    value={form.subject}
-                    onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                    placeholder="I need help with…"
-                    required
-                    data-testid="prechat-subject"
-                    className="mt-1 h-11 rounded-xl border-slate-200"
-                  />
-                </div>
-                {formErr && <div className="text-xs text-red-600">{formErr}</div>}
-                <Button
-                  type="submit"
-                  data-testid="prechat-start-btn"
-                  disabled={starting}
-                  className="w-full h-11 rounded-xl font-semibold text-white"
-                  style={{ backgroundColor: color }}
-                >
-                  {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start Chatting →"}
-                </Button>
-              </form>
+          {/* Connecting */}
+          {phase === "connecting" && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="connecting-view">
+              <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
+              <div className="text-sm text-slate-600">Waking Lily up…</div>
+              {errorMsg && (
+                <div className="text-xs text-red-600 max-w-[280px] text-center px-4" data-testid="widget-error">{errorMsg}</div>
+              )}
             </div>
           )}
 
-          {phase === "queued" && session && (
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-gradient-to-b from-blue-50/50 to-white" data-testid="queue-view">
-              <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center mb-4">
-                <Clock className="w-8 h-8 text-blue-600" />
-              </div>
-              <div className="text-4xl font-extrabold text-slate-900 tracking-tight mb-2" data-testid="queue-position">
-                #{queuePosition || "—"}
-              </div>
-              <div className="text-sm font-semibold text-slate-700 mb-1">You&rsquo;re in the queue</div>
-              <div className="text-xs text-slate-500 max-w-[240px] mb-6">
-                All our agents are busy right now. We&rsquo;ll connect you as soon as one is free — usually just a few minutes.
-              </div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-widest">Position updates in real time</div>
-            </div>
-          )}
-
-          {/* LILY STAGE — video-call style (avatar + subtitle + fixed options + input) */}
-          {phase === "chat" && session && lilyMode && (
+          {/* Lily Stage */}
+          {phase === "lily" && session && (
             <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="lily-stage">
-              {/* Top bar */}
-              <div className="px-4 py-2 flex items-center justify-between border-b border-pink-100/70 bg-white/50 backdrop-blur">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Lily · AI 数字客服
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setShowHistory((v) => !v)}
-                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-white/70 text-[10px] font-semibold"
-                    data-testid="lily-history-toggle"
-                  >
-                    {showHistory ? "隐藏记录" : "查看记录"}
-                  </button>
-                  <button
-                    onClick={() => setTtsOn((v) => { if (v) cancelSpeak(); return !v; })}
-                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-white/70"
-                    title="开/关语音"
-                    data-testid="lily-tts-toggle"
-                  >
-                    {ttsOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => handoffToHuman()}
-                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 px-2 py-1 rounded-lg hover:bg-white/70"
-                    data-testid="lily-handoff-btn"
-                  >
-                    <UserCog className="w-3 h-3 inline mr-1" /> 转人工
-                  </button>
-                </div>
-              </div>
-
               {/* Stage area */}
               <div className="flex-1 overflow-y-auto flex flex-col items-center px-4 py-5">
-                {/* Big avatar */}
-                <LilyAvatar
-                  emotion={lilyEmotion}
-                  speaking={lilySpeaking}
-                  size={140}
-                  showLabel
-                />
+                <LilyAvatar speaking={lilySpeaking} size={160} showLabel />
 
-                {/* Subtitle bubble */}
                 <div
                   data-testid="lily-subtitle"
-                  className="mt-5 w-full max-w-[280px] bg-white/90 backdrop-blur border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-800 shadow-md min-h-[70px] leading-relaxed"
+                  className="mt-5 w-full max-w-[300px] bg-white/95 backdrop-blur border border-pink-100 rounded-2xl px-4 py-3 text-sm text-slate-800 shadow-md min-h-[80px] leading-relaxed"
                 >
                   {lilyLoading ? (
                     <span className="text-slate-400 italic flex items-center gap-2">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Lily 正在思考…
+                      <Loader2 className="w-3 h-3 animate-spin" /> Lily is thinking…
                     </span>
                   ) : lilySubtitle ? (
                     <span>{lilySubtitle}</span>
                   ) : (
-                    <span className="text-slate-400 italic">Lily 准备就绪 …</span>
+                    <span className="text-slate-400 italic">Lily is getting ready …</span>
                   )}
                 </div>
 
-                {/* Collapsible chat history */}
+                <button
+                  onClick={() => setShowHistory((v) => !v)}
+                  className="mt-3 text-[10px] font-semibold text-slate-400 hover:text-slate-700 uppercase tracking-wider"
+                  data-testid="lily-history-toggle"
+                >
+                  {showHistory ? "Hide transcript" : "View transcript"}
+                </button>
                 {showHistory && (
-                  <div className="mt-4 w-full space-y-2 max-h-40 overflow-y-auto pr-1" data-testid="lily-history">
+                  <div className="mt-2 w-full space-y-2 max-h-40 overflow-y-auto pr-1" data-testid="lily-history">
                     {messages.map((m) => (
                       <div key={m.id} className={`text-[11px] ${m.sender_type === "customer" ? "text-right" : "text-left"}`}>
-                        <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">{m.sender_type === "customer" ? "您" : m.sender_name}</div>
+                        <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">{m.sender_type === "customer" ? "You" : m.sender_name}</div>
                         <div className={`inline-block px-2.5 py-1.5 rounded-lg mt-0.5 ${
                           m.sender_type === "customer"
                             ? "bg-blue-100 text-slate-800"
@@ -575,12 +548,12 @@ export default function ChatWidget() {
                 )}
               </div>
 
-              {/* Fixed 4 option buttons — always visible */}
+              {/* 4 fixed option buttons */}
               <div className="px-3 py-2 grid grid-cols-2 gap-2 bg-white/60 backdrop-blur border-t border-pink-100" data-testid="lily-options">
-                {LILY_ALL_OPTIONS.map((o) => (
+                {options.map((o) => (
                   <button
                     key={o.key}
-                    onClick={() => chooseLilyOption(o)}
+                    onClick={() => chooseOption(o)}
                     disabled={lilyLoading}
                     className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-gradient-to-br from-pink-100 to-amber-100 border border-pink-200 hover:from-pink-200 hover:to-amber-200 text-slate-700 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                     data-testid={`lily-option-${o.key}`}
@@ -591,19 +564,19 @@ export default function ChatWidget() {
                 ))}
               </div>
 
-              {/* Text input */}
-              <div className="p-3 border-t border-slate-100 bg-white">
+              {/* Input */}
+              <div className="p-3 border-t border-pink-100 bg-white">
                 <div className="flex items-end gap-2">
                   <Textarea
                     value={text}
-                    onChange={(e) => handleTyping(e.target.value)}
+                    onChange={(e) => setText(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         sendMessage();
                       }
                     }}
-                    placeholder="也可以直接打字告诉 Lily…"
+                    placeholder="Or type your question here…"
                     rows={1}
                     data-testid="chat-input"
                     className="flex-1 resize-none min-h-[40px] max-h-24 rounded-xl border-slate-200 text-sm focus-visible:ring-pink-400"
@@ -621,12 +594,63 @@ export default function ChatWidget() {
             </div>
           )}
 
-          {/* HUMAN AGENT CHAT (Lily disabled or after handoff) */}
-          {phase === "chat" && session && !lilyMode && (
+          {/* Queued view */}
+          {phase === "queued" && session && (
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="queue-view">
+              <LilyAvatar speaking={false} size={90} />
+              <div className="mt-4 text-4xl font-extrabold text-slate-900 tracking-tight" data-testid="queue-position">
+                #{queuePosition ?? "—"}
+              </div>
+              <div className="text-sm font-semibold text-slate-700 mt-1">You&apos;re in the queue</div>
+              <div className="text-xs text-slate-500 max-w-[280px] mt-2 mb-4">
+                All our agents are helping other customers. We&apos;ll connect you as soon as one is free.
+              </div>
+              <Clock className="w-4 h-4 text-slate-400 mb-3" />
+
+              {/* Optional email capture while waiting */}
+              {!emailSaved && (
+                <div className="w-full max-w-[300px] bg-white border border-pink-100 rounded-2xl p-3 space-y-2 mt-2" data-testid="email-capture">
+                  <div className="text-[11px] font-bold uppercase text-slate-500 tracking-wider flex items-center gap-1">
+                    <Mail className="w-3 h-3" /> Save your history
+                  </div>
+                  <div className="text-[11px] text-slate-500 leading-snug">
+                    Share your email so we can pick up where we left off next time.
+                  </div>
+                  <Input
+                    placeholder="Your name (optional)"
+                    value={nameValue}
+                    onChange={(e) => setNameValue(e.target.value)}
+                    className="h-8 text-xs"
+                    data-testid="email-capture-name"
+                  />
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={emailValue}
+                    onChange={(e) => setEmailValue(e.target.value)}
+                    className="h-8 text-xs"
+                    data-testid="email-capture-email"
+                  />
+                  <Button
+                    onClick={saveContact}
+                    disabled={emailSaving}
+                    className="w-full h-8 text-xs bg-gradient-to-r from-pink-500 to-amber-500 text-white"
+                    data-testid="email-capture-save"
+                  >
+                    {emailSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Human chat */}
+          {phase === "chat" && session && (
             <>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30" data-testid="chat-messages">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40" data-testid="chat-messages">
                 {messages.map((m) => {
                   const isCustomer = m.sender_type === "customer";
+                  const isLily = m.sender_type === "lily";
                   return (
                     <div key={m.id} className={`flex ${isCustomer ? "justify-end" : "justify-start"}`}>
                       <div className="max-w-[85%] space-y-1.5" data-testid={`msg-${m.id}`}>
@@ -644,11 +668,13 @@ export default function ChatWidget() {
                           <div
                             className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm ${
                               isCustomer
-                                ? "text-white rounded-tr-sm"
-                                : "bg-white text-slate-900 rounded-tl-sm border border-slate-100"
+                                ? "text-white rounded-tr-sm bg-gradient-to-br from-pink-500 to-fuchsia-500"
+                                : isLily
+                                  ? "bg-white text-slate-900 rounded-tl-sm border border-pink-100 italic"
+                                  : "bg-white text-slate-900 rounded-tl-sm border border-slate-100"
                             }`}
-                            style={isCustomer ? { backgroundColor: color } : {}}
                           >
+                            {isLily && <span className="text-[10px] font-bold text-pink-500 uppercase tracking-wide mr-1.5">Lily</span>}
                             {m.content}
                             {m.edited && <span className="text-[10px] opacity-70 ml-1.5 italic">(edited)</span>}
                           </div>
@@ -677,7 +703,37 @@ export default function ChatWidget() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Pending attachments preview */}
+              {/* Inline email prompt above input (Lily-driven post-handoff) */}
+              {emailPromptShown && !emailSaved && (
+                <div className="px-3 py-2 bg-pink-50/70 border-t border-pink-100 flex items-center gap-2" data-testid="email-inline-prompt">
+                  <Mail className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                  <Input
+                    type="email"
+                    placeholder="Share your email (optional)"
+                    value={emailValue}
+                    onChange={(e) => setEmailValue(e.target.value)}
+                    className="h-7 text-xs flex-1"
+                    data-testid="email-inline-input"
+                  />
+                  <Button
+                    onClick={saveContact}
+                    disabled={emailSaving}
+                    size="sm"
+                    className="h-7 text-[11px] bg-pink-500 hover:bg-pink-600 text-white"
+                    data-testid="email-inline-save"
+                  >
+                    Save
+                  </Button>
+                  <button
+                    onClick={() => setEmailPromptShown(false)}
+                    className="text-slate-400 hover:text-slate-700"
+                    aria-label="Dismiss"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
               {pendingAttachments.length > 0 && (
                 <div className="px-3 py-2 border-t border-slate-100 bg-slate-50 flex gap-2 overflow-x-auto">
                   {pendingAttachments.map((a) => (
@@ -692,29 +748,6 @@ export default function ChatWidget() {
                       </button>
                     </div>
                   ))}
-                </div>
-              )}
-
-              {/* Lily option buttons */}
-              {lilyMode && lilyOptions.length > 0 && (
-                <div className="px-3 py-2 border-t border-slate-100 bg-white flex flex-wrap gap-1.5" data-testid="lily-options">
-                  {lilyOptions.map((o) => (
-                    <button
-                      key={o.key}
-                      onClick={() => chooseLilyOption(o)}
-                      className="text-xs font-semibold rounded-full px-3 py-1.5 border transition-colors bg-gradient-to-r from-pink-50 to-amber-50 border-pink-200 text-slate-700 hover:from-pink-100 hover:to-amber-100"
-                      data-testid={`lily-option-${o.key}`}
-                    >
-                      <span className="mr-1">{o.emoji}</span>
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {lilyMode && lilyLoading && (
-                <div className="px-4 py-1 flex items-center gap-2 text-[11px] text-slate-400 border-t border-slate-100 bg-white">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Lily 正在思考…
                 </div>
               )}
 
@@ -748,13 +781,12 @@ export default function ChatWidget() {
                     placeholder="Type your message…"
                     rows={1}
                     data-testid="chat-input"
-                    className="flex-1 resize-none min-h-[40px] max-h-32 rounded-xl border-slate-200 text-sm focus-visible:ring-blue-500"
+                    className="flex-1 resize-none min-h-[40px] max-h-32 rounded-xl border-slate-200 text-sm focus-visible:ring-pink-400"
                   />
                   <Button
                     onClick={sendMessage}
                     size="icon"
-                    className="rounded-xl h-10 w-10 shrink-0 text-white"
-                    style={{ backgroundColor: color }}
+                    className="rounded-xl h-10 w-10 shrink-0 text-white bg-gradient-to-br from-pink-500 to-fuchsia-500"
                     data-testid="chat-send-btn"
                   >
                     <Send className="w-4 h-4" />
@@ -765,14 +797,14 @@ export default function ChatWidget() {
           )}
 
           {phase === "closed" && (
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center" data-testid="chat-closed-view">
-              <div className="w-full mb-4 px-4 py-3 rounded-xl bg-slate-100 text-slate-700 text-sm border border-slate-200" data-testid="chat-closed-banner">
-                {closedNotice || "This chat has ended. Start a new chat to continue."}
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="chat-closed-view">
+              <div className="w-full mb-4 px-4 py-3 rounded-xl bg-white text-slate-700 text-sm border border-pink-100 shadow-sm" data-testid="chat-closed-banner">
+                {closedNotice || "This chat has ended. Thanks for chatting with us!"}
               </div>
               {!csatSubmitted ? (
                 <>
                   <h3 className="text-xl font-extrabold text-slate-900 mb-2">Rate your experience</h3>
-                  <p className="text-sm text-slate-500 mb-6">How was your chat with us today?</p>
+                  <p className="text-sm text-slate-500 mb-6">How was your chat with Lily and our team?</p>
                   <div className="flex gap-2 mb-8">
                     {[1, 2, 3, 4, 5].map((r) => (
                       <button
@@ -792,10 +824,12 @@ export default function ChatWidget() {
                     <CheckCheck className="w-8 h-8 text-emerald-600" />
                   </div>
                   <h3 className="text-xl font-extrabold text-slate-900 mb-2">Thanks for your feedback!</h3>
-                  <p className="text-sm text-slate-500 mb-6">We appreciate you taking the time to rate us.</p>
+                  <p className="text-sm text-slate-500 mb-6">See you next time.</p>
                 </>
               )}
-              <Button onClick={endChat} variant="outline" data-testid="start-new-chat-btn">Start a new chat</Button>
+              <Button onClick={endChat} variant="outline" data-testid="start-new-chat-btn" className="border-pink-200 text-pink-600 hover:bg-pink-50">
+                Start a new chat
+              </Button>
             </div>
           )}
         </div>

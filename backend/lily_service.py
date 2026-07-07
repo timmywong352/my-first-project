@@ -34,6 +34,53 @@ QUICK_OPTIONS = {
     "query_ticket": {"label": "查询工单状态", "emoji": "📋"},
 }
 
+# Localised option labels — used by widget & Lily router.
+OPTIONS_I18N = {
+    "en": {
+        "query_recharge":   {"label": "Deposit status",   "emoji": "💳"},
+        "query_withdrawal": {"label": "Withdrawal status", "emoji": "💰"},
+        "view_promotions":  {"label": "Promotions",       "emoji": "🎁"},
+        "query_ticket":     {"label": "Ticket status",    "emoji": "📋"},
+    },
+    "zh": {
+        "query_recharge":   {"label": "查询充值状态", "emoji": "💳"},
+        "query_withdrawal": {"label": "查询提现状态", "emoji": "💰"},
+        "view_promotions":  {"label": "查看优惠活动", "emoji": "🎁"},
+        "query_ticket":     {"label": "查询工单状态", "emoji": "📋"},
+    },
+    "ms": {
+        "query_recharge":   {"label": "Status deposit",     "emoji": "💳"},
+        "query_withdrawal": {"label": "Status pengeluaran", "emoji": "💰"},
+        "view_promotions":  {"label": "Promosi",            "emoji": "🎁"},
+        "query_ticket":     {"label": "Status tiket",       "emoji": "📋"},
+    },
+}
+
+
+def options_for_lang(lang: str) -> Dict[str, Dict[str, str]]:
+    lang = (lang or "en").lower()
+    if lang.startswith("zh"):
+        return OPTIONS_I18N["zh"]
+    if lang.startswith("ms"):
+        return OPTIONS_I18N["ms"]
+    return OPTIONS_I18N["en"]
+
+
+HANDOFF_LINE_I18N = {
+    "en": "Great — connecting you to a human agent now, one moment please. 🙏",
+    "zh": "好的！正在为您转接人工客服，请稍候~ 🙏",
+    "ms": "Baik! Saya akan sambungkan anda dengan ejen manusia sekarang. 🙏",
+}
+
+
+def handoff_line(lang: str) -> str:
+    lang = (lang or "en").lower()
+    if lang.startswith("zh"):
+        return HANDOFF_LINE_I18N["zh"]
+    if lang.startswith("ms"):
+        return HANDOFF_LINE_I18N["ms"]
+    return HANDOFF_LINE_I18N["en"]
+
 
 # ---------- Customer Memory ----------
 async def get_customer_memory(email: str) -> Optional[dict]:
@@ -223,15 +270,39 @@ def option_meta(key: str) -> Optional[Dict[str, str]]:
     return QUICK_OPTIONS.get(key)
 
 
-def opening_message(memory: Optional[dict]) -> str:
+def opening_message(memory: Optional[dict], lang: str = "en") -> str:
     """First greeting when a chat session begins (no user text yet)."""
-    if memory and memory.get("session_count", 0) > 1:
-        name = memory.get("name") or "老朋友"
+    lang = (lang or "en").lower()
+    returning = bool(memory and memory.get("session_count", 0) > 1)
+    name = (memory or {}).get("name")
+
+    if lang.startswith("zh"):
+        if returning:
+            return (
+                f"欢迎回来，{name or '老朋友'}！我是 Lily。"
+                "请点击下方您想咨询的问题，我会立即为您转接专属客服 😊"
+            )
         return (
-            f"欢迎回来，{name}！我是 Lily。"
-            "请点击下方您想咨询的问题，我会立即为您转接专属客服~ 😊"
+            "您好呀！我是 Lily，您的专属客服助理。"
+            "请点击下方您想咨询的问题，我会立即为您转接专业客服 😊"
+        )
+    if lang.startswith("ms"):
+        if returning:
+            return (
+                f"Selamat kembali{', ' + name if name else ''}! Saya Lily. "
+                "Sila pilih topik di bawah dan saya akan sambungkan anda dengan ejen manusia."
+            )
+        return (
+            "Hi! Saya Lily, pembantu sokongan peribadi anda. "
+            "Sila pilih topik di bawah dan saya akan sambungkan anda dengan ejen manusia."
+        )
+    # Default: English
+    if returning:
+        return (
+            f"Welcome back{', ' + name if name else ''}! I'm Lily. "
+            "How can I help you today? Pick a topic below and I'll connect you with a human agent."
         )
     return (
-        "您好呀！我是 Lily，您的专属客服助理。"
-        "请点击下方您想咨询的问题，我会立即为您转接专业客服 😊"
+        "Hi! I'm Lily, your personal support assistant. "
+        "How can I help you today? Pick a topic below and I'll connect you with a human agent."
     )

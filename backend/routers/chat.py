@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from config import MAX_ACTIVE_CHATS_PER_AGENT, db
 from deps import get_current_user
 from llm import ai_summarize, ai_suggest_replies
-from models import CsatBody, EditMessageBody, PreChatBody
+from models import AnonymousSessionBody, CsatBody, EditMessageBody, PreChatBody, UpdateContactBody
 from services import (
     agent_active_count,
     clean_session,
@@ -94,6 +94,102 @@ async def create_chat_session(body: PreChatBody, request: Request):
         "status": doc["status"],
         "queue_position": doc.get("queue_position"),
     }
+
+
+@router.post("/session/anonymous")
+async def create_anonymous_session(body: AnonymousSessionBody, request: Request):
+    """Create a chat session WITHOUT a prechat form.
+
+    Used by the Lily-first customer widget. A stable ``client_id`` (persisted
+    in browser localStorage) lets returning visitors reuse their identity so
+    Lily's memory and their session history keep working.
+    """
+    client_ip = request.client.host if request.client else ""
+    await _rate_limit_check(client_ip)
+
+    session_id = str(uuid.uuid4())
+    session_token = str(uuid.uuid4())
+    client_id = (body.client_id or f"anon_{session_id[:8]}").strip()
+    # Use client_id as the placeholder email so memory works across sessions.
+    placeholder_email = f"{client_id}@anon.pulse.local".lower()
+
+    doc = {
+        "id": session_id,
+        "session_token": session_token,
+        "customer_name": "Guest",
+        "customer_email": placeholder_email,
+        "client_id": client_id,
+        "subject": "New chat",
+        "page": body.page or "",
+        "location": body.location or client_ip,
+        "creator_ip": client_ip,
+        "language": (body.language or "en").lower(),
+        "assigned_agent_id": None,
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+        "last_message_at": now_iso(),
+        "csat_rating": None,
+        "summary": None,
+        "auto_msg_sent": False,
+        "anonymous": True,
+    }
+
+    await route_new_session(doc)
+    assigned_agent = doc.pop("_assigned_agent", None)
+    await db.sessions.insert_one(doc)
+
+    if doc["status"] == "open":
+        await manager.send_to_agents({"type": "new_session", "session": clean_session(doc)})
+        if assigned_agent:
+            active = await agent_active_count(assigned_agent["id"])
+            if active >= MAX_ACTIVE_CHATS_PER_AGENT:
+                await db.users.update_one(
+                    {"id": assigned_agent["id"]},
+                    {"$set": {"status": "busy", "auto_busy": True}},
+                )
+                await manager.send_to_agents({
+                    "type": "agent_status", "agent_id": assigned_agent["id"], "status": "busy",
+                })
+
+    return {
+        "session_id": session_id,
+        "session_token": session_token,
+        "client_id": client_id,
+        "customer_name": doc["customer_name"],
+        "customer_email": doc["customer_email"],
+        "anonymous": True,
+        "status": doc["status"],
+        "queue_position": doc.get("queue_position"),
+    }
+
+
+@router.post("/session/{session_id}/contact")
+async def update_session_contact(session_id: str, body: UpdateContactBody):
+    """Customer supplies their name / email after chatting with Lily.
+
+    This is the public-facing counterpart to the prechat form: Lily may ask
+    for the customer's email during the conversation and it is saved here.
+    """
+    s = await db.sessions.find_one({"id": session_id})
+    if not s or s.get("session_token") != body.session_token:
+        raise HTTPException(status_code=401, detail="Invalid session token")
+
+    updates: Dict[str, Any] = {"updated_at": now_iso()}
+    if body.name and body.name.strip():
+        updates["customer_name"] = body.name.strip()
+    if body.email:
+        updates["customer_email"] = body.email.lower()
+        updates["anonymous"] = False
+    if len(updates) == 1:  # only updated_at
+        return {"ok": True, "updated": False}
+
+    await db.sessions.update_one({"id": session_id}, {"$set": updates})
+    updated = await db.sessions.find_one({"id": session_id})
+    # Broadcast so agent dashboard sees the identity change live
+    await manager.send_to_agents({
+        "type": "session_updated", "session": clean_session(updated),
+    })
+    return {"ok": True, "updated": True, "session": clean_session(updated)}
 
 
 @router.get("/sessions")

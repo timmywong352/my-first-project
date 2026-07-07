@@ -1,16 +1,21 @@
 """Lily REST endpoints — used by the customer widget."""
+import base64
 import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
 
-from config import db
+from config import EMERGENT_LLM_KEY, db
 from deps import get_current_user
 from lily_service import (
     QUICK_OPTIONS,
     compose_reply,
     get_customer_memory,
+    handoff_line,
     opening_message,
+    options_for_lang,
     upsert_customer_memory,
 )
 from services import save_message
@@ -19,6 +24,51 @@ from ws_manager import manager
 
 router = APIRouter(prefix="/lily", tags=["lily"])
 logger = logging.getLogger("livechat.lily.router")
+
+
+# ---------- TTS ----------
+class TTSBody(BaseModel):
+    text: str = Field(..., max_length=1500)
+    voice: str = Field("nova", pattern="^(alloy|ash|coral|echo|fable|nova|onyx|sage|shimmer)$")
+    speed: float = Field(1.0, ge=0.5, le=2.0)
+
+
+_tts_client = None
+
+
+def _get_tts_client():
+    global _tts_client
+    if _tts_client is None:
+        from emergentintegrations.llm.openai import OpenAITextToSpeech
+        _tts_client = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+    return _tts_client
+
+
+@router.post("/tts")
+async def lily_tts(body: TTSBody):
+    """Generate MP3 audio for a short piece of text using OpenAI TTS (nova).
+
+    Returns raw ``audio/mpeg`` bytes so the frontend can drop the URL into an
+    ``<audio>`` element or ``URL.createObjectURL(blob)``.
+    """
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty text")
+    try:
+        client = _get_tts_client()
+        audio_bytes = await client.generate_speech(
+            text=text[:1500],
+            model="tts-1",
+            voice=body.voice,
+            speed=body.speed,
+            response_format="mp3",
+        )
+    except Exception as e:
+        logger.error(f"TTS generation failed: {e}")
+        raise HTTPException(status_code=502, detail="TTS unavailable")
+    return Response(content=audio_bytes, media_type="audio/mpeg", headers={
+        "Cache-Control": "public, max-age=3600",
+    })
 
 
 async def _authorize(session_id: str, session_token: str) -> dict:
@@ -35,19 +85,24 @@ async def _lily_enabled() -> bool:
 
 
 @router.get("/status")
-async def lily_status():
-    return {"enabled": await _lily_enabled(), "options": QUICK_OPTIONS}
+async def lily_status(lang: str = Query("en")):
+    opts = options_for_lang(lang)
+    return {"enabled": await _lily_enabled(), "options": opts, "language": lang}
 
 
 @router.post("/open")
-async def lily_open(session_id: str = Query(...), session_token: str = Query(...)):
+async def lily_open(
+    session_id: str = Query(...),
+    session_token: str = Query(...),
+    lang: str = Query("en"),
+):
     """Called once when the widget enters the Lily phase — returns opening line + memory."""
     session = await _authorize(session_id, session_token)
     if not await _lily_enabled():
         return {"enabled": False}
 
     memory = await get_customer_memory(session["customer_email"])
-    greeting = opening_message(memory)
+    greeting = opening_message(memory, lang=lang)
 
     # Persist Lily's opening message so it shows in agent dashboard too
     msg = await save_message(
@@ -55,7 +110,11 @@ async def lily_open(session_id: str = Query(...), session_token: str = Query(...
     )
     await db.sessions.update_one(
         {"id": session_id},
-        {"$set": {"handled_by_lily": True, "current_emotion": "neutral"}},
+        {"$set": {
+            "handled_by_lily": True,
+            "current_emotion": "neutral",
+            "language": (lang or "en").lower(),
+        }},
     )
     # Broadcast to agents too (they can see Lily engaging)
     await manager.broadcast_to_session(session_id, {"type": "message", "message": msg})
@@ -64,7 +123,10 @@ async def lily_open(session_id: str = Query(...), session_token: str = Query(...
         "enabled": True,
         "message": msg,
         "memory": memory,
-        "options": [],
+        "options": [
+            {"key": k, **v} for k, v in options_for_lang(lang).items()
+        ],
+        "language": lang,
     }
 
 
@@ -155,6 +217,7 @@ async def lily_handoff(
     session_id: str = Query(...),
     session_token: str = Query(...),
     customer_text: Optional[str] = Query(None),
+    lang: str = Query("en"),
 ):
     """Transfer from Lily to the human queue system.
 
@@ -181,7 +244,7 @@ async def lily_handoff(
     # 2) Post Lily's transition line
     handoff_msg = await save_message(
         session_id, "lily", "lily", "Lily",
-        "好的！正在为您转接人工客服，请稍候~ 🙏", attachments=None,
+        handoff_line(lang), attachments=None,
     )
     await manager.broadcast_to_session(session_id, {"type": "message", "message": handoff_msg})
 

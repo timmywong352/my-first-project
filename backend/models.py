@@ -26,6 +26,21 @@ class PreChatBody(BaseModel):
     location: Optional[str] = None
 
 
+class AnonymousSessionBody(BaseModel):
+    """Session created without a prechat form (Lily-first flow)."""
+    client_id: Optional[str] = None       # localStorage-generated anonymous ID
+    page: Optional[str] = None
+    location: Optional[str] = None
+    language: Optional[str] = "en"
+
+
+class UpdateContactBody(BaseModel):
+    """Customer supplies (or updates) their name/email mid-conversation."""
+    session_token: str
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+
 class SendMessageBody(BaseModel):
     content: str = ""
     attachments: Optional[List[Dict[str, Any]]] = None
