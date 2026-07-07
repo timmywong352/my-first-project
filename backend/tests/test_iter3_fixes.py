@@ -89,7 +89,7 @@ class TestReconnectPreservesAutoBusy:
             # 3. WS closed. Reconnect on a FRESH WS and immediately check /auth/me.
             async def reconnect_and_check():
                 url = f"{WS_BASE}/ws/agent?token={agent_tok}"
-                async with websockets.connect(url) as aws:
+                async with websockets.connect(url) as aws:  # noqa: F841
                     await asyncio.sleep(0.6)  # allow connect handler to run
                     rme = requests.get(f"{API}/auth/me", headers=_hdr(agent_tok), timeout=30)
                     state["status_after_reconnect"] = rme.json().get("status")
@@ -108,7 +108,7 @@ class TestReconnectPreservesAutoBusy:
 
             async def close_one_and_check():
                 url = f"{WS_BASE}/ws/agent?token={agent_tok}"
-                async with websockets.connect(url) as aws:
+                async with websockets.connect(url) as aws:  # noqa: F841
                     await asyncio.sleep(0.4)
                     rcl = requests.post(f"{API}/chat/sessions/{close_sid}/close",
                                         headers=_hdr(admin_token), timeout=60)

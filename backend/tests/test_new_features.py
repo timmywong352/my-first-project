@@ -310,7 +310,7 @@ class TestChatCap:
 
             async def close_flow():
                 url = f"{WS_BASE}/ws/agent?token={cap_token}"
-                async with websockets.connect(url) as aws:
+                async with websockets.connect(url) as aws:  # noqa: F841
                     await asyncio.sleep(0.3)
                     rcl = requests.post(f"{API}/chat/sessions/{close_sid}/close",
                                         headers=_hdr(admin_token), timeout=60)

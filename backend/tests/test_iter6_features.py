@@ -6,7 +6,6 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-import pytest
 import requests
 
 # Allow importing backend modules for direct DB / scheduler calls
@@ -113,7 +112,8 @@ class TestQueueAndRouting:
             rr = requests.post(f"{API}/chat/sessions/{to_close}/close", headers=_hdr(adm))
             assert rr.status_code == 200, rr.text
             # give server a moment
-            import time; time.sleep(1)
+            import time
+            time.sleep(1)
             after = _run(_db_get_session(queued_id))
             assert after["status"] == "open", after
             assert after.get("assigned_agent_id") in (aid, other_agent_id)
