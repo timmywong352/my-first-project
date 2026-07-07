@@ -215,26 +215,25 @@ export default function LilyVrmAvatar({
             }
           }
 
-          // ─── Emotion blend shape (pulsing, not static) ───
+          // ─── Emotion blend shape (very subtle when idle, so her
+          //      base mesh doesn't stay "wide-smile teeth-out") ───
           const targetExpr = EMOTION_TO_EXPR[emotionRef.current];
           const speaking = speakingRef.current;
-          const pulse = 0.15 * Math.sin(t * 0.9);   // ±0.15 breathing
+          const pulse = 0.08 * Math.sin(t * 0.9);
           ALL_EMOTIONS.forEach((k) => {
             let goal = 0;
             if (k === targetExpr) {
-              goal = speaking ? 0.55 + pulse : 0.7 + pulse;
-              // Small brow raise when Lily speaks a question mark line
-              if (speaking && k === "surprised") goal = Math.max(goal, 0.25);
+              // Idle keeps just a gentle "at-rest" smile so the mouth can
+              // relax. Only during speech do we brighten the emotion.
+              goal = speaking ? 0.35 + pulse : 0.12 + pulse * 0.5;
             }
-            // Smooth toward the goal so transitions feel "alive"
             emotionSmoothing[k] += (goal - emotionSmoothing[k]) * Math.min(1, dt * 3.5);
             em.setValue(k, Math.max(0, Math.min(1, emotionSmoothing[k])));
           });
 
-          // ─── Mouth lip-sync with jaw-drop bursts ───
+          // ─── Mouth lip-sync — hard-close between phonemes ───
           if (speaking) {
             mouthPhase += dt * 10;
-            // Add a slow "sentence rhythm" over the fast phoneme cycle
             const rhythm = 0.5 + 0.5 * Math.sin(t * 1.8);
             const aa = (0.15 + Math.abs(Math.sin(mouthPhase))         * 0.55) * rhythm;
             const ih = (0.05 + Math.abs(Math.sin(mouthPhase * 1.35))  * 0.30) * rhythm;
@@ -243,9 +242,14 @@ export default function LilyVrmAvatar({
             em.setValue("ih", ih);
             em.setValue("ou", ou);
           } else {
+            // Zero all mouth phonemes when idle so nothing leaks the mouth open
             em.setValue("aa", 0);
             em.setValue("ih", 0);
             em.setValue("ou", 0);
+            em.setValue("ee", 0);
+            em.setValue("oh", 0);
+            // Try a "neutral" reset if the VRM defines one
+            try { em.setValue("neutral", 1); } catch { /* no-op if missing */ }
           }
 
           // ─── Eye look-around (small saccades) ───
