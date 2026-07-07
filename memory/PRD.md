@@ -21,14 +21,15 @@ Build a live chat web application with customer widget, agent dashboard, and adm
 - ✅ File uploads via Emergent object storage (25MB limit, allowed extensions enforced).
 - ✅ AI summary written to session on close.
 
-## Update — Feb 2026 (iteration 6)
-- ✅ **Typing preview throttled to 500ms** with a 2s idle stop event, sent via a new `useThrottledTyping` hook. Agent side shows `"Customer is typing: [text]"`, customer side shows `"Agent is typing: [text]"`. Backend truncates preview to 500 chars.
-- ✅ **Queue system** — new session goes to the least-busy online agent (or queue if all full). Sessions returned with `status` + `queue_position`. Customer widget has a `[data-testid=queue-view]` phase. Closing an open chat auto-promotes the front of the queue and notifies the customer via `queue_promoted` WS event.
-- ✅ **Inactivity scheduler** (runs every 60s): (a) first-response nudge auto-message + optional transfer after N minutes, (b) auto-close after M minutes of silence → session moves to archive. All 4 thresholds/toggles admin-configurable at `/admin` → Inactivity tab.
-- ✅ **Rate limit** — POST `/api/chat/session` returns HTTP 429 after 5 sessions per IP per hour.
-- ✅ **JWT refresh** — new `POST /api/auth/refresh` accepts tokens expired ≤30 days. Axios interceptor auto-refreshes on 401 and retries. `useWebSocket` hook now refreshes on WS close-code 1008 and reconnects.
-- ✅ **shadcn Calendar + Popover** for the archive date filter (replaces native `<input type="date">`).
-- ✅ 46/49 backend tests pass (3 legacy tests need to be updated to bypass the new 5/hr rate-limit in their setup; not app bugs). All 6 iter-6 new-feature tests + all frontend flows verified.
+## Update — Feb 2026 (iteration 7 — Lily AI concierge)
+- ✅ **Lily 数字客服** — dual-brain (情商 + 智商) AI concierge using Claude Sonnet 4.6 via Emergent LLM Key. Detects Chinese emotion (`angry / anxious / confused / neutral / happy`) with confidence, prioritises comfort before problem-solving on negative sentiment, and proposes quick-action option buttons (`query_recharge / query_withdrawal / view_promotions / query_ticket`).
+- ✅ **Long-term memory** (`db.customer_memory`) keyed by lowercased email — persists name, past_issues, past_complaints, emotion_history, session_count. Returning customers get personalised greetings. Data is per-customer only.
+- ✅ **SVG animated avatar** (`LilyAvatar.jsx`) — expression changes with emotion (eyebrows/mouth/blush), CSS lip-sync animation while TTS plays.
+- ✅ **Browser TTS** — `speechSynthesis` with `zh-CN` female voice (`XiaoxiaoNeural` if available). Free, offline, no API key.
+- ✅ **Handoff to human** — customer can click 转人工 or say "转人工"; Lily also sets `escalate=true` when it judges it cannot answer. Handoff routes through existing least-busy/queue system.
+- ✅ **Emotion tag broadcast** — agents receive `emotion_update` WS events; session list shows an emotion badge; right sidebar shows a `CustomerMemoryPanel` with visit count, past issues, complaints, emotion distribution.
+- ✅ **Admin toggle** — `lily_enabled` in global settings + a UI switch. When disabled, widget bypasses Lily and behaves as before.
+- ✅ Zero regressions to queue / cap / archive / dark mode / rate limit / refresh. 12/12 iter-7 tests + 100% frontend flows pass.
 
 ## Prioritized Backlog
 
