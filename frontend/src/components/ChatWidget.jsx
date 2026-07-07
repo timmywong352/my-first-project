@@ -475,7 +475,10 @@ export default function ChatWidget() {
             </div>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setTtsOn((v) => { if (v) cancelSpeak(); return !v; })}
+                onClick={() => setTtsOn((v) => {
+                  if (v) { cancelSpeak(); setLilySpeaking(false); }
+                  return !v;
+                })}
                 className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
                 title={ttsOn ? "Mute voice" : "Enable voice"}
                 data-testid="lily-tts-toggle"
