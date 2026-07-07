@@ -18,6 +18,8 @@ export default function LilyAvatar({
   speaking = false,
   showLabel = false,
   imageUrl,              // used by 2D fallback
+  onAvatarClick,         // click handler for the whole circular frame
+  clickPulse = 0,        // increment to trigger a click-feedback pulse
 }) {
   const [use2d, setUse2d] = useState(mode === "2d" || !vrmUrl);
 
@@ -34,6 +36,8 @@ export default function LilyAvatar({
         speaking={speaking}
         showLabel={showLabel}
         imageUrl={imageUrl}
+        onAvatarClick={onAvatarClick}
+        clickPulse={clickPulse}
       />
     );
   }
@@ -45,6 +49,8 @@ export default function LilyAvatar({
       speaking={speaking}
       showLabel={showLabel}
       onError={handleError}
+      onAvatarClick={onAvatarClick}
+      clickPulse={clickPulse}
     />
   );
 }

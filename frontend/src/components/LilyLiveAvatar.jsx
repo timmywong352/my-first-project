@@ -63,6 +63,8 @@ export default function LilyLiveAvatar({
   imageUrl = LILY_IMAGE_URL,
   vrmUrl = null,
   onReady,
+  onAvatarClick,
+  clickPulse = 0,
 }) {
   const cfg = pickEmotion(emotion);
   const [blink, setBlink] = useState(false);
@@ -141,13 +143,24 @@ export default function LilyLiveAvatar({
   return (
     <div className="inline-flex flex-col items-center select-none">
       <div
-        className={`relative rounded-full overflow-hidden ring-4 shadow-2xl transition-shadow duration-300 ${
-          speaking ? "ring-pink-300/80 shadow-pink-300/50" : "ring-white/60"
-        }`}
-        style={{ width: size, height: size }}
+        role={onAvatarClick ? "button" : undefined}
+        tabIndex={onAvatarClick ? 0 : undefined}
+        onClick={onAvatarClick}
+        onKeyDown={(e) => {
+          if (onAvatarClick && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onAvatarClick();
+          }
+        }}
+        className={`relative rounded-full overflow-hidden ring-4 shadow-2xl transition-all duration-300 ${
+          onAvatarClick ? "cursor-pointer hover:ring-blue-300/90 hover:scale-[1.03] active:scale-[0.98]" : ""
+        } ${speaking ? "ring-blue-300/80 shadow-blue-300/50" : "ring-white/60"}`}
+        style={{ width: size, height: size, background: "radial-gradient(circle at 50% 30%, #dbeeff 0%, #a8ccff 45%, #7aa5e0 100%)" }}
         data-testid="lily-avatar"
         data-emotion={emotion}
         data-speaking={speaking ? "true" : "false"}
+        data-mode="2d"
+        aria-label={onAvatarClick ? "Tap Lily for another greeting" : undefined}
       >
         {/* Breathing wrapper — subtle scale pulse via CSS keyframes */}
         <div
@@ -259,12 +272,20 @@ export default function LilyLiveAvatar({
         {/* Speaking pulse rings */}
         {speaking && (
           <>
-            <div className="absolute -inset-1 rounded-full border-2 border-pink-400/50 lily-ping pointer-events-none" />
+            <div className="absolute -inset-1 rounded-full border-2 border-blue-400/50 lily-ping pointer-events-none" />
             <div
-              className="absolute -inset-3 rounded-full border border-pink-300/40 lily-ping pointer-events-none"
+              className="absolute -inset-3 rounded-full border border-blue-300/40 lily-ping pointer-events-none"
               style={{ animationDelay: "180ms" }}
             />
           </>
+        )}
+
+        {/* Click-feedback pulse */}
+        {clickPulse > 0 && (
+          <span
+            key={clickPulse}
+            className="absolute inset-0 rounded-full border-4 border-white pointer-events-none lily-click-pulse"
+          />
         )}
 
         {/* Waveform bars — a "live mic" feel while speaking */}

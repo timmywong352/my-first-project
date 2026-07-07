@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import re
 from typing import Any, Dict, List, Optional
 
@@ -272,37 +273,65 @@ def option_meta(key: str) -> Optional[Dict[str, str]]:
 
 def opening_message(memory: Optional[dict], lang: str = "en") -> str:
     """First greeting when a chat session begins (no user text yet)."""
-    lang = (lang or "en").lower()
-    returning = bool(memory and memory.get("session_count", 0) > 1)
-    name = (memory or {}).get("name")
+    return random_greeting(lang=lang, memory=memory, exclude=None)
 
+
+# ─── Greeting pool ──────────────────────────────────────────────────────
+# All variants mean roughly "Hi, I'm Lily, how can I help?" — clicking the
+# avatar cycles through these so returning greetings never feel canned.
+GREETING_POOL: Dict[str, List[str]] = {
+    "en": [
+        "Hi! I'm Lily, your personal support assistant. How can I help you today?",
+        "Hi there! Lily here, ready to assist you. What can I do for you?",
+        "Hey! Welcome to our support. I'm Lily. How may I help you?",
+        "Good to see you! I'm Lily, your dedicated assistant. What brings you here today?",
+        "Hi! Lily speaking. How can I make your day better?",
+    ],
+    "zh": [
+        "您好！我是 Lily，您的专属客服助理。今天有什么可以帮您的呢？",
+        "您好呀！我是 Lily，很高兴为您服务。请问有什么可以帮到您？",
+        "嗨！欢迎光临，我是 Lily，请问需要我帮您什么？",
+        "见到您真开心！我是您的专属助手 Lily，今天是什么风把您吹来的？",
+        "您好，我是 Lily，我能怎样让您今天过得更愉快？",
+    ],
+    "ms": [
+        "Hi! Saya Lily, pembantu sokongan peribadi anda. Bagaimana saya boleh bantu?",
+        "Hi! Lily di sini, sedia membantu anda. Apa yang boleh saya lakukan?",
+        "Hai! Selamat datang. Saya Lily. Bagaimana saya boleh bantu anda?",
+        "Gembira jumpa awak! Saya Lily, pembantu peribadi anda. Ada apa hari ini?",
+        "Hi! Lily bercakap. Bagaimana saya boleh cerahkan hari anda?",
+    ],
+}
+
+
+def random_greeting(
+    lang: str = "en",
+    memory: Optional[dict] = None,
+    exclude: Optional[str] = None,
+) -> str:
+    """Pick a random greeting from the pool for the given language.
+
+    ``exclude`` — the previous greeting text; the returned one will differ so
+    a customer never hears the exact same line twice in a row.
+    ``memory`` — if present and has a session_count > 1, we may prepend the
+    customer's name for a welcome-back feel.
+    """
+    lang = (lang or "en").lower()
     if lang.startswith("zh"):
-        if returning:
-            return (
-                f"欢迎回来，{name or '老朋友'}！我是 Lily。"
-                "请点击下方您想咨询的问题，我会立即为您转接专属客服 😊"
-            )
-        return (
-            "您好呀！我是 Lily，您的专属客服助理。"
-            "请点击下方您想咨询的问题，我会立即为您转接专业客服 😊"
-        )
-    if lang.startswith("ms"):
-        if returning:
-            return (
-                f"Selamat kembali{', ' + name if name else ''}! Saya Lily. "
-                "Sila pilih topik di bawah dan saya akan sambungkan anda dengan ejen manusia."
-            )
-        return (
-            "Hi! Saya Lily, pembantu sokongan peribadi anda. "
-            "Sila pilih topik di bawah dan saya akan sambungkan anda dengan ejen manusia."
-        )
-    # Default: English
-    if returning:
-        return (
-            f"Welcome back{', ' + name if name else ''}! I'm Lily. "
-            "How can I help you today? Pick a topic below and I'll connect you with a human agent."
-        )
-    return (
-        "Hi! I'm Lily, your personal support assistant. "
-        "How can I help you today? Pick a topic below and I'll connect you with a human agent."
-    )
+        pool = GREETING_POOL["zh"]
+    elif lang.startswith("ms"):
+        pool = GREETING_POOL["ms"]
+    else:
+        pool = GREETING_POOL["en"]
+
+    candidates = [g for g in pool if g != (exclude or "").strip()] or pool
+    line = random.choice(candidates)
+
+    # Personalise for returning customers (English/Chinese only for now)
+    name = (memory or {}).get("name") if memory else None
+    if memory and memory.get("session_count", 0) > 1 and name:
+        if lang.startswith("zh"):
+            line = f"欢迎回来，{name}！" + line
+        elif not lang.startswith("ms"):
+            line = f"Welcome back, {name}! " + line
+    return line

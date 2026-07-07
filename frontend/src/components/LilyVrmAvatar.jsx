@@ -35,6 +35,8 @@ export default function LilyVrmAvatar({
   showLabel = false,
   onReady,
   onError,
+  onAvatarClick,
+  clickPulse = 0,
 }) {
   const canvasRef = useRef(null);
   const [loading, setLoading] = useState(true);
@@ -245,24 +247,42 @@ export default function LilyVrmAvatar({
   return (
     <div className="inline-flex flex-col items-center select-none">
       <div
-        className={`relative rounded-full overflow-hidden ring-4 shadow-2xl transition-shadow duration-300 ${
-          speaking ? "ring-pink-300/80 shadow-pink-300/50" : "ring-white/60"
-        }`}
+        role={onAvatarClick ? "button" : undefined}
+        tabIndex={onAvatarClick ? 0 : undefined}
+        onClick={onAvatarClick}
+        onKeyDown={(e) => {
+          if (onAvatarClick && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onAvatarClick();
+          }
+        }}
+        className={`relative rounded-full overflow-hidden ring-4 shadow-2xl transition-all duration-300 ${
+          onAvatarClick ? "cursor-pointer hover:ring-blue-300/90 hover:scale-[1.03] active:scale-[0.98]" : ""
+        } ${speaking ? "ring-blue-300/80 shadow-blue-300/50" : "ring-white/60"}`}
         style={{
           width: size,
           height: size,
-          background: "radial-gradient(circle at 50% 30%, #ffe4f0 0%, #ffd6ec 40%, #e8b5ff 100%)",
+          background: "radial-gradient(circle at 50% 30%, #dbeeff 0%, #a8ccff 45%, #7aa5e0 100%)",
         }}
         data-testid="lily-avatar"
         data-emotion={emotion}
         data-speaking={speaking ? "true" : "false"}
         data-mode="vrm"
+        aria-label={onAvatarClick ? "Tap Lily for another greeting" : undefined}
       >
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 w-full h-full"
+          className="absolute inset-0 w-full h-full pointer-events-none"
           style={{ imageRendering: "auto" }}
         />
+
+        {/* Click-feedback pulse — remounts each time `clickPulse` changes */}
+        {clickPulse > 0 && (
+          <span
+            key={clickPulse}
+            className="absolute inset-0 rounded-full border-4 border-white pointer-events-none lily-click-pulse"
+          />
+        )}
 
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/40 backdrop-blur-sm">
@@ -280,9 +300,9 @@ export default function LilyVrmAvatar({
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10 pointer-events-none rounded-full" />
         {speaking && !loading && (
           <>
-            <div className="absolute -inset-1 rounded-full border-2 border-pink-400/50 lily-ping pointer-events-none" />
+            <div className="absolute -inset-1 rounded-full border-2 border-blue-400/50 lily-ping pointer-events-none" />
             <div
-              className="absolute -inset-3 rounded-full border border-pink-300/40 lily-ping pointer-events-none"
+              className="absolute -inset-3 rounded-full border border-blue-300/40 lily-ping pointer-events-none"
               style={{ animationDelay: "180ms" }}
             />
           </>
@@ -305,8 +325,8 @@ export default function LilyVrmAvatar({
 
       {showLabel && (
         <div className="mt-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${speaking ? "bg-pink-500 animate-pulse" : "bg-emerald-500 animate-pulse"}`} />
-          Lily · {loading ? "Loading…" : speaking ? "Speaking…" : "Online"}
+          <span className={`w-1.5 h-1.5 rounded-full ${speaking ? "bg-blue-500 animate-pulse" : "bg-emerald-500 animate-pulse"}`} />
+          Lily · {loading ? "Loading…" : speaking ? "Speaking…" : "Tap for greeting"}
         </div>
       )}
     </div>

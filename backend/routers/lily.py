@@ -16,6 +16,7 @@ from lily_service import (
     handoff_line,
     opening_message,
     options_for_lang,
+    random_greeting,
     upsert_customer_memory,
 )
 from services import save_message
@@ -210,6 +211,33 @@ async def lily_reply(
     }
     await manager.broadcast_to_session(session_id, {"type": "message", "message": lily_msg})
     return payload
+
+
+@router.post("/regreet")
+async def lily_regreet(
+    session_id: str = Query(...),
+    session_token: str = Query(...),
+    lang: str = Query("en"),
+    exclude: Optional[str] = Query(None),
+):
+    """Play a new (different) random greeting from the pool.
+
+    Called when the customer clicks Lily's avatar to hear another
+    variation. The picked line is persisted as a Lily message and
+    broadcast to any listening agents.
+    """
+    session = await _authorize(session_id, session_token)
+    if not await _lily_enabled():
+        raise HTTPException(status_code=404, detail="Lily disabled")
+
+    memory = await get_customer_memory(session.get("customer_email") or "")
+    text = random_greeting(lang=lang, memory=memory, exclude=exclude)
+
+    msg = await save_message(
+        session_id, "lily", "lily", "Lily", text, attachments=None,
+    )
+    await manager.broadcast_to_session(session_id, {"type": "message", "message": msg})
+    return {"message": msg}
 
 
 @router.post("/handoff")

@@ -107,6 +107,8 @@ export default function ChatWidget() {
   const [showHistory, setShowHistory] = useState(false);
   const [options, setOptions] = useState(FALLBACK_OPTIONS);
   const [errorMsg, setErrorMsg] = useState("");
+  const [avatarClickPulse, setAvatarClickPulse] = useState(0);
+  const lastGreetingRef = useRef("");
 
   // Email capture (inline prompt driven by Lily)
   const [emailPromptShown, setEmailPromptShown] = useState(false);
@@ -144,6 +146,7 @@ export default function ChatWidget() {
   const speakLily = useCallback((textToSpeak) => {
     if (!textToSpeak) return;
     setLilySubtitle(textToSpeak);
+    lastGreetingRef.current = textToSpeak;
     if (!ttsOn) return;
     setLilySpeaking(true);
     speak(textToSpeak, {
@@ -151,6 +154,34 @@ export default function ChatWidget() {
       onEnd: () => setLilySpeaking(false),
     });
   }, [ttsOn]);
+
+  // Click Lily's avatar → play a *different* random greeting.
+  // Ignored while she's already speaking so audio never overlaps.
+  const handleAvatarClick = useCallback(async () => {
+    if (!session || phase !== "lily") return;
+    if (lilySpeaking || lilyLoading) return; // wait until she finishes
+    setAvatarClickPulse((n) => n + 1);
+    try {
+      const params = new URLSearchParams({
+        session_id: session.session_id,
+        session_token: session.session_token,
+        lang: "en",
+      });
+      if (lastGreetingRef.current) params.set("exclude", lastGreetingRef.current);
+      const resp = await fetch(`${API}/lily/regreet?${params.toString()}`, {
+        method: "POST",
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (data?.message) {
+        // Server broadcasts via WS; add here in case WS is momentarily slow.
+        setMessages((prev) =>
+          prev.find((x) => x.id === data.message.id) ? prev : [...prev, data.message],
+        );
+        speakLily(data.message.content);
+      }
+    } catch { /* silent */ }
+  }, [session, phase, lilySpeaking, lilyLoading, speakLily]);
 
   // ---------- Bootstrap when widget opens ----------
   const bootstrap = useCallback(async () => {
@@ -516,6 +547,8 @@ export default function ChatWidget() {
                   emotion={lilyLoading ? "thinking" : "greeting"}
                   size={160}
                   showLabel
+                  onAvatarClick={handleAvatarClick}
+                  clickPulse={avatarClickPulse}
                 />
 
                 <div
