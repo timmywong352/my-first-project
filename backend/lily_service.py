@@ -227,13 +227,11 @@ def opening_message(memory: Optional[dict]) -> str:
     """First greeting when a chat session begins (no user text yet)."""
     if memory and memory.get("session_count", 0) > 1:
         name = memory.get("name") or "老朋友"
-        recent_issue = ""
-        if memory.get("past_issues"):
-            recent_issue = memory["past_issues"][-1].get("text", "")[:30]
-        if recent_issue:
-            return (
-                f"欢迎回来，{name}！上次我们聊过关于「{recent_issue}」的事情，"
-                "现在都处理好了吗？有需要我继续帮忙的吗？😊"
-            )
-        return f"欢迎回来，{name}！今天有什么可以帮到您的呢？😊"
-    return "您好呀！欢迎光临，我是您的专属智能助手 Lily。今天有什么可以帮到您的呢？😊"
+        return (
+            f"欢迎回来，{name}！我是 Lily。"
+            "请点击下方您想咨询的问题，我会立即为您转接专属客服~ 😊"
+        )
+    return (
+        "您好呀！我是 Lily，您的专属客服助理。"
+        "请点击下方您想咨询的问题，我会立即为您转接专业客服 😊"
+    )

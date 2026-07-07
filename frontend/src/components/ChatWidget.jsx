@@ -261,30 +261,18 @@ export default function ChatWidget() {
     if (!text.trim() && pendingAttachments.length === 0) return;
 
     if (lilyMode) {
-      // Send through Lily
+      // Simplified receptionist flow: any typed text immediately triggers
+      // a hand-off to a human agent. Lily's job is just to greet & route.
       const userText = text.trim();
       setText("");
       setPendingAttachments([]);
       flushTyping("");
       setLilyLoading(true);
-      setLilyOptions([]);
+      // Speak Lily's confirmation subtitle immediately for a snappy feel
+      speakLily("好的！正在为您转接人工客服，请稍候~");
       try {
-        const url = `${API}/lily/reply?session_id=${session.session_id}&session_token=${session.session_token}&text=${encodeURIComponent(userText)}`;
-        const resp = await fetch(url, { method: "POST" });
-        const data = await resp.json();
-        if (data?.message) {
-          // Cust msg was already broadcast via WS; Lily reply will arrive via WS too.
-          // But in case WS is slow, manually add:
-          setMessages((prev) => (prev.find((x) => x.id === data.message.id) ? prev : [...prev, data.message]));
-          setLilyEmotion(data.emotion || "neutral");
-          setLilyOptions(data.options || []);
-          speakLily(data.message.content);
-        }
-        if (data?.escalate) {
-          // Auto-handoff to human queue
-          await handoffToHuman();
-        }
-      } catch { /* ignore */ } finally {
+        await handoffToHuman(userText);
+      } finally {
         setLilyLoading(false);
       }
     } else {
@@ -296,13 +284,17 @@ export default function ChatWidget() {
     }
   };
 
-  const handoffToHuman = async () => {
+  const handoffToHuman = async (customerText) => {
     if (!session) return;
     try {
-      const resp = await fetch(
-        `${API}/lily/handoff?session_id=${session.session_id}&session_token=${session.session_token}`,
-        { method: "POST" },
-      );
+      const params = new URLSearchParams({
+        session_id: session.session_id,
+        session_token: session.session_token,
+      });
+      if (customerText) params.set("customer_text", customerText);
+      const resp = await fetch(`${API}/lily/handoff?${params.toString()}`, {
+        method: "POST",
+      });
       const data = await resp.json();
       setLilyMode(false);
       setLilyOptions([]);
@@ -318,28 +310,18 @@ export default function ChatWidget() {
   };
 
   const chooseLilyOption = async (opt) => {
-    // Send option label as a customer message via Lily flow
-    const oldText = text;
-    setText(opt.label);
-    setTimeout(() => {
-      setText(oldText);
-      // Send directly
-      const userText = opt.label;
-      setLilyLoading(true);
-      setLilyOptions([]);
-      fetch(
-        `${API}/lily/reply?session_id=${session.session_id}&session_token=${session.session_token}&text=${encodeURIComponent(userText)}`,
-        { method: "POST" }
-      ).then((r) => r.json()).then((data) => {
-        if (data?.message) {
-          setMessages((prev) => (prev.find((x) => x.id === data.message.id) ? prev : [...prev, data.message]));
-          setLilyEmotion(data.emotion || "neutral");
-          setLilyOptions(data.options || []);
-          speakLily(data.message.content);
-        }
-        if (data?.escalate) handoffToHuman();
-      }).finally(() => setLilyLoading(false));
-    }, 0);
+    // Simplified receptionist flow: clicking any option immediately triggers
+    // a hand-off to a human agent. The option's label becomes the first
+    // customer-visible message so the agent knows the intent.
+    if (!session || lilyLoading) return;
+    setLilyLoading(true);
+    setLilyOptions([]);
+    speakLily("好的！正在为您转接人工客服，请稍候~");
+    try {
+      await handoffToHuman(opt.label);
+    } finally {
+      setLilyLoading(false);
+    }
   };
 
   const handleTyping = (val) => {
@@ -541,7 +523,7 @@ export default function ChatWidget() {
                     {ttsOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                   </button>
                   <button
-                    onClick={handoffToHuman}
+                    onClick={() => handoffToHuman()}
                     className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 px-2 py-1 rounded-lg hover:bg-white/70"
                     data-testid="lily-handoff-btn"
                   >

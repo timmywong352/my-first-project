@@ -151,16 +151,37 @@ async def lily_reply(
 
 
 @router.post("/handoff")
-async def lily_handoff(session_id: str = Query(...), session_token: str = Query(...)):
-    """Transfer from Lily to the human queue system."""
+async def lily_handoff(
+    session_id: str = Query(...),
+    session_token: str = Query(...),
+    customer_text: Optional[str] = Query(None),
+):
+    """Transfer from Lily to the human queue system.
+
+    If `customer_text` is provided (e.g. the option label or free text the
+    customer typed), it is first saved as a customer message so the human
+    agent immediately sees why the transfer happened.
+    """
     session = await _authorize(session_id, session_token)
     from services import route_new_session, agent_active_count, clean_session
     from config import MAX_ACTIVE_CHATS_PER_AGENT
 
-    # Post a system-visible transition line so agent sees the handoff
+    # 1) Persist customer's context message first (if provided) so the agent
+    #    knows exactly what the customer wanted before Lily handed off.
+    if customer_text and customer_text.strip():
+        cust_msg = await save_message(
+            session_id, "customer", session_id,
+            session.get("customer_name", "Customer"),
+            customer_text.strip(), attachments=None,
+        )
+        await manager.broadcast_to_session(
+            session_id, {"type": "message", "message": cust_msg},
+        )
+
+    # 2) Post Lily's transition line
     handoff_msg = await save_message(
         session_id, "lily", "lily", "Lily",
-        "让我帮您转接给人工客服。感谢您的耐心！🙏", attachments=None,
+        "好的！正在为您转接人工客服，请稍候~ 🙏", attachments=None,
     )
     await manager.broadcast_to_session(session_id, {"type": "message", "message": handoff_msg})
 
