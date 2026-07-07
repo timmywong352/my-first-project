@@ -21,7 +21,7 @@ from ws_manager import manager
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-RATE_LIMIT_PER_HOUR = 5
+RATE_LIMIT_PER_HOUR = 60
 
 
 # ---------- Session ----------
