@@ -439,8 +439,8 @@ export default function LilyVrmAvatar({
       </div>
 
       {showLabel && (
-        <div className="mt-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${speaking ? "bg-blue-500 animate-pulse" : "bg-emerald-500 animate-pulse"}`} />
+        <div className="mt-2 text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${speaking ? "bg-blue-400 animate-pulse" : "bg-emerald-400 animate-pulse"}`} />
           Lily · {loading ? "Loading…" : speaking ? "Speaking…" : "Tap for greeting"}
         </div>
       )}

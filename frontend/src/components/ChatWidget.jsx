@@ -461,8 +461,8 @@ export default function ChatWidget() {
         <button
           data-testid="chat-launcher"
           onClick={() => setOpen(true)}
-          className="fixed bottom-24 right-6 z-50 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-110 transition-transform bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400"
-          style={{ boxShadow: "0 12px 40px -8px rgba(219, 39, 119, 0.55)" }}
+          className="fixed bottom-24 right-6 z-50 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-110 transition-transform bg-gradient-to-br from-blue-500 to-blue-700"
+          style={{ boxShadow: "0 12px 40px -8px rgba(37, 99, 235, 0.55)" }}
           aria-label="Chat with Lily"
         >
           <div className="relative">
@@ -476,16 +476,16 @@ export default function ChatWidget() {
       {open && (
         <div
           data-testid="chat-widget"
-          className="fixed bottom-24 right-6 z-50 w-[380px] h-[640px] max-h-[88vh] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-pink-100"
+          className="fixed bottom-24 right-6 z-50 w-[380px] h-[640px] max-h-[88vh] bg-slate-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-slate-800"
           style={{ animation: "widget-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
         >
           {/* Header — always Lily branded */}
           <div
-            className="px-4 py-3 flex items-center justify-between text-white bg-gradient-to-r from-pink-500 via-fuchsia-500 to-amber-400"
+            className="px-4 py-3 flex items-center justify-between text-white bg-slate-950 border-b border-slate-800"
             data-testid="widget-header"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-white/25 backdrop-blur flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-blue-500/25 backdrop-blur flex items-center justify-center ring-1 ring-blue-400/40">
                 <Sparkles className="w-4 h-4" />
               </div>
               <div>
@@ -510,7 +510,7 @@ export default function ChatWidget() {
                   if (v) { cancelSpeak(); setLilySpeaking(false); }
                   return !v;
                 })}
-                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
                 title={ttsOn ? "Mute voice" : "Enable voice"}
                 data-testid="lily-tts-toggle"
               >
@@ -518,7 +518,7 @@ export default function ChatWidget() {
               </button>
               <button
                 onClick={() => setOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
                 data-testid="chat-close-btn"
               >
                 <X className="w-4 h-4" />
@@ -528,18 +528,18 @@ export default function ChatWidget() {
 
           {/* Connecting */}
           {phase === "connecting" && (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="connecting-view">
-              <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
-              <div className="text-sm text-slate-600">Waking Lily up…</div>
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-slate-900" data-testid="connecting-view">
+              <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+              <div className="text-sm text-slate-400">Waking Lily up…</div>
               {errorMsg && (
-                <div className="text-xs text-red-600 max-w-[280px] text-center px-4" data-testid="widget-error">{errorMsg}</div>
+                <div className="text-xs text-red-400 max-w-[280px] text-center px-4" data-testid="widget-error">{errorMsg}</div>
               )}
             </div>
           )}
 
           {/* Lily Stage */}
           {phase === "lily" && session && (
-            <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="lily-stage">
+            <div className="flex-1 flex flex-col overflow-hidden bg-slate-900" data-testid="lily-stage">
               {/* Stage area */}
               <div className="flex-1 overflow-y-auto flex flex-col items-center px-4 py-5">
                 <LilyAvatar
@@ -553,22 +553,22 @@ export default function ChatWidget() {
 
                 <div
                   data-testid="lily-subtitle"
-                  className="mt-5 w-full max-w-[300px] bg-white/95 backdrop-blur border border-pink-100 rounded-2xl px-4 py-3 text-sm text-slate-800 shadow-md min-h-[80px] leading-relaxed"
+                  className="mt-5 w-full max-w-[300px] bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-100 shadow-md min-h-[80px] leading-relaxed"
                 >
                   {lilyLoading ? (
-                    <span className="text-slate-400 italic flex items-center gap-2">
+                    <span className="text-slate-500 italic flex items-center gap-2">
                       <Loader2 className="w-3 h-3 animate-spin" /> Lily is thinking…
                     </span>
                   ) : lilySubtitle ? (
                     <span>{lilySubtitle}</span>
                   ) : (
-                    <span className="text-slate-400 italic">Lily is getting ready …</span>
+                    <span className="text-slate-500 italic">Lily is getting ready …</span>
                   )}
                 </div>
 
                 <button
                   onClick={() => setShowHistory((v) => !v)}
-                  className="mt-3 text-[10px] font-semibold text-slate-400 hover:text-slate-700 uppercase tracking-wider"
+                  className="mt-3 text-[10px] font-semibold text-slate-500 hover:text-slate-200 uppercase tracking-wider"
                   data-testid="lily-history-toggle"
                 >
                   {showHistory ? "Hide transcript" : "View transcript"}
@@ -577,11 +577,11 @@ export default function ChatWidget() {
                   <div className="mt-2 w-full space-y-2 max-h-40 overflow-y-auto pr-1" data-testid="lily-history">
                     {messages.map((m) => (
                       <div key={m.id} className={`text-[11px] ${m.sender_type === "customer" ? "text-right" : "text-left"}`}>
-                        <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">{m.sender_type === "customer" ? "You" : m.sender_name}</div>
+                        <div className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">{m.sender_type === "customer" ? "You" : m.sender_name}</div>
                         <div className={`inline-block px-2.5 py-1.5 rounded-lg mt-0.5 ${
                           m.sender_type === "customer"
-                            ? "bg-blue-100 text-slate-800"
-                            : "bg-white text-slate-700 border border-slate-200"
+                            ? "bg-blue-500 text-white"
+                            : "bg-slate-800 text-slate-100 border border-slate-700"
                         }`}>{m.content}</div>
                       </div>
                     ))}
@@ -590,13 +590,13 @@ export default function ChatWidget() {
               </div>
 
               {/* 4 fixed option buttons */}
-              <div className="px-3 py-2 grid grid-cols-2 gap-2 bg-white/60 backdrop-blur border-t border-pink-100" data-testid="lily-options">
+              <div className="px-3 py-2 grid grid-cols-2 gap-2 bg-slate-900/70 backdrop-blur border-t border-slate-800" data-testid="lily-options">
                 {options.map((o) => (
                   <button
                     key={o.key}
                     onClick={() => chooseOption(o)}
                     disabled={lilyLoading}
-                    className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-gradient-to-br from-pink-100 to-amber-100 border border-pink-200 hover:from-pink-200 hover:to-amber-200 text-slate-700 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                    className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 text-slate-100 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                     data-testid={`lily-option-${o.key}`}
                   >
                     <span className="text-base">{o.emoji}</span>
@@ -606,7 +606,7 @@ export default function ChatWidget() {
               </div>
 
               {/* Input */}
-              <div className="p-3 border-t border-pink-100 bg-white">
+              <div className="p-3 border-t border-slate-800 bg-slate-900">
                 <div className="flex items-end gap-2">
                   <Textarea
                     value={text}
@@ -620,12 +620,12 @@ export default function ChatWidget() {
                     placeholder="Or type your question here…"
                     rows={1}
                     data-testid="chat-input"
-                    className="flex-1 resize-none min-h-[40px] max-h-24 rounded-xl border-slate-200 text-sm focus-visible:ring-pink-400"
+                    className="flex-1 resize-none min-h-[40px] max-h-24 rounded-xl bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 text-sm focus-visible:ring-blue-500"
                   />
                   <Button
                     onClick={sendMessage}
                     size="icon"
-                    className="rounded-xl h-10 w-10 shrink-0 text-white bg-gradient-to-br from-pink-500 to-amber-500 hover:from-pink-600 hover:to-amber-600"
+                    className="rounded-xl h-10 w-10 shrink-0 text-white bg-blue-500 hover:bg-blue-600"
                     data-testid="chat-send-btn"
                   >
                     <Send className="w-4 h-4" />
@@ -637,21 +637,21 @@ export default function ChatWidget() {
 
           {/* Queued view */}
           {phase === "queued" && session && (
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="queue-view">
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-slate-900" data-testid="queue-view">
               <LilyAvatar speaking={false} emotion="friendly" size={90} />
-              <div className="mt-4 text-4xl font-extrabold text-slate-900 tracking-tight" data-testid="queue-position">
+              <div className="mt-4 text-4xl font-extrabold text-slate-100 tracking-tight" data-testid="queue-position">
                 #{queuePosition ?? "—"}
               </div>
-              <div className="text-sm font-semibold text-slate-700 mt-1">You&apos;re in the queue</div>
+              <div className="text-sm font-semibold text-slate-300 mt-1">You&apos;re in the queue</div>
               <div className="text-xs text-slate-500 max-w-[280px] mt-2 mb-4">
                 All our agents are helping other customers. We&apos;ll connect you as soon as one is free.
               </div>
-              <Clock className="w-4 h-4 text-slate-400 mb-3" />
+              <Clock className="w-4 h-4 text-slate-600 mb-3" />
 
               {/* Optional email capture while waiting */}
               {!emailSaved && (
-                <div className="w-full max-w-[300px] bg-white border border-pink-100 rounded-2xl p-3 space-y-2 mt-2" data-testid="email-capture">
-                  <div className="text-[11px] font-bold uppercase text-slate-500 tracking-wider flex items-center gap-1">
+                <div className="w-full max-w-[300px] bg-slate-800/60 border border-slate-700 rounded-2xl p-3 space-y-2 mt-2" data-testid="email-capture">
+                  <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider flex items-center gap-1">
                     <Mail className="w-3 h-3" /> Save your history
                   </div>
                   <div className="text-[11px] text-slate-500 leading-snug">
@@ -661,7 +661,7 @@ export default function ChatWidget() {
                     placeholder="Your name (optional)"
                     value={nameValue}
                     onChange={(e) => setNameValue(e.target.value)}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500"
                     data-testid="email-capture-name"
                   />
                   <Input
@@ -669,13 +669,13 @@ export default function ChatWidget() {
                     placeholder="you@example.com"
                     value={emailValue}
                     onChange={(e) => setEmailValue(e.target.value)}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500"
                     data-testid="email-capture-email"
                   />
                   <Button
                     onClick={saveContact}
                     disabled={emailSaving}
-                    className="w-full h-8 text-xs bg-gradient-to-r from-pink-500 to-amber-500 text-white"
+                    className="w-full h-8 text-xs bg-blue-500 hover:bg-blue-600 text-white"
                     data-testid="email-capture-save"
                   >
                     {emailSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
@@ -688,7 +688,7 @@ export default function ChatWidget() {
           {/* Human chat */}
           {phase === "chat" && session && (
             <>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40" data-testid="chat-messages">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-900" data-testid="chat-messages">
                 {messages.map((m) => {
                   const isCustomer = m.sender_type === "customer";
                   const isLily = m.sender_type === "lily";
@@ -709,21 +709,21 @@ export default function ChatWidget() {
                           <div
                             className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm ${
                               isCustomer
-                                ? "text-white rounded-tr-sm bg-gradient-to-br from-pink-500 to-fuchsia-500"
+                                ? "text-white rounded-tr-sm bg-blue-500"
                                 : isLily
-                                  ? "bg-white text-slate-900 rounded-tl-sm border border-pink-100 italic"
-                                  : "bg-white text-slate-900 rounded-tl-sm border border-slate-100"
+                                  ? "bg-slate-800 text-slate-100 rounded-tl-sm border border-slate-700 italic"
+                                  : "bg-slate-800 text-slate-100 rounded-tl-sm border border-slate-700"
                             }`}
                           >
-                            {isLily && <span className="text-[10px] font-bold text-pink-500 uppercase tracking-wide mr-1.5">Lily</span>}
+                            {isLily && <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wide mr-1.5">Lily</span>}
                             {m.content}
                             {m.edited && <span className="text-[10px] opacity-70 ml-1.5 italic">(edited)</span>}
                           </div>
                         )}
                         {isCustomer && (
-                          <div className="flex justify-end items-center gap-1 text-[10px] text-slate-400 pr-1">
+                          <div className="flex justify-end items-center gap-1 text-[10px] text-slate-500 pr-1">
                             {m.status === "read"
-                              ? <CheckCheck className="w-3 h-3 text-blue-500" />
+                              ? <CheckCheck className="w-3 h-3 text-blue-400" />
                               : <Check className="w-3 h-3" />}
                             <span>{m.status === "read" ? "Read" : "Sent"}</span>
                           </div>
@@ -735,8 +735,8 @@ export default function ChatWidget() {
                 {agentTyping && <TypingDots label="Agent" />}
                 {agentPreview && (
                   <div className="flex justify-start" data-testid="agent-typing-preview">
-                    <div className="max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm bg-slate-100 text-slate-500 italic border border-dashed border-slate-300">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 not-italic mr-1.5">Agent is typing:</span>
+                    <div className="max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm bg-slate-800/60 text-slate-400 italic border border-dashed border-slate-700">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 not-italic mr-1.5">Agent is typing:</span>
                       {agentPreview}
                     </div>
                   </div>
@@ -746,28 +746,28 @@ export default function ChatWidget() {
 
               {/* Inline email prompt above input (Lily-driven post-handoff) */}
               {emailPromptShown && !emailSaved && (
-                <div className="px-3 py-2 bg-pink-50/70 border-t border-pink-100 flex items-center gap-2" data-testid="email-inline-prompt">
-                  <Mail className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                <div className="px-3 py-2 bg-slate-800/60 border-t border-slate-800 flex items-center gap-2" data-testid="email-inline-prompt">
+                  <Mail className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                   <Input
                     type="email"
                     placeholder="Share your email (optional)"
                     value={emailValue}
                     onChange={(e) => setEmailValue(e.target.value)}
-                    className="h-7 text-xs flex-1"
+                    className="h-7 text-xs flex-1 bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500"
                     data-testid="email-inline-input"
                   />
                   <Button
                     onClick={saveContact}
                     disabled={emailSaving}
                     size="sm"
-                    className="h-7 text-[11px] bg-pink-500 hover:bg-pink-600 text-white"
+                    className="h-7 text-[11px] bg-blue-500 hover:bg-blue-600 text-white"
                     data-testid="email-inline-save"
                   >
                     Save
                   </Button>
                   <button
                     onClick={() => setEmailPromptShown(false)}
-                    className="text-slate-400 hover:text-slate-700"
+                    className="text-slate-500 hover:text-slate-200"
                     aria-label="Dismiss"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -776,14 +776,14 @@ export default function ChatWidget() {
               )}
 
               {pendingAttachments.length > 0 && (
-                <div className="px-3 py-2 border-t border-slate-100 bg-slate-50 flex gap-2 overflow-x-auto">
+                <div className="px-3 py-2 border-t border-slate-800 bg-slate-800/60 flex gap-2 overflow-x-auto">
                   {pendingAttachments.map((a) => (
-                    <div key={a.id} className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs">
+                    <div key={a.id} className="flex items-center gap-1.5 px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200">
                       {fileIcon(a.content_type)}
                       <span className="truncate max-w-[100px]">{a.filename}</span>
                       <button
                         onClick={() => setPendingAttachments((prev) => prev.filter((x) => x.id !== a.id))}
-                        className="text-slate-400 hover:text-slate-700"
+                        className="text-slate-500 hover:text-slate-200"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -792,11 +792,11 @@ export default function ChatWidget() {
                 </div>
               )}
 
-              <div className="p-3 border-t border-slate-100 bg-white">
+              <div className="p-3 border-t border-slate-800 bg-slate-900">
                 <div className="flex items-end gap-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                    className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
                     data-testid="chat-attach-btn"
                     disabled={uploading}
                   >
@@ -822,12 +822,12 @@ export default function ChatWidget() {
                     placeholder="Type your message…"
                     rows={1}
                     data-testid="chat-input"
-                    className="flex-1 resize-none min-h-[40px] max-h-32 rounded-xl border-slate-200 text-sm focus-visible:ring-pink-400"
+                    className="flex-1 resize-none min-h-[40px] max-h-32 rounded-xl bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 text-sm focus-visible:ring-blue-500"
                   />
                   <Button
                     onClick={sendMessage}
                     size="icon"
-                    className="rounded-xl h-10 w-10 shrink-0 text-white bg-gradient-to-br from-pink-500 to-fuchsia-500"
+                    className="rounded-xl h-10 w-10 shrink-0 text-white bg-blue-500 hover:bg-blue-600"
                     data-testid="chat-send-btn"
                   >
                     <Send className="w-4 h-4" />
@@ -838,14 +838,14 @@ export default function ChatWidget() {
           )}
 
           {phase === "closed" && (
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-gradient-to-b from-pink-50 via-amber-50/60 to-white" data-testid="chat-closed-view">
-              <div className="w-full mb-4 px-4 py-3 rounded-xl bg-white text-slate-700 text-sm border border-pink-100 shadow-sm" data-testid="chat-closed-banner">
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-slate-900" data-testid="chat-closed-view">
+              <div className="w-full mb-4 px-4 py-3 rounded-xl bg-slate-800 text-slate-200 text-sm border border-slate-700 shadow-sm" data-testid="chat-closed-banner">
                 {closedNotice || "This chat has ended. Thanks for chatting with us!"}
               </div>
               {!csatSubmitted ? (
                 <>
-                  <h3 className="text-xl font-extrabold text-slate-900 mb-2">Rate your experience</h3>
-                  <p className="text-sm text-slate-500 mb-6">How was your chat with Lily and our team?</p>
+                  <h3 className="text-xl font-extrabold text-slate-100 mb-2">Rate your experience</h3>
+                  <p className="text-sm text-slate-400 mb-6">How was your chat with Lily and our team?</p>
                   <div className="flex gap-2 mb-8">
                     {[1, 2, 3, 4, 5].map((r) => (
                       <button
@@ -854,21 +854,21 @@ export default function ChatWidget() {
                         className="p-2 transition-transform hover:scale-125"
                         data-testid={`csat-star-${r}`}
                       >
-                        <Star className={`w-8 h-8 ${r <= csatRating ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />
+                        <Star className={`w-8 h-8 ${r <= csatRating ? "fill-amber-400 text-amber-400" : "text-slate-600"}`} />
                       </button>
                     ))}
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
-                    <CheckCheck className="w-8 h-8 text-emerald-600" />
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4">
+                    <CheckCheck className="w-8 h-8 text-emerald-400" />
                   </div>
-                  <h3 className="text-xl font-extrabold text-slate-900 mb-2">Thanks for your feedback!</h3>
-                  <p className="text-sm text-slate-500 mb-6">See you next time.</p>
+                  <h3 className="text-xl font-extrabold text-slate-100 mb-2">Thanks for your feedback!</h3>
+                  <p className="text-sm text-slate-400 mb-6">See you next time.</p>
                 </>
               )}
-              <Button onClick={endChat} variant="outline" data-testid="start-new-chat-btn" className="border-pink-200 text-pink-600 hover:bg-pink-50">
+              <Button onClick={endChat} variant="outline" data-testid="start-new-chat-btn" className="border-blue-500/60 text-blue-300 hover:bg-blue-500/10 hover:text-blue-200 bg-transparent">
                 Start a new chat
               </Button>
             </div>
