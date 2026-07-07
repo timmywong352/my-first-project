@@ -6,9 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useThrottledTyping } from "@/hooks/useThrottledTyping";
+import LilyAvatar from "@/components/LilyAvatar";
+import { speak, cancelSpeak } from "@/lib/tts";
 import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
-  Loader2, FileText, Image as ImageIcon, Star, Clock,
+  Loader2, FileText, Image as ImageIcon, Star, Clock, UserCog, Volume2, VolumeX,
 } from "lucide-react";
 
 const ATTACH_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.mp4,.zip";
@@ -78,6 +80,13 @@ export default function ChatWidget() {
   const [csatSubmitted, setCsatSubmitted] = useState(false);
   const [closedNotice, setClosedNotice] = useState("");
   const [agentPreview, setAgentPreview] = useState("");
+  const [lilyEnabled, setLilyEnabled] = useState(false);
+  const [lilyEmotion, setLilyEmotion] = useState("neutral");
+  const [lilySpeaking, setLilySpeaking] = useState(false);
+  const [lilyLoading, setLilyLoading] = useState(false);
+  const [lilyOptions, setLilyOptions] = useState([]);
+  const [ttsOn, setTtsOn] = useState(true);
+  const [lilyMode, setLilyMode] = useState(false); // true when in Lily chat (not yet human)
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -93,7 +102,17 @@ export default function ChatWidget() {
 
   useEffect(() => {
     api.get("/public/settings").then(({ data }) => setSettings(data)).catch(() => {});
+    api.get("/lily/status").then(({ data }) => setLilyEnabled(!!data.enabled)).catch(() => setLilyEnabled(false));
   }, []);
+
+  // Speak Lily's messages via TTS (browser SpeechSynthesis)
+  const speakLily = useCallback((text) => {
+    if (!ttsOn || !lilyMode || !text) return;
+    setLilySpeaking(true);
+    speak(text, {
+      onEnd: () => setLilySpeaking(false),
+    });
+  }, [ttsOn, lilyMode]);
 
   // Persist session
   useEffect(() => {
@@ -192,7 +211,28 @@ export default function ChatWidget() {
       localStorage.setItem("customer_session", JSON.stringify(data));
       setMessages([]);
       setQueuePosition(data.queue_position || null);
-      setPhase(data.status === "queued" ? "queued" : "chat");
+      // Route into Lily if enabled AND session was assigned to an agent (not queued)
+      // Lily engages first regardless of queue: if enabled, we always show Lily.
+      if (lilyEnabled) {
+        setPhase("chat");
+        setLilyMode(true);
+        // Open Lily
+        try {
+          const resp = await fetch(
+            `${API}/lily/open?session_id=${data.session_id}&session_token=${data.session_token}`,
+            { method: "POST" },
+          );
+          const r = await resp.json();
+          if (r?.message) {
+            setMessages((prev) => [...prev, r.message]);
+            speakLily(r.message.content);
+          }
+        } catch { /* ignore */ }
+      } else if (data.status === "queued") {
+        setPhase("queued");
+      } else {
+        setPhase("chat");
+      }
     } catch (err) {
       if (err.response?.status === 429) {
         setFormErr(err.response.data.detail || "Too many chats started. Try again later.");
@@ -204,13 +244,90 @@ export default function ChatWidget() {
     }
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (phase !== "chat") return;
     if (!text.trim() && pendingAttachments.length === 0) return;
-    send({ type: "message", content: text.trim(), attachments: pendingAttachments });
-    setText("");
-    setPendingAttachments([]);
-    flushTyping("");
+
+    if (lilyMode) {
+      // Send through Lily
+      const userText = text.trim();
+      setText("");
+      setPendingAttachments([]);
+      flushTyping("");
+      setLilyLoading(true);
+      setLilyOptions([]);
+      try {
+        const url = `${API}/lily/reply?session_id=${session.session_id}&session_token=${session.session_token}&text=${encodeURIComponent(userText)}`;
+        const resp = await fetch(url, { method: "POST" });
+        const data = await resp.json();
+        if (data?.message) {
+          // Cust msg was already broadcast via WS; Lily reply will arrive via WS too.
+          // But in case WS is slow, manually add:
+          setMessages((prev) => (prev.find((x) => x.id === data.message.id) ? prev : [...prev, data.message]));
+          setLilyEmotion(data.emotion || "neutral");
+          setLilyOptions(data.options || []);
+          speakLily(data.message.content);
+        }
+        if (data?.escalate) {
+          // Auto-handoff to human queue
+          await handoffToHuman();
+        }
+      } catch { /* ignore */ } finally {
+        setLilyLoading(false);
+      }
+    } else {
+      // Talking to a human agent via WebSocket
+      send({ type: "message", content: text.trim(), attachments: pendingAttachments });
+      setText("");
+      setPendingAttachments([]);
+      flushTyping("");
+    }
+  };
+
+  const handoffToHuman = async () => {
+    if (!session) return;
+    try {
+      const resp = await fetch(
+        `${API}/lily/handoff?session_id=${session.session_id}&session_token=${session.session_token}`,
+        { method: "POST" },
+      );
+      const data = await resp.json();
+      setLilyMode(false);
+      setLilyOptions([]);
+      cancelSpeak();
+      setLilySpeaking(false);
+      if (data.status === "queued") {
+        setQueuePosition(data.queue_position);
+        setPhase("queued");
+      } else {
+        setPhase("chat");
+      }
+    } catch { /* ignore */ }
+  };
+
+  const chooseLilyOption = async (opt) => {
+    // Send option label as a customer message via Lily flow
+    const oldText = text;
+    setText(opt.label);
+    setTimeout(() => {
+      setText(oldText);
+      // Send directly
+      const userText = opt.label;
+      setLilyLoading(true);
+      setLilyOptions([]);
+      fetch(
+        `${API}/lily/reply?session_id=${session.session_id}&session_token=${session.session_token}&text=${encodeURIComponent(userText)}`,
+        { method: "POST" }
+      ).then((r) => r.json()).then((data) => {
+        if (data?.message) {
+          setMessages((prev) => (prev.find((x) => x.id === data.message.id) ? prev : [...prev, data.message]));
+          setLilyEmotion(data.emotion || "neutral");
+          setLilyOptions(data.options || []);
+          speakLily(data.message.content);
+        }
+        if (data?.escalate) handoffToHuman();
+      }).finally(() => setLilyLoading(false));
+    }, 0);
   };
 
   const handleTyping = (val) => {
@@ -388,6 +505,34 @@ export default function ChatWidget() {
 
           {phase === "chat" && session && (
             <>
+              {/* Lily header */}
+              {lilyMode && (
+                <div className="px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-pink-50 via-amber-50 to-pink-50 flex items-center gap-3" data-testid="lily-header">
+                  <LilyAvatar emotion={lilyEmotion} speaking={lilySpeaking} size={44} />
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                      Lily
+                      <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-100 px-1.5 rounded-full">在线</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">您的专属 AI 助手 · 提供情绪价值</div>
+                  </div>
+                  <button
+                    onClick={() => setTtsOn((v) => { if (v) cancelSpeak(); return !v; })}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-white/70"
+                    title="开/关语音"
+                    data-testid="lily-tts-toggle"
+                  >
+                    {ttsOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={handoffToHuman}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 px-2 py-1 rounded-lg hover:bg-white/70"
+                    data-testid="lily-handoff-btn"
+                  >
+                    <UserCog className="w-3 h-3 inline mr-1" /> 转人工
+                  </button>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30" data-testid="chat-messages">
                 {messages.map((m) => {
                   const isCustomer = m.sender_type === "customer";
@@ -456,6 +601,29 @@ export default function ChatWidget() {
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Lily option buttons */}
+              {lilyMode && lilyOptions.length > 0 && (
+                <div className="px-3 py-2 border-t border-slate-100 bg-white flex flex-wrap gap-1.5" data-testid="lily-options">
+                  {lilyOptions.map((o) => (
+                    <button
+                      key={o.key}
+                      onClick={() => chooseLilyOption(o)}
+                      className="text-xs font-semibold rounded-full px-3 py-1.5 border transition-colors bg-gradient-to-r from-pink-50 to-amber-50 border-pink-200 text-slate-700 hover:from-pink-100 hover:to-amber-100"
+                      data-testid={`lily-option-${o.key}`}
+                    >
+                      <span className="mr-1">{o.emoji}</span>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {lilyMode && lilyLoading && (
+                <div className="px-4 py-1 flex items-center gap-2 text-[11px] text-slate-400 border-t border-slate-100 bg-white">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Lily 正在思考…
                 </div>
               )}
 

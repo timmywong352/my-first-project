@@ -67,6 +67,7 @@ DEFAULT_SETTINGS = {
     "business_hours_start": "09:00",
     "business_hours_end": "18:00",
     "business_days": [0, 1, 2, 3, 4],
+    "lily_enabled": True,
 }
 
 

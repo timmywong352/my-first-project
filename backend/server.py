@@ -24,6 +24,7 @@ from routers import agents as agents_router
 from routers import auth as auth_router
 from routers import chat as chat_router
 from routers import files as files_router
+from routers import lily as lily_router
 from routers import quick_replies as qr_router
 from routers import ws as ws_router
 from scheduler import scheduler_loop
@@ -55,6 +56,7 @@ api.include_router(qr_router.router)
 api.include_router(admin_router.router)
 api.include_router(files_router.router)
 api.include_router(ws_router.router)
+api.include_router(lily_router.router)
 
 
 @api.get("/")

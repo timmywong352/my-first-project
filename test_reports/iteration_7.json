@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 7 — Lily AI concierge fully tested (backend + frontend). All 12 pytest cases pass. Widget shows Lily header, avatar, TTS toggle, handoff button, options bubble with 4 buttons that trigger /lily/reply. Dashboard shows emotion badge and CustomerMemoryPanel with 来访次数 / past issues / complaint count / emotion distribution. Admin toggle correctly disables Lily. Emotion detection returned 'angry' with confidence 0.95 and an apology-first reply; escalate=true on '我要转人工'; WS emotion_update broadcast verified live to agent websocket.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter7_lily.py",
+    "/app/test_reports/pytest/iter7_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/lily.py:handoff — imports route_new_session/agent_active_count/clean_session inside function; consider top-level for readability but not blocking.",
+    "lily_service.py:_call_llm swallows all exceptions and returns empty string, which triggers a fallback reply. This masks LLM outages — consider logging failure count/emitting metric so operators notice provider-side incidents.",
+    "chat.py session-creation rate limit (5/hr per IP) is aggressive for shared preview/prod IPs; conftest already purges 127.0.0.1 to work around this. Non-blocking, but worth documenting for e2e users."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter7_lily.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": "admin@livechat.com/admin123, agent@livechat.com/agent123",
+  "seed_data_creation": "Test file creates TEST_lily_* / TEST_dash_* prefixed customer sessions; conftest purges IP-based session records before each test to bypass 5/hr rate limit.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Rate limit 5/hr per IP on /api/chat/session is real; purge db.sessions by customer_ip before mass e2e runs. LLM (Claude Sonnet 4.6 via Emergent key) is live and returns valid JSON per LILY_SYSTEM prompt — emotion detection classifies '你们太慢了/太差了/生气' as 'angry' with confidence > 0.9. Frontend Lily header only shows in Lily phase (after prechat submit); after handoff or when disabled globally, widget skips straight to human queue.",
+  "rca of the issue": "No unresolved issues. Initial pytest failures were payload-schema drift in the test script (chat.SessionCreate uses name/email/subject, not customer_name/customer_email/initial_message) — fixed in test file."
+}

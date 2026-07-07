@@ -51,6 +51,7 @@ class SettingsBody(BaseModel):
     inactivity_auto_transfer: Optional[bool] = None
     inactivity_auto_message: Optional[str] = None
     inactivity_close_minutes: Optional[int] = None
+    lily_enabled: Optional[bool] = None
 
 
 class CsatBody(BaseModel):

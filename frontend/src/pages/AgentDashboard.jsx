@@ -8,6 +8,7 @@ import { useAgentSessions } from "@/hooks/useAgentSessions";
 import { useArchiveSearch } from "@/hooks/useArchiveSearch";
 import { useAgentLoad, MAX_ACTIVE_CHATS } from "@/hooks/useAgentLoad";
 import { useThrottledTyping } from "@/hooks/useThrottledTyping";
+import { EMOTION_LABELS } from "@/components/LilyAvatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -207,6 +208,8 @@ export default function AgentDashboard() {
       sess.loadSessions();
       refreshLoad();
       sess.patchSession(data.session_id, { status: "closed", summary: data.summary });
+    } else if (data.type === "emotion_update") {
+      sess.patchSession(data.session_id, { current_emotion: data.emotion });
     } else if (data.type === "agent_status" && data.agent_id === user?.id) {
       setStatus(data.status);
     }
@@ -460,6 +463,12 @@ export default function AgentDashboard() {
                     {(s.status === "closed" || isArchivedView) && (
                       <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-100 border-0">Closed</Badge>
                     )}
+                    {s.current_emotion && EMOTION_LABELS[s.current_emotion] && (
+                      <Badge variant="secondary" data-testid={`emotion-badge-${s.id}`}
+                        className={`text-[10px] py-0 px-1.5 h-4 border-0 hover:opacity-90 ${EMOTION_LABELS[s.current_emotion].color}`}>
+                        {EMOTION_LABELS[s.current_emotion].emoji} {EMOTION_LABELS[s.current_emotion].label}
+                      </Badge>
+                    )}
                     {customerTyping[s.id] && <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">typing…</span>}
                     {s.csat_rating && <span className="text-[10px] text-amber-500">{"★".repeat(s.csat_rating)}</span>}
                   </div>
@@ -688,6 +697,8 @@ export default function AgentDashboard() {
                 <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-lg p-3">{currentSession.summary}</div>
               </div>
             )}
+
+            <CustomerMemoryPanel email={currentSession.customer_email} />
           </div>
         ) : (
           <div className="p-6 text-center text-sm text-slate-400">
@@ -741,6 +752,57 @@ function Row({ label, value }) {
     <div className="flex justify-between py-1.5 border-b border-slate-50 dark:border-slate-800">
       <span className="text-slate-500 dark:text-slate-400">{label}</span>
       <span className="text-slate-900 dark:text-slate-100 font-medium text-right max-w-[180px] truncate">{value}</span>
+    </div>
+  );
+}
+
+function CustomerMemoryPanel({ email }) {
+  const [mem, setMem] = useState(null);
+  useEffect(() => {
+    if (!email) return;
+    api.get(`/lily/memory?email=${encodeURIComponent(email)}`).then(({ data }) => setMem(data)).catch(() => setMem(null));
+  }, [email]);
+  if (!mem || !mem.email) return null;
+  const emo = mem.emotion_history || [];
+  const counts = emo.reduce((acc, e) => ((acc[e.emotion] = (acc[e.emotion] || 0) + 1), acc), {});
+  return (
+    <div data-testid="customer-memory-panel">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1">
+        <span>🧠</span> Lily 记忆
+      </div>
+      <div className="text-xs space-y-2 bg-pink-50/40 dark:bg-pink-950/20 border border-pink-100 dark:border-pink-900/40 rounded-lg p-3">
+        <div className="flex justify-between">
+          <span className="text-slate-500 dark:text-slate-400">来访次数</span>
+          <span className="font-semibold">{mem.session_count || 1}</span>
+        </div>
+        {mem.past_issues?.length > 0 && (
+          <div>
+            <div className="text-slate-500 dark:text-slate-400 mb-1">最近问过</div>
+            <ul className="space-y-0.5">
+              {mem.past_issues.slice(-3).map((i, idx) => (
+                <li key={idx} className="text-slate-700 dark:text-slate-300 truncate">• {i.text}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {mem.past_complaints?.length > 0 && (
+          <div className="text-rose-600 dark:text-rose-400 font-semibold">⚠️ 历史投诉 {mem.past_complaints.length} 次</div>
+        )}
+        {Object.keys(counts).length > 0 && (
+          <div>
+            <div className="text-slate-500 dark:text-slate-400 mb-1">情绪分布</div>
+            <div className="flex flex-wrap gap-1">
+              {Object.entries(counts).map(([k, v]) => (
+                EMOTION_LABELS[k] && (
+                  <span key={k} className={`text-[10px] px-1.5 py-0.5 rounded-full ${EMOTION_LABELS[k].color}`}>
+                    {EMOTION_LABELS[k].emoji} {v}
+                  </span>
+                )
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

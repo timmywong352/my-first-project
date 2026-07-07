@@ -406,11 +406,28 @@ export default function AdminDashboard() {
           {/* QUICK REPLIES */}
           <TabsContent value="inactivity" className="space-y-6">
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-1">Inactivity Rules</h1>
-              <p className="text-sm text-slate-500">Send a nudge if no one responds, auto-transfer to another agent, and close stale chats.</p>
+              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-1">Lily & Inactivity Rules</h1>
+              <p className="text-sm text-slate-500">Toggle the AI assistant Lily and configure inactivity behaviour.</p>
             </div>
             {settings && (
               <Card className="p-6 border-slate-200 bg-white space-y-5 max-w-2xl">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-pink-50 via-amber-50 to-pink-50 border border-pink-100">
+                  <div>
+                    <div className="font-bold text-slate-900 flex items-center gap-1.5">🧠 Lily AI 数字客服</div>
+                    <p className="text-xs text-slate-600 mt-1">开启后 Lily 会优先接待新客户，识别情绪并提供关怀。客户随时可点"转人工"进入排队。</p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.lily_enabled !== false}
+                      onChange={(e) => setSettings({ ...settings, lily_enabled: e.target.checked })}
+                      className="w-5 h-5 rounded accent-pink-500"
+                      data-testid="lily-enabled-toggle"
+                    />
+                    <span className="text-sm font-semibold text-slate-700">{settings.lily_enabled !== false ? "已启用" : "已关闭"}</span>
+                  </label>
+                </div>
+
                 <div>
                   <Label>First-response timeout (minutes)</Label>
                   <div className="flex gap-1.5 mt-2 flex-wrap">
