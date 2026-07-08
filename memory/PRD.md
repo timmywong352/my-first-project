@@ -9,20 +9,30 @@ A live chat web application (React + FastAPI + MongoDB) with:
    a video-call-like receptionist. Options → immediate handoff to human agent.
 
 ## Current State (Feb 2026)
-Fully functional live chat platform with an integrated **3D VRM digital human "Lily"**.
+Fully functional live chat platform with an integrated **realistic AI-generated
+digital human "Lily"**.
+
 - Widget skips the pre-chat form; opens directly into the Lily stage.
-- Lily is now rendered as a **real 3D anime girl** via three.js + @pixiv/three-vrm
-  (`/models/lily.vrm`) with blink/lip-sync/emotion blend-shapes, head sway, breathing,
-  and spring-bone hair physics. Automatic fallback to a 2.5D layered image renderer
-  if the VRM asset fails to load.
+- **Lily portrait is AI-generated via Nano Banana** (`gemini-3.1-flash-image-preview`
+  through the Emergent Universal LLM Key) — photorealistic female support agent
+  in a royal-blue blazer, mouth-closed friendly smile, 1019×1019. Served as
+  `/lily_realistic.png` from the frontend `public/` folder.
+- Rendered via the **2.5D animation layer** (`LilyLiveAvatar.jsx`): SVG-overlay
+  blinks (with 20 % double / 5 % triple clusters), CSS breathing, multi-sine
+  head tilt, mouth-close feedback while speaking, click pulse.
+- Widget switched to **dark theme** (slate-950 header / slate-900 body / blue
+  primary buttons) after boss feedback on the previous pink/amber palette.
 - Voice: **OpenAI TTS (`tts-1`, voice `nova`)** streamed through backend
   `/api/lily/tts` using the Emergent Universal LLM Key.
-- UI language currently English; backend already supports `en / zh / ms` via
-  `?lang=` parameter (see `lily_service.opening_message` / `options_for_lang`).
-- Anonymous session (localStorage `client_id`) + optional inline email capture
-  so returning visitors keep their memory.
+- Clicking Lily's avatar plays a NEW random English greeting from a 5-entry
+  pool with `exclude` filter so consecutive greetings never repeat. Ignored
+  while she's currently speaking.
+- Anonymous session (localStorage `client_id`) + optional inline email capture.
 - Any option click or free text in Lily mode → immediate handoff to the human
   queue with the customer's context saved as the first message.
+- 3D VRM path (`@pixiv/three-vrm`) remains available as `mode="3d"` in
+  `LilyAvatar`; the default `vrmUrl` is `/models/lily.vrm` (10.7 MB pixiv
+  sample). Ready Player Me was considered but shut down on 2026-01-31.
 
 ## Architecture
 ```
