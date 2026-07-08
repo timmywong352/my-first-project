@@ -1,0 +1,37 @@
+{
+  "summary": "Iter12 (LiveChat-style scroll-back) verified end-to-end. Backend GET /api/chat/threads/{sid}: 6/6 pytest pass (auth guard, 404, chronological ordering with anchor last, soft-deleted filter, email-linked, public close regression). Frontend AgentDashboard: prior-thread-<sid> block renders with Started divider + Archived footer above the current thread, current-thread-divider present when priors exist and absent otherwise, prior msgs dimmed (opacity 0.9), composer targets the current session only, returning-customer-badge shows correct count.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter12_threads.py",
+    "/app/test_reports/pytest/iter12_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AgentDashboard.jsx is now ~964 lines (grew 100 lines this iter with the scroll-back block) — exceeds the 700-line split guideline. Recommend extracting `PriorThreadsScrollback` and `MessagesList` sub-components for maintainability.",
+    "In the threads endpoint, the anchor-last ordering relies purely on `created_at` sort — if two sessions share timestamps the anchor could theoretically end up not last. In practice sessions have distinct created_at so it's fine; consider `.sort([('created_at', 1), ('id', 1)])` as a stable tiebreak. Low priority.",
+    "No AI 'Previous thread summary' amber card appeared for the prior thread in this run because the session was closed immediately with zero messages so ai_summarize returned falsy/short — expected per problem-statement note. Code path is guarded by `th.session.summary && …` so the omission is correct.",
+    "The scroll-back keeps rendering prior threads even in Archived tab if selected there — read-only path is fine but ai_suggest / composer are hidden so no user-facing issue."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter12_threads.py"],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100%"},
+  "test_credentials": "agent@livechat.com/agent123 (agent), admin@livechat.com/admin123 (admin)",
+  "seed_data_creation": "Test creates anon sessions with unique client_id prefixes 'iter12_' / 'testcid_' / 'lonely_' — auto-purged before each pytest run and are namespaced away from other iterations.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login response uses key `token` (not `access_token`). Threads endpoint: /api/chat/threads/{sid} needs Bearer token. Anon session placeholder_email is deterministic from client_id (both sessions get SAME email — so email-linkage and client_id-linkage both find them). AgentDashboard uses api.get('/chat/threads/{sid}') on selection to populate priorThreads state; the current-thread-divider is only rendered when priorThreads.length > 0.",
+  "verification": {
+    "backend_auth_guard": "PASS — 403 without token",
+    "backend_404": "PASS — non-existent sid returns 404",
+    "backend_anon_client_id_link": "PASS — both anon sessions returned; anchor last (ordered oldest→newest by created_at)",
+    "backend_soft_delete_filter": "PASS — deleted:true message excluded from messages array",
+    "backend_email_link_when_no_cid": "PASS — prechat sessions linked by customer_email",
+    "backend_regression_public_close": "PASS — /api/chat/public/{sid}/close still 200s and marks closed with reason customer_closed",
+    "frontend_prior_thread_rendered": "PASS — prior-thread-<sid1> visible with 'Started · Today HH:MM' + 'Archived · customer closed the chat · HH:MM'",
+    "frontend_current_thread_divider_present": "PASS — visible when prior threads exist",
+    "frontend_lonely_session_no_scrollback": "PASS — 0 prior-thread-* elements AND no current-thread-divider when customer has only 1 session",
+    "frontend_prior_dimmed_vs_current": "PASS — prior wrapper computed opacity=0.9",
+    "frontend_composer_targets_current": "PASS — agent message 'hello from agent current thread' appears in current thread and NOT inside prior-thread-<sid1>",
+    "frontend_returning_customer_badge": "PASS — 'Returning customer · 1 previous chat' rendered"
+  }
+}

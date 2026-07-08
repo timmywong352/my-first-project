@@ -246,6 +246,38 @@ async def public_get_messages(session_id: str, session_token: str = Query(...)):
     return out
 
 
+@router.get("/threads/{session_id}")
+async def session_threads(session_id: str, user: dict = Depends(get_current_user)):
+    """Return all sessions belonging to the same customer as ``session_id`` —
+    each with its messages — so the agent can scroll back through prior
+    threads (LiveChat-style thread history).
+
+    Sessions are linked by ``client_id`` for anon visitors, otherwise by
+    ``customer_email``. Ordered oldest → newest; the last item is the
+    currently-selected session so the composer stays aligned with it.
+    """
+    anchor = await db.sessions.find_one({"id": session_id})
+    if not anchor:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    query: Dict[str, Any]
+    if anchor.get("client_id"):
+        query = {"client_id": anchor["client_id"]}
+    else:
+        query = {"customer_email": (anchor.get("customer_email") or "").lower()}
+
+    cur = db.sessions.find(query).sort("created_at", 1).limit(20)
+    threads = []
+    async for s in cur:
+        msgs = await db.messages.find(
+            {"session_id": s["id"], "deleted": {"$ne": True}},
+        ).sort("created_at", 1).to_list(1000)
+        for m in msgs:
+            m.pop("_id", None)
+        threads.append({"session": clean_session(s), "messages": msgs})
+    return threads
+
+
 @router.get("/history/{email}")
 async def customer_history(email: str, user: dict = Depends(get_current_user)):
     """Return past sessions for a customer.

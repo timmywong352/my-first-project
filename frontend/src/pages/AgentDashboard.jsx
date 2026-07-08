@@ -39,6 +39,19 @@ function fileIcon(ct) {
 }
 const formatTime = (iso) => { try { return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
 const formatDate = (iso) => { try { return new Date(iso).toLocaleDateString(); } catch { return ""; } };
+const formatDateTime = (iso) => {
+  try {
+    const d = new Date(iso);
+    const today = new Date();
+    const yesterday = new Date(today.getTime() - 86400000);
+    const isToday = d.toDateString() === today.toDateString();
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (isToday) return `Today ${time}`;
+    if (isYesterday) return `Yesterday ${time}`;
+    return `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${time}`;
+  } catch { return ""; }
+};
 
 function AgentAttachment({ att }) {
   const token = localStorage.getItem("token");
@@ -102,6 +115,7 @@ export default function AgentDashboard() {
   const [history, setHistory] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyCount, setHistoryCount] = useState(0); // Bug 4: how many past sessions for this customer
+  const [priorThreads, setPriorThreads] = useState([]); // scroll-back threads for the same customer
   // Bug 5: track un-read customer messages per session
   const [unread, setUnread] = useState({});   // { sessionId: number }
   const selectedIdRef = useRef(null);
@@ -169,17 +183,26 @@ export default function AgentDashboard() {
   useEffect(() => {
     if (!currentSession?.customer_email) {
       setHistoryCount(0);
+      setPriorThreads([]);
       return;
     }
     let cancelled = false;
-    api.get(`/chat/history/${encodeURIComponent(currentSession.customer_email)}`)
+    // Full threaded history — used both for the "Returning customer" count
+    // AND for the scroll-back rendering of previous chats above the current one.
+    api.get(`/chat/threads/${currentSession.id}`)
       .then(({ data }) => {
         if (cancelled) return;
-        // Exclude the current session from the "previous" count
-        const others = (data || []).filter((s) => s.id !== currentSession.id);
-        setHistoryCount(others.length);
+        const all = Array.isArray(data) ? data : [];
+        // Everything BEFORE the current session becomes scroll-back history.
+        const prior = all.filter((t) => t.session.id !== currentSession.id);
+        setPriorThreads(prior);
+        setHistoryCount(prior.length);
       })
-      .catch(() => !cancelled && setHistoryCount(0));
+      .catch(() => {
+        if (cancelled) return;
+        setPriorThreads([]);
+        setHistoryCount(0);
+      });
     return () => { cancelled = true; };
   }, [currentSession?.customer_email, currentSession?.id]);
 
@@ -566,6 +589,85 @@ export default function AgentDashboard() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 bg-slate-50/30 dark:bg-slate-950/50" data-testid="messages-container">
+              {/* ── Scroll-back: previous threads for this customer ── */}
+              {priorThreads.map((th) => (
+                <div key={th.session.id} data-testid={`prior-thread-${th.session.id}`} className="space-y-3 opacity-90">
+                  {/* Thread start divider */}
+                  <div className="relative flex items-center py-4">
+                    <div className="flex-grow border-t border-dashed border-slate-300 dark:border-slate-700"></div>
+                    <span className="mx-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap bg-slate-50/30 dark:bg-slate-950/50 px-2">
+                      Started · {formatDateTime(th.session.created_at)}
+                    </span>
+                    <div className="flex-grow border-t border-dashed border-slate-300 dark:border-slate-700"></div>
+                  </div>
+
+                  {/* Previous thread summary (Copilot / AI) */}
+                  {th.session.summary && (
+                    <div className="flex justify-end">
+                      <div className="max-w-[75%] rounded-2xl border border-amber-300/40 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-slate-800 dark:text-amber-100 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 mb-1.5">
+                          <Sparkles className="w-3 h-3" /> Previous thread summary
+                        </div>
+                        <div className="text-[13px] leading-relaxed whitespace-pre-wrap">{th.session.summary}</div>
+                        <div className="mt-2 text-[10px] italic text-amber-600/70 dark:text-amber-400/60">Internal note</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Prior thread messages (read-only, dimmed) */}
+                  {th.messages.map((m) => {
+                    const isAgent = m.sender_type === "agent";
+                    const isLily = m.sender_type === "lily";
+                    return (
+                      <div key={m.id} className={`flex ${isAgent ? "justify-end" : "justify-start"}`}>
+                        <div className="max-w-[70%] space-y-1">
+                          {!isAgent && (
+                            <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 px-1 uppercase tracking-wider">
+                              {m.sender_name}{isLily && " · AI"}
+                            </div>
+                          )}
+                          {m.content && (
+                            <div className={`px-4 py-2 text-[13px] rounded-2xl shadow-sm ${
+                              isAgent
+                                ? "bg-blue-500/70 text-white rounded-tr-sm"
+                                : isLily
+                                  ? "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 rounded-tl-sm border border-slate-200 dark:border-slate-700 italic"
+                                  : "bg-white/80 dark:bg-slate-800/60 text-slate-800 dark:text-slate-200 rounded-tl-sm border border-slate-200 dark:border-slate-700"
+                            }`}>
+                              {m.content}
+                            </div>
+                          )}
+                          <div className={`text-[9px] text-slate-400 dark:text-slate-600 ${isAgent ? "text-right" : "text-left"}`}>
+                            {formatTime(m.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Archived footer */}
+                  <div className="text-center text-[11px] text-slate-400 dark:text-slate-500 italic pt-1">
+                    Archived · {th.session.closed_reason === "customer_closed"
+                      ? "customer closed the chat"
+                      : th.session.closed_reason === "inactivity"
+                        ? "closed due to inactivity"
+                        : "chat ended"}
+                    {th.session.closed_at && <> · {formatTime(th.session.closed_at)}</>}
+                  </div>
+                </div>
+              ))}
+
+              {/* ── Current thread divider (only when prior threads exist) ── */}
+              {priorThreads.length > 0 && (
+                <div className="relative flex items-center py-4" data-testid="current-thread-divider">
+                  <div className="flex-grow border-t border-slate-400 dark:border-slate-600"></div>
+                  <span className="mx-3 text-[11px] font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap bg-slate-50/30 dark:bg-slate-950/50 px-2 uppercase tracking-wider">
+                    Started · {formatDateTime(currentSession.created_at)}
+                  </span>
+                  <div className="flex-grow border-t border-slate-400 dark:border-slate-600"></div>
+                </div>
+              )}
+
               {messages.map((m) => {
                 const isAgent = m.sender_type === "agent";
                 const isMine = isAgent && m.sender_id === user.id;
