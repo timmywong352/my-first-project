@@ -248,7 +248,23 @@ async def public_get_messages(session_id: str, session_token: str = Query(...)):
 
 @router.get("/history/{email}")
 async def customer_history(email: str, user: dict = Depends(get_current_user)):
-    cur = db.sessions.find({"customer_email": email.lower()}).sort("created_at", -1).limit(50)
+    """Return past sessions for a customer.
+
+    Same-device anonymous visitors all reuse a stable localStorage ``client_id``
+    (persisted in ``session.client_id``). Their placeholder emails follow the
+    pattern ``anon_<client_id_short>@anon.pulse.local``. When the incoming
+    email matches that pattern we look up sessions by the underlying
+    ``client_id`` so the agent sees the ENTIRE history for the device, not
+    just for one arbitrary anon email.
+    """
+    email = email.lower()
+    query: Dict[str, Any] = {"customer_email": email}
+    # Detect anon placeholder → widen to all sessions with that client_id
+    if email.endswith("@anon.pulse.local"):
+        s = await db.sessions.find_one({"customer_email": email})
+        if s and s.get("client_id"):
+            query = {"client_id": s["client_id"]}
+    cur = db.sessions.find(query).sort("created_at", -1).limit(50)
     out = []
     async for s in cur:
         out.append(clean_session(s))

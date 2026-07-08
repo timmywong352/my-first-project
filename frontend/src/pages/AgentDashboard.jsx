@@ -101,6 +101,10 @@ export default function AgentDashboard() {
   const [editText, setEditText] = useState("");
   const [history, setHistory] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyCount, setHistoryCount] = useState(0); // Bug 4: how many past sessions for this customer
+  // Bug 5: track un-read customer messages per session
+  const [unread, setUnread] = useState({});   // { sessionId: number }
+  const selectedIdRef = useRef(null);
 
   const sess = useAgentSessions();
   const arch = useArchiveSearch(sess.activeTab === "archived");
@@ -145,13 +149,39 @@ export default function AgentDashboard() {
   }, [sess.activeTab]);
 
   useEffect(() => {
+    selectedIdRef.current = selectedId;
     if (selectedId) {
       loadMessages(selectedId);
       setSuggestions([]);
+      // Bug 5: clear unread badge for the session we're now viewing
+      setUnread((prev) => {
+        if (!prev[selectedId]) return prev;
+        const { [selectedId]: _drop, ...rest } = prev;
+        return rest;
+      });
     } else {
       setMessages([]);
+      setHistoryCount(0);
     }
   }, [selectedId, loadMessages]);
+
+  // Bug 4: passive fetch of customer's prior sessions whenever selection changes
+  useEffect(() => {
+    if (!currentSession?.customer_email) {
+      setHistoryCount(0);
+      return;
+    }
+    let cancelled = false;
+    api.get(`/chat/history/${encodeURIComponent(currentSession.customer_email)}`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        // Exclude the current session from the "previous" count
+        const others = (data || []).filter((s) => s.id !== currentSession.id);
+        setHistoryCount(others.length);
+      })
+      .catch(() => !cancelled && setHistoryCount(0));
+    return () => { cancelled = true; };
+  }, [currentSession?.customer_email, currentSession?.id]);
 
   useEffect(() => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -181,6 +211,10 @@ export default function AgentDashboard() {
         playPing();
         setCustomerTyping((p) => ({ ...p, [m.session_id]: false }));
         setCustomerPreview((p) => ({ ...p, [m.session_id]: "" }));
+        // Bug 5: bump unread badge for any session the agent isn't viewing
+        if (m.session_id !== selectedIdRef.current) {
+          setUnread((prev) => ({ ...prev, [m.session_id]: (prev[m.session_id] || 0) + 1 }));
+        }
       }
     } else if (data.type === "message_edited") {
       if (data.message.session_id === selectedId) {
@@ -443,12 +477,20 @@ export default function AgentDashboard() {
                 `hover:bg-slate-50 dark:hover:bg-slate-800/50 ${isArchivedView ? "bg-slate-50/40 dark:bg-slate-900/40" : ""}`
               }`}>
               <div className="flex items-start gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${isArchivedView ? "bg-slate-400 dark:bg-slate-600" : "bg-gradient-to-br from-blue-400 to-blue-600"}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 relative ${isArchivedView ? "bg-slate-400 dark:bg-slate-600" : "bg-gradient-to-br from-blue-400 to-blue-600"}`}>
                   {isArchivedView ? <Archive className="w-4 h-4" /> : (s.customer_name?.[0]?.toUpperCase() || "?")}
+                  {unread[s.id] > 0 && !isArchivedView && (
+                    <span
+                      data-testid={`unread-badge-${s.id}`}
+                      className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 border-2 border-white dark:border-slate-900 text-[9px] text-white font-bold leading-none flex items-center justify-center shadow"
+                    >
+                      {unread[s.id] > 9 ? "9+" : unread[s.id]}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">{s.customer_name}</span>
+                    <span className={`font-semibold text-sm truncate ${unread[s.id] > 0 && !isArchivedView ? "text-slate-900 dark:text-white" : "text-slate-900 dark:text-slate-100"}`}>{s.customer_name}</span>
                     <span className="text-[10px] text-slate-400 shrink-0 ml-2">{isArchivedView ? formatDate(s.closed_at || s.created_at) : formatTime(s.last_message_at)}</span>
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{s.subject}</div>
@@ -668,6 +710,16 @@ export default function AgentDashboard() {
               </div>
               <div className="font-bold text-slate-900 dark:text-slate-100">{currentSession.customer_name}</div>
               <div className="text-xs text-slate-500 dark:text-slate-400">{currentSession.customer_email}</div>
+              {historyCount > 0 && (
+                <button
+                  onClick={openHistory}
+                  data-testid="returning-customer-badge"
+                  className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[11px] font-semibold border border-amber-200 dark:border-amber-900 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Returning customer · {historyCount} previous {historyCount === 1 ? "chat" : "chats"}
+                </button>
+              )}
             </div>
             <div className="space-y-1">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Details</div>

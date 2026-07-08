@@ -1,0 +1,30 @@
+{
+  "summary": "Verified iter11 bug fixes: Bug 4 (anon client_id-widened history), Bug 5 (unread red-dot badge in sidebar), Bug 6 audit (no FRONTEND_TEST_MSG string in repo). Backend pytest 5/5 pass. Frontend Playwright flow all assertions pass. Light regression (public close, lily open) OK.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter11_bugs.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AgentDashboard.jsx is ~862 lines — nearing the 700-line split threshold; consider extracting the sidebar list + customer-info panel into sub-components.",
+    "Bug 4 note: since placeholder_email is deterministically derived from client_id, both anon sessions with the same client_id share the SAME email. The widening branch in customer_history is therefore effectively defensive (still correct)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter11_bugs.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created 3 anon sessions per playwright run (2 same-cid, 1 distinct). Test DB purged before each run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Admin user (admin@livechat.com) is routed to /admin, not /dashboard. Use agent@livechat.com/agent123 to test AgentDashboard flows. Sidebar items expose data-testid='session-item-<id>'. Composer testids: agent-input, agent-send-btn.",
+  "test_credentials": "admin@livechat.com/admin123 (admin), agent@livechat.com/agent123 (agent)",
+  "verification": {
+    "bug4_backend_widening": "PASS — both anon sessions returned for both placeholder emails",
+    "bug4_backend_literal": "PASS — real-email history is literal, not widened",
+    "bug4_frontend_badge_visible": "PASS — 'Returning customer · 1 previous chat' shown on second anon session",
+    "bug4_frontend_badge_absent_for_lone": "PASS — badge not rendered when historyCount==0",
+    "bug5_unread_badge_increment": "PASS — unread-badge-<sid> shows '2' after 2 customer WS messages on non-selected session",
+    "bug5_unread_badge_clears_on_select": "PASS — badge removed from DOM after clicking session",
+    "bug6_audit": "PASS — grep -r FRONTEND_TEST_MSG returned 0 matches (excluding this test file)"
+  }
+}
