@@ -13,23 +13,22 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 
-// AI-generated cute BLUE ROBOT mascot portrait (1000 × 1000, non-anime, non-human).
-// The image lives in /app/frontend/public and is served as a static asset.
+// AI-generated cyberpunk-style BLUE ROBOT mascot portrait (833 × 833).
+// Cyan neon glow on dark charcoal chassis — inspired by the reference the user shared.
 export const LILY_IMAGE_URL = "/lily_robot.png";
 
-// Facial landmark coordinates in the ORIGINAL 1000×1000 pixel space
-// (derived from image analysis of the AI-generated robot portrait).
+// Facial landmark coordinates in the ORIGINAL 833×833 pixel space.
 const LANDMARKS = {
-  leftEye:  { cx: 370, cy: 470, rx: 70, ry: 100 },
-  rightEye: { cx: 630, cy: 470, rx: 70, ry: 100 },
-  mouth:    { cx: 500, cy: 620, rx: 120, ry: 40 },
+  leftEye:  { cx: 308, cy: 400, rx: 67, ry: 92 },
+  rightEye: { cx: 525, cy: 400, rx: 67, ry: 92 },
+  mouth:    { cx: 417, cy: 524, rx: 142, ry: 42 },
   headPivotPct: { x: 50, y: 50 },
 };
 
 // Robot palette — used to cover eyes on blink & animate the mouth speaker.
-const FACE_PLATE = "#3953E8"; // robot chassis blue (covers eye when blinking)
-const EYE_GLOW   = "#34F6FF"; // cyan eye-light colour, also mouth speaker glow
-const LASH       = "#0b1a4a"; // deep navy — used as blink-line accent
+const FACE_PLATE = "#1A1A1A"; // dark chassis — covers eye LEDs on blink
+const EYE_GLOW   = "#00FFFF"; // electric cyan — for speaker/waveform accents
+const LASH       = "#003a3a"; // deep teal — subtle blink accent line
 
 // Emotion → animation config (breathing speed, tilt amplitude, mouth shape)
 const EMOTION_CONFIG = {
@@ -128,8 +127,8 @@ export default function LilyLiveAvatar({
     return cycle[mouthPulse] || 4;
   }, [speaking, mouthPulse]);
 
-  const eyeRy = blink ? 1.5 : 0; // 0 = eyelid invisible, ~100 = eye lights fully off
-  const openEyeRy = blink ? 100 : 0;
+  const eyeRy = blink ? 1.5 : 0; // 0 = eyelid invisible, ~92 = eye lights fully off
+  const openEyeRy = blink ? 92 : 0;
 
   // ── VRM stub (future-proof) ────────────────────────────
   if (vrmUrl) {
@@ -157,7 +156,7 @@ export default function LilyLiveAvatar({
         className={`relative rounded-full overflow-hidden ring-4 shadow-2xl transition-all duration-300 ${
           onAvatarClick ? "cursor-pointer hover:ring-blue-300/90 hover:scale-[1.03] active:scale-[0.98]" : ""
         } ${speaking ? "ring-blue-300/80 shadow-blue-300/50" : "ring-white/60"}`}
-        style={{ width: size, height: size, background: "radial-gradient(circle at 50% 30%, #dbeeff 0%, #a8ccff 45%, #7aa5e0 100%)" }}
+        style={{ width: size, height: size, background: "radial-gradient(circle at 50% 35%, #0d2540 0%, #051328 55%, #010a1c 100%)" }}
         data-testid="lily-avatar"
         data-emotion={emotion}
         data-speaking={speaking ? "true" : "false"}
@@ -184,7 +183,7 @@ export default function LilyLiveAvatar({
 
           {/* SVG overlay — coordinate space matches the source image exactly */}
           <svg
-            viewBox="0 0 1000 1000"
+            viewBox="0 0 833 833"
             preserveAspectRatio="xMidYMid slice"
             className="absolute inset-0 w-full h-full pointer-events-none"
           >

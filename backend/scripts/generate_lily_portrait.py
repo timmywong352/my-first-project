@@ -31,20 +31,24 @@ async def main() -> int:
     )
 
     prompt = (
-        "Cute friendly robot mascot character named Lily, head-and-shoulders portrait, "
-        "front-facing symmetrical pose. Rounded polished chassis in soft ROYAL BLUE with "
-        "white and silver accents, slightly glossy plastic-like finish. "
-        "TWO clearly visible large round glowing EYE LIGHTS in a lighter cyan-blue, "
-        "positioned symmetrically like eyes on the face plate. "
-        "A small horizontal mouth panel BELOW the eyes — a thin, gentle upward-curved "
-        "smile shape (mouth CLOSED, no teeth), also glowing softly. "
-        "Cute, approachable, non-threatening — inspired by BB-8 / Wall-E / EVE from "
-        "Pixar. NOT anime, NOT a human face, NOT scary or industrial. "
-        "Simple antenna or small LED accents on top of the head. "
-        "The robot should look like a professional-yet-friendly customer support "
-        "assistant. Very subtle pink-to-blue gradient studio background. "
-        "3D-rendered but stylized / mascot art style — clean edges, soft shadows. "
-        "Sharp centered composition, 1:1 square aspect ratio, high quality 4K detail."
+        "A friendly, spherical robot mascot rendered in a high-end 3D digital art "
+        "style, front-facing head-and-shoulders composition. Main body is a perfect "
+        "sphere with a matte deep-charcoal / near-black finish (#1A1A1A). "
+        "Intricate glowing ELECTRIC CYAN circuit-board patterns (#00FFFF) are "
+        "etched across its surface, wrapping symmetrically around the face plate. "
+        "TWO LARGE ROUND WIDE-SET EYES: bright cyan glowing outer ring (#00FFFF), "
+        "vibrant blue iris (#0099CC), small dark pupils centered — expressive and "
+        "friendly, looking straight at the camera. MOUTH is a distinct glowing "
+        "electric blue SINE-WAVE / WAVEFORM (#00FFFF), symmetric, smooth outline, "
+        "conveying cheerful speech. Two thin cylindrical antennas rise from the "
+        "top of the head, each ending in a small glowing cyan orb. Two short "
+        "segmented arms with three-fingered hands extend from the sides. "
+        "The robot stands on a stylized luminous blue SPEECH-BUBBLE base (#00FFFF). "
+        "Background: dark navy-blue out-of-focus digital blur with subtle light "
+        "trails and grid particles. Lighting is dominated by the internal cyan "
+        "glow of the mascot itself, creating an atmospheric neon cyberpunk mood "
+        "that feels futuristic yet warm and inviting. NOT anime, NOT a human. "
+        "Sharp centered symmetric composition, 1:1 square aspect ratio, 4K quality."
     )
 
     print("Generating portrait…")
