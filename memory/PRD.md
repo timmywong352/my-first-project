@@ -14,9 +14,10 @@ digital human "Lily"**.
 
 - Widget skips the pre-chat form; opens directly into the Lily stage.
 - **Lily portrait is AI-generated via Nano Banana** (`gemini-3.1-flash-image-preview`
-  through the Emergent Universal LLM Key) — photorealistic female support agent
-  in a royal-blue blazer, mouth-closed friendly smile, 1019×1019. Served as
-  `/lily_realistic.png` from the frontend `public/` folder.
+  through the Emergent Universal LLM Key) — cute blue robot mascot (Wall-E / EVE
+  inspired), 1000×1000, chassis `#3953E8` blue, cyan eye lights `#34F6FF`.
+  Served as `/lily_robot.png` from the frontend `public/` folder.
+  Realistic-human portrait `/lily_realistic.png` also kept as an alternate.
 - Rendered via the **2.5D animation layer** (`LilyLiveAvatar.jsx`): SVG-overlay
   blinks (with 20 % double / 5 % triple clusters), CSS breathing, multi-sine
   head tilt, mouth-close feedback while speaking, click pulse.

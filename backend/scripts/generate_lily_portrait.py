@@ -31,17 +31,20 @@ async def main() -> int:
     )
 
     prompt = (
-        "Photorealistic head-and-shoulders portrait of a friendly female customer "
-        "support representative named Lily, approximately 27 years old. "
-        "Warm, approachable smile with mouth CLOSED (lips together, subtle upturn). "
-        "Straight-on symmetrical pose facing camera. "
-        "Medium-length wavy dark brown hair falling naturally on shoulders. "
-        "Wearing a professional royal-blue blazer over a crisp white shirt. "
-        "Soft studio lighting with a very subtle pink-blue gradient background. "
-        "Clean corporate headshot style. Realistic skin texture, natural makeup. "
-        "3D-rendered look but photorealistic — like a modern digital human, "
-        "NOT an anime character, NOT a cartoon. Sharp focus on the eyes. "
-        "Square 1:1 aspect ratio composition. High quality, 4K detail."
+        "Cute friendly robot mascot character named Lily, head-and-shoulders portrait, "
+        "front-facing symmetrical pose. Rounded polished chassis in soft ROYAL BLUE with "
+        "white and silver accents, slightly glossy plastic-like finish. "
+        "TWO clearly visible large round glowing EYE LIGHTS in a lighter cyan-blue, "
+        "positioned symmetrically like eyes on the face plate. "
+        "A small horizontal mouth panel BELOW the eyes — a thin, gentle upward-curved "
+        "smile shape (mouth CLOSED, no teeth), also glowing softly. "
+        "Cute, approachable, non-threatening — inspired by BB-8 / Wall-E / EVE from "
+        "Pixar. NOT anime, NOT a human face, NOT scary or industrial. "
+        "Simple antenna or small LED accents on top of the head. "
+        "The robot should look like a professional-yet-friendly customer support "
+        "assistant. Very subtle pink-to-blue gradient studio background. "
+        "3D-rendered but stylized / mascot art style — clean edges, soft shadows. "
+        "Sharp centered composition, 1:1 square aspect ratio, high quality 4K detail."
     )
 
     print("Generating portrait…")
@@ -51,7 +54,7 @@ async def main() -> int:
         print("ERROR: no images returned from Nano Banana")
         return 2
 
-    out_path = "/app/frontend/public/lily_realistic.png"
+    out_path = "/app/frontend/public/lily_robot.png"
     image_bytes = base64.b64decode(images[0]["data"])
     with open(out_path, "wb") as f:
         f.write(image_bytes)

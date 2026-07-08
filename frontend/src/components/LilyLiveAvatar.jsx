@@ -13,21 +13,23 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 
-// AI-generated realistic Lily portrait (1019 × 1019, non-anime).
+// AI-generated cute BLUE ROBOT mascot portrait (1000 × 1000, non-anime, non-human).
 // The image lives in /app/frontend/public and is served as a static asset.
-export const LILY_IMAGE_URL = "/lily_realistic.png";
+export const LILY_IMAGE_URL = "/lily_robot.png";
 
-// Facial landmark coordinates in the ORIGINAL 1019×1019 pixel space
-// (derived from image analysis; SVG viewBox mirrors this exactly).
+// Facial landmark coordinates in the ORIGINAL 1000×1000 pixel space
+// (derived from image analysis of the AI-generated robot portrait).
 const LANDMARKS = {
-  leftEye:  { cx: 431, cy: 416, rx: 29, ry: 34 },
-  rightEye: { cx: 587, cy: 417, rx: 29, ry: 34 },
-  mouth:    { cx: 509, cy: 595, rx: 55, ry: 12 },
-  headPivotPct: { x: 50, y: 50 }, // used by CSS transform-origin
+  leftEye:  { cx: 370, cy: 470, rx: 70, ry: 100 },
+  rightEye: { cx: 630, cy: 470, rx: 70, ry: 100 },
+  mouth:    { cx: 500, cy: 620, rx: 120, ry: 40 },
+  headPivotPct: { x: 50, y: 50 },
 };
 
-const SKIN = "#e1c3b4";  // warm beige — matches the generated portrait
-const LASH = "#2b1a12";
+// Robot palette — used to cover eyes on blink & animate the mouth speaker.
+const FACE_PLATE = "#3953E8"; // robot chassis blue (covers eye when blinking)
+const EYE_GLOW   = "#34F6FF"; // cyan eye-light colour, also mouth speaker glow
+const LASH       = "#0b1a4a"; // deep navy — used as blink-line accent
 
 // Emotion → animation config (breathing speed, tilt amplitude, mouth shape)
 const EMOTION_CONFIG = {
@@ -126,8 +128,8 @@ export default function LilyLiveAvatar({
     return cycle[mouthPulse] || 4;
   }, [speaking, mouthPulse]);
 
-  const eyeRy = blink ? 1.5 : 0; // 0 = eyelid invisible, ~34 = fully closed
-  const openEyeRy = blink ? 34 : 0;
+  const eyeRy = blink ? 1.5 : 0; // 0 = eyelid invisible, ~100 = eye lights fully off
+  const openEyeRy = blink ? 100 : 0;
 
   // ── VRM stub (future-proof) ────────────────────────────
   if (vrmUrl) {
@@ -182,83 +184,79 @@ export default function LilyLiveAvatar({
 
           {/* SVG overlay — coordinate space matches the source image exactly */}
           <svg
-            viewBox="0 0 1019 1019"
+            viewBox="0 0 1000 1000"
             preserveAspectRatio="xMidYMid slice"
             className="absolute inset-0 w-full h-full pointer-events-none"
           >
-            {/* Eyelids (skin colored, closed by scaling ry) */}
+            {/* Eye "LEDs" — cover the robot's glowing eye lights with the
+                face-plate colour when he blinks (light-off effect). */}
             <g style={{ transition: "opacity 60ms" }}>
-              {/* Left eye lid */}
               <ellipse
                 cx={LANDMARKS.leftEye.cx}
                 cy={LANDMARKS.leftEye.cy}
                 rx={LANDMARKS.leftEye.rx}
                 ry={openEyeRy}
-                fill={SKIN}
-                style={{ transition: "ry 90ms cubic-bezier(.4,.9,.4,1)" }}
+                fill={FACE_PLATE}
+                style={{ transition: "ry 80ms cubic-bezier(.4,.9,.4,1)" }}
               />
-              {/* Right eye lid */}
               <ellipse
                 cx={LANDMARKS.rightEye.cx}
                 cy={LANDMARKS.rightEye.cy}
                 rx={LANDMARKS.rightEye.rx}
                 ry={openEyeRy}
-                fill={SKIN}
-                style={{ transition: "ry 90ms cubic-bezier(.4,.9,.4,1)" }}
+                fill={FACE_PLATE}
+                style={{ transition: "ry 80ms cubic-bezier(.4,.9,.4,1)" }}
               />
-              {/* Lash line — thin dark arc drawn just above/under the closed lid
-                  so a blink reads as an anime "^ ^" curve rather than a blank patch */}
               {blink && (
                 <>
-                  <path
-                    d={`M ${LANDMARKS.leftEye.cx - LANDMARKS.leftEye.rx + 3} ${LANDMARKS.leftEye.cy}
-                        Q ${LANDMARKS.leftEye.cx} ${LANDMARKS.leftEye.cy + 8}
-                          ${LANDMARKS.leftEye.cx + LANDMARKS.leftEye.rx - 3} ${LANDMARKS.leftEye.cy}`}
+                  <line
+                    x1={LANDMARKS.leftEye.cx - LANDMARKS.leftEye.rx + 8}
+                    x2={LANDMARKS.leftEye.cx + LANDMARKS.leftEye.rx - 8}
+                    y1={LANDMARKS.leftEye.cy}
+                    y2={LANDMARKS.leftEye.cy}
                     stroke={LASH}
-                    strokeWidth="4"
+                    strokeWidth="6"
                     strokeLinecap="round"
-                    fill="none"
+                    opacity="0.6"
                   />
-                  <path
-                    d={`M ${LANDMARKS.rightEye.cx - LANDMARKS.rightEye.rx + 3} ${LANDMARKS.rightEye.cy}
-                        Q ${LANDMARKS.rightEye.cx} ${LANDMARKS.rightEye.cy + 8}
-                          ${LANDMARKS.rightEye.cx + LANDMARKS.rightEye.rx - 3} ${LANDMARKS.rightEye.cy}`}
+                  <line
+                    x1={LANDMARKS.rightEye.cx - LANDMARKS.rightEye.rx + 8}
+                    x2={LANDMARKS.rightEye.cx + LANDMARKS.rightEye.rx - 8}
+                    y1={LANDMARKS.rightEye.cy}
+                    y2={LANDMARKS.rightEye.cy}
                     stroke={LASH}
-                    strokeWidth="4"
+                    strokeWidth="6"
                     strokeLinecap="round"
-                    fill="none"
+                    opacity="0.6"
                   />
                 </>
               )}
             </g>
 
-            {/* Mouth overlay — only used while speaking to add subtle "talking"
-                motion on top of the printed mouth. We darken a small ellipse
-                that grows/shrinks with the phoneme cycle. */}
+            {/* Speaker / voice indicator — a cyan-glow bar that pulses
+                horizontally while speaking, evoking a soundwave. */}
             {speaking && (
-              <ellipse
-                cx={LANDMARKS.mouth.cx}
-                cy={LANDMARKS.mouth.cy + 2}
-                rx={LANDMARKS.mouth.rx * 0.55}
-                ry={mouthAperture}
-                fill="#5a1e26"
-                opacity="0.85"
-                style={{ transition: "ry 90ms ease-out, opacity 120ms ease-out" }}
-              />
-            )}
-
-            {/* Emotion-driven smile accent (subtle curve above the printed mouth) */}
-            {cfg.mouthCurve > 0 && !speaking && (
-              <path
-                d={`M ${LANDMARKS.mouth.cx - LANDMARKS.mouth.rx} ${LANDMARKS.mouth.cy - 2}
-                    Q ${LANDMARKS.mouth.cx} ${LANDMARKS.mouth.cy + cfg.mouthCurve}
-                      ${LANDMARKS.mouth.cx + LANDMARKS.mouth.rx} ${LANDMARKS.mouth.cy - 2}`}
-                stroke="#a94a52"
-                strokeWidth="3"
-                strokeLinecap="round"
-                fill="none"
-                opacity="0.6"
-              />
+              <>
+                <ellipse
+                  cx={LANDMARKS.mouth.cx}
+                  cy={LANDMARKS.mouth.cy}
+                  rx={LANDMARKS.mouth.rx * (0.6 + mouthAperture / 20)}
+                  ry={2 + mouthAperture * 0.6}
+                  fill={EYE_GLOW}
+                  opacity="0.85"
+                  style={{ filter: "blur(0.5px)", transition: "rx 90ms ease-out, ry 90ms ease-out" }}
+                />
+                <ellipse
+                  cx={LANDMARKS.mouth.cx}
+                  cy={LANDMARKS.mouth.cy}
+                  rx={LANDMARKS.mouth.rx * (0.8 + mouthAperture / 15)}
+                  ry={4 + mouthAperture * 0.9}
+                  fill="none"
+                  stroke={EYE_GLOW}
+                  strokeWidth="2"
+                  opacity="0.45"
+                />
+              </>
             )}
           </svg>
         </div>
