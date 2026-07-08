@@ -543,6 +543,7 @@ export default function ChatWidget() {
               {/* Stage area */}
               <div className="flex-1 overflow-y-auto flex flex-col items-center px-4 py-5">
                 <LilyAvatar
+                  mode="2d"
                   speaking={lilySpeaking}
                   emotion={lilyLoading ? "thinking" : "greeting"}
                   size={160}
@@ -638,7 +639,7 @@ export default function ChatWidget() {
           {/* Queued view */}
           {phase === "queued" && session && (
             <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-slate-900" data-testid="queue-view">
-              <LilyAvatar speaking={false} emotion="friendly" size={90} />
+              <LilyAvatar mode="2d" speaking={false} emotion="friendly" size={90} />
               <div className="mt-4 text-4xl font-extrabold text-slate-100 tracking-tight" data-testid="queue-position">
                 #{queuePosition ?? "—"}
               </div>

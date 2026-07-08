@@ -13,21 +13,21 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 
-// Original Lily illustration (720 × 960).
-export const LILY_IMAGE_URL =
-  "https://customer-assets.emergentagent.com/job_live-chat-hub-28/artifacts/g4bxi3t1_image.png";
+// AI-generated realistic Lily portrait (1019 × 1019, non-anime).
+// The image lives in /app/frontend/public and is served as a static asset.
+export const LILY_IMAGE_URL = "/lily_realistic.png";
 
-// Facial landmark coordinates in the ORIGINAL 720×960 pixel space
+// Facial landmark coordinates in the ORIGINAL 1019×1019 pixel space
 // (derived from image analysis; SVG viewBox mirrors this exactly).
 const LANDMARKS = {
-  leftEye:  { cx: 259, cy: 354, rx: 30, ry: 30 },
-  rightEye: { cx: 351, cy: 343, rx: 30, ry: 30 },
-  mouth:    { cx: 315, cy: 520, rx: 32, ry: 10 },
-  headPivotPct: { x: 43.4, y: 46.15 }, // used by CSS transform-origin
+  leftEye:  { cx: 431, cy: 416, rx: 29, ry: 34 },
+  rightEye: { cx: 587, cy: 417, rx: 29, ry: 34 },
+  mouth:    { cx: 509, cy: 595, rx: 55, ry: 12 },
+  headPivotPct: { x: 50, y: 50 }, // used by CSS transform-origin
 };
 
-const SKIN = "#e8ba9a";
-const LASH = "#3b2417";
+const SKIN = "#e1c3b4";  // warm beige — matches the generated portrait
+const LASH = "#2b1a12";
 
 // Emotion → animation config (breathing speed, tilt amplitude, mouth shape)
 const EMOTION_CONFIG = {
@@ -126,8 +126,8 @@ export default function LilyLiveAvatar({
     return cycle[mouthPulse] || 4;
   }, [speaking, mouthPulse]);
 
-  const eyeRy = blink ? 1.5 : 0; // 0 = eyelid invisible, ~30 = fully closed
-  const openEyeRy = blink ? 30 : 0;
+  const eyeRy = blink ? 1.5 : 0; // 0 = eyelid invisible, ~34 = fully closed
+  const openEyeRy = blink ? 34 : 0;
 
   // ── VRM stub (future-proof) ────────────────────────────
   if (vrmUrl) {
@@ -182,7 +182,7 @@ export default function LilyLiveAvatar({
 
           {/* SVG overlay — coordinate space matches the source image exactly */}
           <svg
-            viewBox="0 0 720 960"
+            viewBox="0 0 1019 1019"
             preserveAspectRatio="xMidYMid slice"
             className="absolute inset-0 w-full h-full pointer-events-none"
           >

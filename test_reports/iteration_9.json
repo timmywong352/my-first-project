@@ -1,0 +1,23 @@
+{
+  "summary": "Iteration 9 — Realistic Lily portrait (2D mode) + regreet + anonymous session. Full backend + frontend testing completed. All 8 pytest cases passed and full E2E widget flow verified (launcher → lily-stage → avatar/subtitle/options → regreet cycling → option click → queue-view). Dark theme colors correct, no anime avatar/pink gradients.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter9_lily_realistic.py",
+    "/app/test_reports/pytest/iter9.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx at ~880 lines is getting large; consider splitting queue-view / chat-messages / lily-stage into sub-components.",
+    "lily_service.random_greeting uses random.choice — could rarely pick same greeting when the pool minus exclude has >1 items (which is fine and expected). No bug, just noting.",
+    "TTS endpoint has no per-IP rate limit — could be abused to burn EMERGENT_LLM_KEY tokens. Recommend adding a lightweight limit."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter9_lily_realistic.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% of covered flow"},
+  "test_credentials": "admin@livechat.com / admin123 (unused this run — only public/anonymous flow tested).",
+  "seed_data_creation": "Anonymous sessions with client_id prefixed TEST_iter9_* created via /api/chat/session/anonymous. Rate-limit reset done twice via mongosh sessions.deleteMany({}).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Verified: (1) POST /api/chat/session/anonymous returns anonymous=true + @anon.pulse.local email; (2) POST /api/lily/regreet excludes previous greeting and returns different one across many calls; (3) POST /api/lily/tts returns audio/mpeg mp3 for {text,voice:nova}; (4) POST /api/lily/handoff persists customer_text + English handoff line ('Great — connecting you to a human agent now, one moment please. 🙏') and routes to queue when no agents online; (5) Widget: launcher → lily-stage skipping prechat; lily-avatar has data-mode='2d' and inner <img src='/lily_realistic.png'>; subtitle randomized English greeting; 4 English options (Deposit status/Withdrawal status/Promotions/Ticket status); avatar-click regreet (with TTS muted) yields ≥3 unique greetings across 5 clicks and no consecutive repeats; option click → queue-view; header bg rgb(2,6,23) (bg-slate-950), options bg rgba(30,41,59,0.6) (slate-800/60). email-inline-prompt appears only in chat-messages view — in queue-view the email-capture card is shown instead (expected). Handoff greeting only rendered in chat-messages view, not queue-view (message IS persisted in DB — backend test confirms via /api/chat/public/{sid}/messages).",
+  "rca of the issue": "N/A — no issues found."
+}
