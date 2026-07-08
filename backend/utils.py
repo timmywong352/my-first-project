@@ -10,6 +10,30 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def get_real_client_ip(request) -> str:
+    """Extract the real client IP from a FastAPI/Starlette request.
+
+    Kubernetes ingress and other reverse proxies drop the actual visitor IP
+    into ``X-Forwarded-For`` (comma-separated, leftmost = original) or
+    ``X-Real-IP``. Falls back to ``request.client.host`` (the proxy) if
+    neither header is present.
+    """
+    if not request:
+        return ""
+    hdrs = request.headers
+    xff = hdrs.get("x-forwarded-for") or hdrs.get("X-Forwarded-For")
+    if xff:
+        # First IP is the original client; trim whitespace
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    xrip = hdrs.get("x-real-ip") or hdrs.get("X-Real-IP")
+    if xrip and xrip.strip():
+        return xrip.strip()
+    return request.client.host if request.client else ""
+
+
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 

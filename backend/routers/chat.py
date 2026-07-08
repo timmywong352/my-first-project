@@ -16,7 +16,7 @@ from services import (
     route_new_session,
     sync_agent_capacity,
 )
-from utils import now_iso
+from utils import get_real_client_ip, now_iso
 from ws_manager import manager
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -42,7 +42,7 @@ async def _rate_limit_check(ip: str) -> None:
 
 @router.post("/session")
 async def create_chat_session(body: PreChatBody, request: Request):
-    client_ip = request.client.host if request.client else ""
+    client_ip = get_real_client_ip(request)
     await _rate_limit_check(client_ip)
 
     session_id = str(uuid.uuid4())
@@ -104,7 +104,7 @@ async def create_anonymous_session(body: AnonymousSessionBody, request: Request)
     in browser localStorage) lets returning visitors reuse their identity so
     Lily's memory and their session history keep working.
     """
-    client_ip = request.client.host if request.client else ""
+    client_ip = get_real_client_ip(request)
     await _rate_limit_check(client_ip)
 
     session_id = str(uuid.uuid4())
@@ -286,6 +286,46 @@ async def delete_message(msg_id: str, user: dict = Depends(get_current_user)):
 
 
 # ---------- Close + Archive ----------
+@router.post("/public/{session_id}/close")
+async def customer_close_session(
+    session_id: str,
+    session_token: str = Query(...),
+):
+    """Customer-initiated close (no agent auth). Authorises via session_token
+    and mirrors the agent-side close: broadcasts session_closed, syncs the
+    assigned agent's capacity, and promotes the next queued session.
+    """
+    s = await db.sessions.find_one({"id": session_id})
+    if not s or s.get("session_token") != session_token:
+        raise HTTPException(status_code=401, detail="Invalid session token")
+    if s.get("status") == "closed":
+        return {"ok": True, "already_closed": True}
+
+    summary = await ai_summarize(session_id)
+    closed_at = now_iso()
+    await db.sessions.update_one(
+        {"id": session_id},
+        {"$set": {
+            "status": "closed",
+            "closed_at": closed_at,
+            "archived_at": closed_at,
+            "closed_by": "customer",
+            "closed_reason": "customer_closed",
+            "summary": summary,
+            "updated_at": closed_at,
+        }},
+    )
+    await manager.broadcast_to_session(
+        session_id,
+        {"type": "session_closed", "session_id": session_id,
+         "summary": summary, "reason": "customer_closed"},
+    )
+    if s.get("assigned_agent_id"):
+        await sync_agent_capacity(s["assigned_agent_id"])
+    await promote_from_queue()
+    return {"ok": True}
+
+
 @router.post("/sessions/{session_id}/close")
 async def close_session(session_id: str, user: dict = Depends(get_current_user)):
     s = await db.sessions.find_one({"id": session_id})

@@ -674,6 +674,7 @@ export default function AgentDashboard() {
               <div className="text-xs">
                 <Row label="Subject" value={currentSession.subject} />
                 <Row label="Location" value={currentSession.location || "—"} />
+                <Row label="IP" value={currentSession.creator_ip || "—"} />
                 <Row label="Started" value={formatTime(currentSession.created_at)} />
                 {currentSession.closed_at && <Row label="Closed" value={formatDate(currentSession.closed_at)} />}
                 {currentSession.duration_seconds != null && <Row label="Duration" value={`${Math.round(currentSession.duration_seconds / 60)} min`} />}

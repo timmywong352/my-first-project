@@ -10,8 +10,18 @@ import { speak, cancelSpeak, primeTTS } from "@/lib/tts";
 import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
   Loader2, FileText, Image as ImageIcon, Star, Clock, UserCog, Volume2, VolumeX,
-  Sparkles, Mail,
+  Sparkles, Mail, XCircle,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const ATTACH_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.mp4,.zip";
 const CLIENT_ID_KEY = "pulse_client_id";
@@ -109,6 +119,8 @@ export default function ChatWidget() {
   const [errorMsg, setErrorMsg] = useState("");
   const [avatarClickPulse, setAvatarClickPulse] = useState(0);
   const lastGreetingRef = useRef("");
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   // Email capture (inline prompt driven by Lily)
   const [emailPromptShown, setEmailPromptShown] = useState(false);
@@ -293,9 +305,14 @@ export default function ChatWidget() {
       setMessages((prev) => prev.map((m) => (m.sender_type === "customer" ? { ...m, status: "read" } : m)));
     } else if (data.type === "session_closed") {
       setPhase("closed");
-      setClosedNotice(data.reason === "inactivity"
-        ? "This chat was closed due to inactivity. Start a new chat to continue."
-        : "This chat has ended. Thanks for chatting with us!");
+      const r = data.reason;
+      setClosedNotice(
+        r === "inactivity"
+          ? "This chat was closed due to inactivity. Start a new chat to continue."
+          : r === "customer_closed"
+            ? "This chat has been closed. Thank you for contacting us!"
+            : "This chat has ended. Thanks for chatting with us!",
+      );
     } else if (data.type === "queue_promoted") {
       setQueuePosition(null);
       setPhase("chat");
@@ -440,6 +457,25 @@ export default function ChatWidget() {
     } catch { /* ignore */ }
   };
 
+  // Customer-initiated close: hits our new public endpoint. The session_closed
+  // WS broadcast will move us to the "closed" phase and show CSAT.
+  const confirmClose = async () => {
+    if (!session || closing) return;
+    setClosing(true);
+    try {
+      await fetch(
+        `${API}/chat/public/${session.session_id}/close?session_token=${session.session_token}`,
+        { method: "POST" },
+      );
+      // Optimistic: broadcast might arrive after we already flip the phase
+      setPhase("closed");
+      setClosedNotice("This chat has been closed. Thank you for contacting us!");
+    } catch { /* silent */ } finally {
+      setClosing(false);
+      setCloseConfirmOpen(false);
+    }
+  };
+
   const endChat = () => {
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
@@ -505,6 +541,17 @@ export default function ChatWidget() {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              {phase === "chat" && (
+                <button
+                  onClick={() => setCloseConfirmOpen(true)}
+                  className="p-1.5 rounded-lg hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                  title="Close chat"
+                  aria-label="Close chat"
+                  data-testid="close-chat-btn"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={() => setTtsOn((v) => {
                   if (v) { cancelSpeak(); setLilySpeaking(false); }
@@ -876,6 +923,39 @@ export default function ChatWidget() {
           )}
         </div>
       )}
+
+      {/* Close-chat confirmation modal */}
+      <AlertDialog open={closeConfirmOpen} onOpenChange={setCloseConfirmOpen}>
+        <AlertDialogContent
+          className="bg-slate-900 border-slate-700 text-slate-100 z-[60] rounded-2xl"
+          data-testid="close-confirm-dialog"
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">
+              Are you sure you want to close this chat?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Your conversation history will be saved. You can always start a new chat later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700 hover:text-white"
+              data-testid="close-confirm-cancel"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmClose}
+              disabled={closing}
+              className="bg-red-500 text-white hover:bg-red-600 focus-visible:ring-red-500"
+              data-testid="close-confirm-confirm"
+            >
+              {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Close Chat"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

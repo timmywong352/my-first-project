@@ -1,0 +1,22 @@
+{
+  "summary": "Verified all 3 bug fixes end-to-end. Backend: 9/9 pytest passed (X-Forwarded-For first-IP extraction, X-Real-IP fallback via localhost bypass of k8s ingress XFF injection, IP visible to agent dashboard, queue promotion on agent online, queue promotion on agent close, public customer close endpoint success/wrong-token/idempotent/queue-promotion). Frontend: Playwright confirmed close-chat-btn appears only in phase='chat', close-confirm-dialog with cancel & confirm buttons works correctly, cancel keeps chat active, confirm transitions to closed view showing 'This chat has been closed. Thank you for contacting us!' + CSAT stars, dark theme preserved.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter10_bug_fixes.py",
+    "/app/test_reports/pytest/iter10_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Note: X-Real-IP fallback path in utils.get_real_client_ip is essentially unreachable through the public preview URL because the k8s ingress ALWAYS injects X-Forwarded-For. This is by design (RFC precedence), verified by testing via http://localhost:8001 to bypass the ingress. Code logic is correct.",
+    "ChatWidget.jsx is 962 lines — consider splitting phase-specific views (lily-stage, queue-view, chat-view, closed-view) into separate sub-components for maintainability (>700 line guideline)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter10_bug_fixes.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@livechat.com / admin123 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Test purges db.sessions between test classes; agent status reset to offline; no persistent seed data left behind.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter10 verified all 3 bugs (queue auto-assign on agent online + on close, real client IP via XFF/X-Real-IP, customer close endpoint + AlertDialog). Test file at /app/backend/tests/test_iter10_bug_fixes.py loads REACT_APP_BACKEND_URL from /app/frontend/.env. K8s ingress overrides X-Real-IP with XFF, so that fallback is tested via localhost:8001 direct hit. Queue promotion tests force-set status='queued' in DB (since MAX_ACTIVE_CHATS_PER_AGENT=20 makes natural queueing hard).",
+  "rca of the issue": "N/A — all fixes verified working."
+}

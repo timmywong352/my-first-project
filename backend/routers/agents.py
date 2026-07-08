@@ -6,7 +6,7 @@ from deps import get_current_user, require_admin
 from models import CreateAgentBody, UpdateAgentStatusBody
 from utils import hash_password, now_iso
 from ws_manager import manager
-from services import agent_active_count, list_agents_with_load
+from services import agent_active_count, list_agents_with_load, promote_from_queue
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -20,6 +20,9 @@ async def update_status(body: UpdateAgentStatusBody, user: dict = Depends(get_cu
         {"$set": {"status": body.status, "status_updated_at": now_iso(), "auto_busy": False}},
     )
     await manager.send_to_agents({"type": "agent_status", "agent_id": user["id"], "status": body.status})
+    # Bug 1 fix — when an agent becomes available, drain the queue immediately.
+    if body.status == "online":
+        await promote_from_queue()
     return {"ok": True, "status": body.status}
 
 
