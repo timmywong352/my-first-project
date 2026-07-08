@@ -127,11 +127,12 @@ export default function LilyVrmAvatar({
           headHeight = bbox.max.y - (bbox.max.y - bbox.min.y) * 0.12;
           target.set((bbox.min.x + bbox.max.x) / 2, headHeight, 0);
         }
-        camera.fov = 20;
-        // Frame the head prominently — look slightly UP at the eyes so we
-        // catch the smiling mouth + eyes rather than the chin.
-        camera.position.set(target.x, headHeight + 0.03, target.z + 0.85);
-        camera.lookAt(target.x, headHeight + 0.03, target.z);
+        camera.fov = 28;
+        // Frame head-and-shoulders: pull camera further back and aim slightly
+        // BELOW the head so the neck, shoulders and top of the chest are all
+        // visible inside the circular frame (less "big-face-close-up" feel).
+        camera.position.set(target.x, headHeight - 0.05, target.z + 1.35);
+        camera.lookAt(target.x, headHeight - 0.18, target.z);
         camera.updateProjectionMatrix();
 
         setLoading(false);
