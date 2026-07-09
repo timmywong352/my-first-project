@@ -10,7 +10,7 @@ import { speak, cancelSpeak, primeTTS } from "@/lib/tts";
 import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
   Loader2, FileText, Image as ImageIcon, Star, Clock, UserCog, Volume2, VolumeX,
-  Sparkles, Mail, XCircle, Plus, Camera, Trash2, ChevronUp,
+  Sparkles, XCircle, Plus, Camera, Trash2, ChevronUp,
 } from "lucide-react";
 import {
   Popover,
@@ -30,8 +30,6 @@ import {
 
 const ATTACH_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.mp4,.zip";
 const CLIENT_ID_KEY = "pulse_client_id";
-const CUST_EMAIL_KEY = "pulse_customer_email";
-const CUST_NAME_KEY = "pulse_customer_name";
 const SESSION_KEY = "customer_session";
 
 // Default fallback labels used until /lily/status returns localised set.
@@ -126,13 +124,6 @@ export default function ChatWidget() {
   const lastGreetingRef = useRef("");
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [closing, setClosing] = useState(false);
-
-  // Email capture (inline prompt driven by Lily)
-  const [emailPromptShown, setEmailPromptShown] = useState(false);
-  const [emailValue, setEmailValue] = useState(localStorage.getItem(CUST_EMAIL_KEY) || "");
-  const [nameValue, setNameValue] = useState(localStorage.getItem(CUST_NAME_KEY) || "");
-  const [emailSaved, setEmailSaved] = useState(!!localStorage.getItem(CUST_EMAIL_KEY));
-  const [emailSaving, setEmailSaving] = useState(false);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -361,8 +352,6 @@ export default function ChatWidget() {
     if (!session || lilyLoading || phase !== "lily") return;
     setLilyLoading(true);
     speakLily("Great — connecting you to a human agent now.");
-    // Show email prompt inline so the customer can leave it while waiting.
-    if (!emailSaved) setEmailPromptShown(true);
     try {
       await handoffToHuman(opt.label);
     } finally {
@@ -382,7 +371,6 @@ export default function ChatWidget() {
       flushTyping("");
       setLilyLoading(true);
       speakLily("Great — connecting you to a human agent now.");
-      if (!emailSaved) setEmailPromptShown(true);
       try {
         await handoffToHuman(userText);
       } finally {
@@ -423,31 +411,8 @@ export default function ChatWidget() {
   };
 
   // ---------- Contact capture ----------
-  const saveContact = async () => {
-    if (!session) return;
-    const email = emailValue.trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return;
-    }
-    setEmailSaving(true);
-    try {
-      await fetch(`${API}/chat/session/${session.session_id}/contact`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_token: session.session_token,
-          email,
-          name: nameValue.trim() || undefined,
-        }),
-      });
-      localStorage.setItem(CUST_EMAIL_KEY, email);
-      if (nameValue.trim()) localStorage.setItem(CUST_NAME_KEY, nameValue.trim());
-      setEmailSaved(true);
-      setEmailPromptShown(false);
-    } catch { /* ignore */ } finally {
-      setEmailSaving(false);
-    }
-  };
+  // (Removed) Email/name capture is intentionally disabled — anonymous client
+  // identity (localStorage `pulse_client_id`) is enough for threading.
 
   const submitCsat = async (rating) => {
     if (!session) return;
@@ -489,7 +454,6 @@ export default function ChatWidget() {
     setCsatRating(0);
     setCsatSubmitted(false);
     setLilySubtitle("");
-    setEmailPromptShown(false);
     bootedRef.current = false;
     // Re-bootstrap: create a new anonymous session immediately.
     bootstrap();
@@ -700,41 +664,6 @@ export default function ChatWidget() {
                 All our agents are helping other customers. We&apos;ll connect you as soon as one is free.
               </div>
               <Clock className="w-4 h-4 text-slate-600 mb-3" />
-
-              {/* Optional email capture while waiting */}
-              {!emailSaved && (
-                <div className="w-full max-w-[300px] bg-slate-800/60 border border-slate-700 rounded-2xl p-3 space-y-2 mt-2" data-testid="email-capture">
-                  <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider flex items-center gap-1">
-                    <Mail className="w-3 h-3" /> Save your history
-                  </div>
-                  <div className="text-[11px] text-slate-500 leading-snug">
-                    Share your email so we can pick up where we left off next time.
-                  </div>
-                  <Input
-                    placeholder="Your name (optional)"
-                    value={nameValue}
-                    onChange={(e) => setNameValue(e.target.value)}
-                    className="h-8 text-xs bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500"
-                    data-testid="email-capture-name"
-                  />
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={emailValue}
-                    onChange={(e) => setEmailValue(e.target.value)}
-                    className="h-8 text-xs bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500"
-                    data-testid="email-capture-email"
-                  />
-                  <Button
-                    onClick={saveContact}
-                    disabled={emailSaving}
-                    className="w-full h-8 text-xs bg-blue-500 hover:bg-blue-600 text-white"
-                    data-testid="email-capture-save"
-                  >
-                    {emailSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
-                  </Button>
-                </div>
-              )}
             </div>
           )}
 
@@ -796,37 +725,6 @@ export default function ChatWidget() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
-
-              {/* Inline email prompt above input (Lily-driven post-handoff) */}
-              {emailPromptShown && !emailSaved && (
-                <div className="px-3 py-2 bg-slate-800/60 border-t border-slate-800 flex items-center gap-2" data-testid="email-inline-prompt">
-                  <Mail className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  <Input
-                    type="email"
-                    placeholder="Share your email (optional)"
-                    value={emailValue}
-                    onChange={(e) => setEmailValue(e.target.value)}
-                    className="h-7 text-xs flex-1 bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500"
-                    data-testid="email-inline-input"
-                  />
-                  <Button
-                    onClick={saveContact}
-                    disabled={emailSaving}
-                    size="sm"
-                    className="h-7 text-[11px] bg-blue-500 hover:bg-blue-600 text-white"
-                    data-testid="email-inline-save"
-                  >
-                    Save
-                  </Button>
-                  <button
-                    onClick={() => setEmailPromptShown(false)}
-                    className="text-slate-500 hover:text-slate-200"
-                    aria-label="Dismiss"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
 
               {pendingAttachments.length > 0 && (
                 <div className="px-3 py-3 border-t border-slate-800 bg-slate-800/50 space-y-2" data-testid="attach-tray">

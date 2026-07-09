@@ -1,0 +1,35 @@
+{
+  "summary": "Iter13 verified: (1) FRONTEND_TEST_MSG completely eliminated — 0 rows in messages collection, settings.global.inactivity_auto_message and welcome_message are both None (fall back to DEFAULT_AUTO_MSG 'Thanks for waiting…'). (2) Email capture UI is fully removed from ChatWidget — no email-capture/email-inline* testids or phrases in initial Lily view or after picking a Lily option (queued/chat view); no lucide-mail icons rendered. (3) Quick Replies CRUD works end-to-end (admin create → agent list → admin delete). (4) File upload/download works both directions (customer→agent with ?auth=<token>, agent→customer with session_id+session_token). Backend 7/7 pass, 1 skipped (admin/sessions probing was best-effort).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter13_email_removal.py",
+    "/app/test_reports/pytest/iter13_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx is still ~953 lines — exceeds 700-line guideline; consider extracting AttachmentBubble, LilyStage, and CSAT sub-components.",
+    "AgentDashboard.jsx also >900 lines (see iter12 review) — split recommended.",
+    "quick_replies.py has no role guard — any authenticated user (including agent) can POST/DELETE. Consider restricting create/delete to admin only if that's the intended policy (spec says 'as admin, create'; the agent could technically create/delete too). Low priority.",
+    "Anonymous file upload endpoint accepts session_id+session_token as multipart form data — verify rate limiting is applied to prevent abuse (out of scope for this iter)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter13_email_removal.py"],
+  "success_rate": {"backend": "100% (7/7, 1 skipped)", "frontend": "100%"},
+  "test_credentials": "admin@livechat.com/admin123, agent@livechat.com/agent123",
+  "seed_data_creation": "Test creates anon sessions with client_id prefix 'iter13_' and one quick reply titled 'TEST_iter13_QR' which is deleted at the end of the test. No residual data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Customer→backend messaging is via WebSocket (not REST /messages route — returns 405). Use ws://.../api/ws/session/{sid}?token=... for e2e message tests. Backend accepts REACT_APP_BACKEND_URL from env — pytest run needs it exported (frontend/.env is the source of truth). settings/global doc currently has welcome_message=None and inactivity_auto_message=None which is correct (scheduler falls back to DEFAULT_AUTO_MSG constant).",
+  "verification": {
+    "email_ui_removed_initial_view": "PASS — no testids, no 'Share your email' / 'Save your history' phrases, no lucide-mail",
+    "email_ui_removed_queued_chat_view": "PASS — no email UI after clicking Lily option (Deposit status)",
+    "frontend_test_msg_settings": "PASS — inactivity_auto_message & welcome_message both None (not FRONTEND_TEST_MSG)",
+    "frontend_test_msg_messages_collection": "PASS — direct mongo count = 0",
+    "quick_replies_admin_create": "PASS — 200, id returned, title/content echoed",
+    "quick_replies_agent_list": "PASS — new QR visible to agent",
+    "quick_replies_admin_delete": "PASS — 200, subsequent list omits id",
+    "file_upload_customer": "PASS — POST /api/upload 200, returns id",
+    "file_download_agent_auth_query": "PASS — GET /api/files/{id}?auth=<token> returns PNG bytes",
+    "file_download_customer_session_creds": "PASS — GET /api/files/{id}?session_id=…&session_token=… returns PNG"
+  }
+}
