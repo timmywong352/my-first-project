@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useThrottledTyping } from "@/hooks/useThrottledTyping";
+import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
 import LilyAvatar from "@/components/LilyAvatar";
 import { speak, cancelSpeak, primeTTS } from "@/lib/tts";
 import {
@@ -136,6 +137,11 @@ export default function ChatWidget() {
     intervalMs: 500,
     stopMs: 2000,
     enabled: phase === "chat",
+  });
+
+  // Composer auto-resize + rich-paste preservation.
+  const { ref: composerRef, onPaste: composerPaste } = useAutoResizeTextarea(text, {
+    minHeight: 40, maxHeight: 180, onChange: (v) => handleTyping(v),
   });
 
   // Localised options list from server
@@ -689,7 +695,7 @@ export default function ChatWidget() {
                         ))}
                         {m.content && (
                           <div
-                            className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm ${
+                            className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm whitespace-pre-wrap break-words ${
                               isCustomer
                                 ? "text-white rounded-tr-sm bg-blue-500"
                                 : isLily
@@ -850,6 +856,7 @@ export default function ChatWidget() {
                     data-testid="chat-file-input"
                   />
                   <Textarea
+                    ref={composerRef}
                     value={text}
                     onChange={(e) => handleTyping(e.target.value)}
                     onKeyDown={(e) => {
@@ -858,10 +865,11 @@ export default function ChatWidget() {
                         sendMessage();
                       }
                     }}
+                    onPaste={composerPaste}
                     placeholder="Type your message…"
                     rows={1}
                     data-testid="chat-input"
-                    className="flex-1 resize-none min-h-[40px] max-h-32 rounded-xl bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 text-sm focus-visible:ring-blue-500"
+                    className="flex-1 resize-none min-h-[40px] rounded-xl bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 text-sm focus-visible:ring-blue-500 leading-relaxed"
                   />
                   <Button
                     onClick={sendMessage}

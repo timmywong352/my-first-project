@@ -8,6 +8,7 @@ import { useAgentSessions } from "@/hooks/useAgentSessions";
 import { useArchiveSearch } from "@/hooks/useArchiveSearch";
 import { useAgentLoad, MAX_ACTIVE_CHATS } from "@/hooks/useAgentLoad";
 import { useThrottledTyping } from "@/hooks/useThrottledTyping";
+import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
 import { EMOTION_LABELS } from "@/components/LilyAvatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -123,6 +124,10 @@ export default function AgentDashboard() {
   const sess = useAgentSessions();
   const arch = useArchiveSearch(sess.activeTab === "archived");
   const { count: activeCount, refresh: refreshLoad } = useAgentLoad();
+  // Composer auto-resize + rich-paste preservation.
+  const { ref: composerRef, onPaste: composerPaste } = useAutoResizeTextarea(text, {
+    minHeight: 42, maxHeight: 200, onChange: (v) => handleTyping(v),
+  });
 
   const messagesEndRef = useRef(null);
   const fileRef = useRef(null);
@@ -687,7 +692,7 @@ export default function AgentDashboard() {
                           </div>
                         )}
                         {m.content && (
-                          <div className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm ${
+                          <div className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm whitespace-pre-wrap break-words ${
                             isAgent ? "bg-blue-600 text-white rounded-tr-sm"
                                     : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-tl-sm border border-slate-100 dark:border-slate-700"
                           }`}>
@@ -787,10 +792,11 @@ export default function AgentDashboard() {
                     className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors">
                     {loadingSuggest ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   </button>
-                  <Textarea value={text} onChange={(e) => handleTyping(e.target.value)}
+                  <Textarea ref={composerRef} value={text} onChange={(e) => handleTyping(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                    onPaste={composerPaste}
                     placeholder="Type your reply…" rows={1} data-testid="agent-input"
-                    className="flex-1 resize-none min-h-[42px] max-h-32 rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 text-sm focus-visible:ring-blue-500" />
+                    className="flex-1 resize-none min-h-[42px] rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 text-sm focus-visible:ring-blue-500 leading-relaxed" />
                   <Button onClick={sendMessage} data-testid="agent-send-btn"
                     className="rounded-xl h-10 w-10 p-0 bg-blue-600 hover:bg-blue-700 text-white shrink-0">
                     <Send className="w-4 h-4" />

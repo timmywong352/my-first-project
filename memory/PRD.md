@@ -58,6 +58,13 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
+- **2026-02-09**: **Auto-expanding composer + rich-text paste preservation** —
+  new `useAutoResizeTextarea` hook powers both the customer widget and the
+  agent dashboard composer. Grows with content up to 180px (customer) / 200px
+  (agent), then scrolls. `onPaste` intercepts `text/plain` (falls back to a
+  minimal HTML→newline conversion) so bullet lists and paragraphs survive the
+  paste. Message bubbles on both sides render with `whitespace-pre-wrap` so
+  newlines are visible in sent messages.
 - **2026-02-09**: **Removed email capture UI** — no more "Share your email
   (optional)" input, Save button, X dismiss, or "Save your history" card.
   Anonymous client_id (localStorage) is the sole customer identifier.
