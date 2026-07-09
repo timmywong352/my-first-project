@@ -28,7 +28,10 @@ digital human "Lily"**.
 - Clicking Lily's avatar plays a NEW random English greeting from a 5-entry
   pool with `exclude` filter so consecutive greetings never repeat. Ignored
   while she's currently speaking.
-- Anonymous session (localStorage `client_id`) + optional inline email capture.
+- Anonymous session (localStorage `client_id`). **Email capture UI removed
+  entirely** (2026-02-09) — client_id threading is sufficient for return-visitor
+  identity, so we no longer show the "Save your history" card in queued view or
+  the inline email prompt above the chat input.
 - Any option click or free text in Lily mode → immediate handoff to the human
   queue with the customer's context saved as the first message.
 - 3D VRM path (`@pixiv/three-vrm`) remains available as `mode="3d"` in
@@ -55,6 +58,13 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
+- **2026-02-09**: **Removed email capture UI** — no more "Share your email
+  (optional)" input, Save button, X dismiss, or "Save your history" card.
+  Anonymous client_id (localStorage) is the sole customer identifier.
+- **2026-02-09**: **Fixed FRONTEND_TEST_MSG artifact** — testing agent had
+  written `FRONTEND_TEST_MSG` into `settings.global.inactivity_auto_message`
+  (and `welcome_message` → `TEST hello`). Reset to defaults, deleted 3
+  leftover system messages, cleared `auto_msg_sent` flags on open sessions.
 - **2026-02-06**: Modular backend refactor (routers/services/ws_manager)
 - **2026-02-06**: Agent limits (20 chats/agent), queue system, inactivity timeouts
 - **2026-02-06**: Archive system, dark mode, live typing preview
@@ -78,12 +88,16 @@ digital human "Lily"**.
   ongoing conversations in one board).
 
 ### P1 — Not started
-- File / image attachments end-to-end for customers + agents
-  (backend router already exists; frontend wiring & agent side pending)
 - Agent message management: resend / edit / delete
-- Quick replies (canned responses) UI in agent workspace
 - Sound notifications on new messages
 - User-visible language switcher (en/zh/ms) in the widget header
+
+### P1 — Done
+- File / image attachments end-to-end (Emergent Object Storage; upload
+  via POST /api/upload, retrieval via GET /api/files/{id} with agent JWT or
+  session_id+session_token). Verified iter13.
+- Quick replies UI: admin CRUD (`/admin` → Quick Replies tab), agent-side
+  chips above composer prefill textarea on click.
 
 ### P2 — Not started
 - Admin metrics dashboard (chats today, response times, CSAT)
