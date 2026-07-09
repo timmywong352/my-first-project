@@ -10,8 +10,13 @@ import { speak, cancelSpeak, primeTTS } from "@/lib/tts";
 import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
   Loader2, FileText, Image as ImageIcon, Star, Clock, UserCog, Volume2, VolumeX,
-  Sparkles, Mail, XCircle,
+  Sparkles, Mail, XCircle, Plus, Camera, Trash2, ChevronUp,
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -824,32 +829,120 @@ export default function ChatWidget() {
               )}
 
               {pendingAttachments.length > 0 && (
-                <div className="px-3 py-2 border-t border-slate-800 bg-slate-800/60 flex gap-2 overflow-x-auto">
-                  {pendingAttachments.map((a) => (
-                    <div key={a.id} className="flex items-center gap-1.5 px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200">
-                      {fileIcon(a.content_type)}
-                      <span className="truncate max-w-[100px]">{a.filename}</span>
-                      <button
-                        onClick={() => setPendingAttachments((prev) => prev.filter((x) => x.id !== a.id))}
-                        className="text-slate-500 hover:text-slate-200"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                <div className="px-3 py-3 border-t border-slate-800 bg-slate-800/50 space-y-2" data-testid="attach-tray">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400">
+                      <div className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5" />
+                      </div>
+                      {pendingAttachments.length} of {pendingAttachments.length} uploaded
                     </div>
-                  ))}
+                    <button
+                      onClick={() => setPendingAttachments([])}
+                      className="text-[11px] text-slate-500 hover:text-slate-300"
+                      data-testid="attach-clear-all"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {pendingAttachments.map((a) => {
+                      const isImage = a.content_type && a.content_type.startsWith("image/");
+                      const url = `${API}/files/${a.id}?session_id=${session.session_id}&session_token=${session.session_token}`;
+                      return (
+                        <div
+                          key={a.id}
+                          className="relative aspect-square rounded-lg overflow-hidden border border-slate-700 bg-slate-900 group"
+                          data-testid={`attach-thumb-${a.id}`}
+                          title={a.filename}
+                        >
+                          {isImage ? (
+                            <img src={url} alt={a.filename} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-1 px-2 text-center">
+                              <FileText className="w-6 h-6" />
+                              <span className="text-[9px] truncate max-w-full leading-tight">{a.filename}</span>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => setPendingAttachments((prev) => prev.filter((x) => x.id !== a.id))}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-slate-900/80 backdrop-blur text-red-300 hover:bg-red-500 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label={`Remove ${a.filename}`}
+                            data-testid={`attach-remove-${a.id}`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {/* "Add more" tile */}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="aspect-square rounded-lg border-2 border-dashed border-slate-700 hover:border-blue-500/60 bg-slate-900/40 hover:bg-slate-800/60 flex items-center justify-center text-slate-500 hover:text-blue-400 transition-colors"
+                      disabled={uploading}
+                      data-testid="attach-add-more"
+                      aria-label="Add another file"
+                    >
+                      {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  <Button
+                    onClick={sendMessage}
+                    className="w-full h-10 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm shadow-lg shadow-blue-500/20"
+                    data-testid="attach-send-btn"
+                  >
+                    Send {pendingAttachments.length > 1 ? "files" : "file"}
+                  </Button>
                 </div>
               )}
 
               <div className="p-3 border-t border-slate-800 bg-slate-900">
                 <div className="flex items-end gap-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
-                    data-testid="chat-attach-btn"
-                    disabled={uploading}
-                  >
-                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
-                  </button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
+                        data-testid="chat-attach-btn"
+                        disabled={uploading}
+                        aria-label="Attach"
+                      >
+                        {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      side="top"
+                      align="start"
+                      className="w-56 p-1.5 bg-slate-800 border-slate-700 text-slate-100 rounded-xl shadow-2xl"
+                      data-testid="attach-menu"
+                    >
+                      <button
+                        onClick={() => {
+                          if (fileInputRef.current) {
+                            fileInputRef.current.accept = ATTACH_ACCEPT;
+                            fileInputRef.current.click();
+                          }
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-slate-700/70 text-sm text-slate-100 text-left"
+                        data-testid="attach-send-file"
+                      >
+                        <FileText className="w-4 h-4 text-blue-400" />
+                        Send a file
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (fileInputRef.current) {
+                            fileInputRef.current.accept = "image/*";
+                            fileInputRef.current.click();
+                          }
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-slate-700/70 text-sm text-slate-100 text-left"
+                        data-testid="attach-add-screenshot"
+                      >
+                        <Camera className="w-4 h-4 text-blue-400" />
+                        Add screenshot
+                      </button>
+                    </PopoverContent>
+                  </Popover>
                   <input
                     ref={fileInputRef}
                     type="file"
