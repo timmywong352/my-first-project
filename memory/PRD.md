@@ -58,7 +58,12 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
-- **2026-02-09**: **Sprint bundle: audit attachments + auto-scroll + Pending Accept flow** (iter16, 6/6 backend + 18/18 checks pass)
+- **2026-02-09**: **UX bugs sprint: lazy history + Lily-only session hiding + instant close** (iter17, 11/11 backend + 14/14 checks pass)
+  - **Bug 1 fixed — Lazy history load**: On session select, ONLY current session messages render. Prior threads no longer auto-load. A "↑ Load N previous chats" button (or auto-trigger on scrollTop≤4) surfaces the historical threads.
+  - **Bug 2 fixed — Sessions hidden during Lily phase**: New sessions are created with `status='lily'` and are excluded from the default agent GET /sessions and from WS broadcasts. Only after POST /api/lily/handoff does the session flip to pending/queued and become visible on the agent dashboard.
+  - **Bug 3 fixed — Instant close (<1s)**: Both customer and agent close flows now do optimistic UI updates FIRST, then fire the API call in the background. Verified 62ms (agent) / 194ms (customer) end-to-end.
+  - **Regression caught & fixed by testing agent**: my Bug 2 refactor accidentally dropped the `@router.get('/sessions')` decorator on list_sessions — that would have taken down the entire agent dashboard listing. Restored.
+- **2026-02-09**: **Sprint bundle: audit attachments + auto-scroll + Pending Accept flow** (iter16)
   - **Extended audit trail (F-A)**: PATCH now also tracks attachment changes (empty → new file, replace, etc). DELETE stamps `original_attachments`. Admin Audit Log tab renders attachments (📎 icon + filename) inside FINAL / ORIGINAL / EDIT HISTORY blocks.
   - **Auto-scroll (F-B)**: Agent dashboard scrolls **instantly** to bottom on session switch, **smoothly** on new incoming messages. Customer widget scrolls instantly on phase transitions (Lily → connecting → chat) and smoothly on incoming messages.
   - **Pending Accept flow (F-C)**: new sessions and Lily→human handoffs now become `status='pending'` with `pending_agent_id` + `pending_expires_at=now+30s`. Agent must click Accept (POST `/api/chat/sessions/{id}/accept`). Distinct **rising 2-tone chime** on offer arrival. Timeout scheduler (5s tick) auto-reassigns to next agent (excludes those who let it lapse) or pushes back to queue. WS events: `pending_offer`, `pending_offer_expired`, `session_accepted`, `chat_accepted`, `reassigning`. Customer sees "Connecting you to the next available agent…" during pending phase.
