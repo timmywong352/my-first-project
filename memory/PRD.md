@@ -58,6 +58,14 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
+- **2026-02-09**: **Heal-on-reconnect for WebSocket** — Fixes the "first image
+  upload didn't reach the agent, second attempt worked" bug. Root cause was a
+  delivery race: if either side's WS was momentarily disconnected (ingress
+  hiccup, tab focus change, brief network flap), messages broadcast during the
+  gap were lost forever. Both AgentDashboard and ChatWidget now re-fetch the
+  current session's messages the moment their WS transitions from
+  disconnected→connected. Verified iter14: agent WS force-closed while
+  customer sent a message → after reconnect, the message appeared within 1s.
 - **2026-02-09**: **Auto-expanding composer + rich-text paste preservation** —
   new `useAutoResizeTextarea` hook powers both the customer widget and the
   agent dashboard composer. Grows with content up to 180px (customer) / 200px
