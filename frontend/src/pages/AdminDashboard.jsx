@@ -553,8 +553,8 @@ export default function AdminDashboard() {
           <TabsContent value="audit" className="space-y-6">
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-1">Audit Log</h1>
-                <p className="text-sm text-slate-500">
+                <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight mb-1">Audit Log</h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   Every time an agent edits or deletes a message, the original content is preserved
                   here for quality control, training and dispute resolution. The customer only ever
                   sees the final version.
@@ -563,7 +563,7 @@ export default function AdminDashboard() {
               <Button
                 onClick={loadAudit}
                 variant="outline"
-                className="border-slate-200"
+                className="border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                 data-testid="audit-refresh-btn"
               >
                 {auditLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Refresh"}
@@ -571,7 +571,10 @@ export default function AdminDashboard() {
             </div>
 
             {audit.length === 0 && !auditLoading && (
-              <Card className="p-8 text-center text-slate-500 border-slate-200" data-testid="audit-empty">
+              <Card
+                className="p-8 text-center text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 dark:bg-slate-900"
+                data-testid="audit-empty"
+              >
                 No edited or deleted messages yet — clean slate. 🎉
               </Card>
             )}
@@ -580,16 +583,16 @@ export default function AdminDashboard() {
               {audit.map((m) => (
                 <Card
                   key={m.id}
-                  className="p-4 border-slate-200"
+                  className="p-4 border-slate-200 dark:border-slate-700 dark:bg-slate-900"
                   data-testid={`audit-item-${m.id}`}
                 >
-                  <div className="flex items-center justify-between mb-2 text-xs text-slate-500">
+                  <div className="flex items-center justify-between mb-2 text-xs text-slate-500 dark:text-slate-400">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-slate-800 dark:text-slate-100">
                         {m.sender_name || m.sender_type}
                       </span>
-                      <span className="text-slate-400">·</span>
-                      <span>{m.customer_name || "Guest"}</span>
+                      <span className="text-slate-400 dark:text-slate-500">·</span>
+                      <span className="dark:text-slate-300">{m.customer_name || "Guest"}</span>
                       {m.deleted && (
                         <Badge variant="destructive" className="ml-2 text-[10px]">Deleted</Badge>
                       )}
@@ -602,8 +605,8 @@ export default function AdminDashboard() {
 
                   {/* Current (final) content */}
                   {!m.deleted && (
-                    <div className="text-sm bg-emerald-50 border border-emerald-100 rounded-lg p-3 mb-2 whitespace-pre-wrap break-words">
-                      <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">
+                    <div className="text-sm bg-emerald-50 border border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-100 rounded-lg p-3 mb-2 whitespace-pre-wrap break-words">
+                      <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider mb-1">
                         Final (what the customer sees)
                       </div>
                       {m.content}
@@ -612,8 +615,8 @@ export default function AdminDashboard() {
 
                   {/* Original */}
                   {m.original_content && m.original_content !== m.content && (
-                    <div className="text-sm bg-slate-50 border border-slate-200 rounded-lg p-3 mb-2 whitespace-pre-wrap break-words">
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    <div className="text-sm bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 rounded-lg p-3 mb-2 whitespace-pre-wrap break-words">
+                      <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                         Original
                       </div>
                       {m.original_content}
@@ -623,15 +626,15 @@ export default function AdminDashboard() {
                   {/* Version history */}
                   {Array.isArray(m.previous_versions) && m.previous_versions.length > 0 && (
                     <div className="space-y-1.5">
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Edit history ({m.previous_versions.length})
                       </div>
                       {m.previous_versions.map((v, i) => (
                         <div
                           key={i}
-                          className="text-xs bg-amber-50 border border-amber-100 rounded-lg p-2.5 whitespace-pre-wrap break-words"
+                          className="text-xs bg-amber-50 border border-amber-100 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-50 rounded-lg p-2.5 whitespace-pre-wrap break-words"
                         >
-                          <div className="text-[10px] text-amber-700 mb-1">
+                          <div className="text-[10px] text-amber-700 dark:text-amber-300 mb-1">
                             {v.edited_by_name || v.edited_by} · {new Date(v.edited_at).toLocaleString()}
                           </div>
                           {v.content}
@@ -641,7 +644,7 @@ export default function AdminDashboard() {
                   )}
 
                   {m.deleted && (
-                    <div className="text-xs text-red-600 mt-2">
+                    <div className="text-xs text-red-600 dark:text-red-400 mt-2">
                       Deleted by {m.deleted_by_name || m.deleted_by} on{" "}
                       {new Date(m.deleted_at).toLocaleString()}
                     </div>
