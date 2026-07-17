@@ -58,14 +58,12 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
-- **2026-02-09**: **Heal-on-reconnect for WebSocket** — Fixes the "first image
-  upload didn't reach the agent, second attempt worked" bug. Root cause was a
-  delivery race: if either side's WS was momentarily disconnected (ingress
-  hiccup, tab focus change, brief network flap), messages broadcast during the
-  gap were lost forever. Both AgentDashboard and ChatWidget now re-fetch the
-  current session's messages the moment their WS transitions from
-  disconnected→connected. Verified iter14: agent WS force-closed while
-  customer sent a message → after reconnect, the message appeared within 1s.
+- **2026-02-09**: **Sprint bundle: sync replay + sound + language + audit trail** (iter15, 10/10 backend + 14/14 checks pass)
+  - **since_id WS replay**: customer and agent WS now handle `{type:'sync', since_id, session_id?}` → server replays missed messages after that anchor id. Frontend keeps `lastMsgIdRef`, sends sync on reconnect. Full REST fetch is now only a first-connect fallback.
+  - **Sound notifications**: customer widget plays a synthesized Web Audio ping on incoming agent/lily messages. Bell/BellOff toggle in header persists to localStorage (`pulse_sound_on`).
+  - **Language switcher (EN/BM/中文)**: globe icon in widget header opens popover with the three languages. Choice persists to localStorage (`pulse_lang`). Lily's greetings + option labels come back localized from the backend (`/api/lily/status?lang=`, `/api/lily/open?lang=`, `/api/lily/regreet?lang=`).
+  - **Audit trail on message edit/delete**: PATCH pushes prior content into `previous_versions[]` with `edited_by_name`/`edited_at`. First edit stamps `original_content`. DELETE preserves final content + `deleted_by_name`. Admin-only `GET /api/admin/audit/edits` returns full history joined with customer name. Customer responses have `edited`/`edited_at`/`previous_versions`/`original_content` all stripped — customer sees only the final version, no indication anything was edited. Agent responses keep the `edited` flag but no history. New Admin Dashboard "Audit Log" tab renders FINAL / ORIGINAL / EDIT HISTORY blocks.
+- **2026-02-09**: **Heal-on-reconnect for WebSocket** (iter14)
 - **2026-02-09**: **Auto-expanding composer + rich-text paste preservation** —
   new `useAutoResizeTextarea` hook powers both the customer widget and the
   agent dashboard composer. Grows with content up to 180px (customer) / 200px
