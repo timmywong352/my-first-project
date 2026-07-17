@@ -58,7 +58,11 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
-- **2026-02-09**: **Sprint bundle: sync replay + sound + language + audit trail** (iter15, 10/10 backend + 14/14 checks pass)
+- **2026-02-09**: **Sprint bundle: audit attachments + auto-scroll + Pending Accept flow** (iter16, 6/6 backend + 18/18 checks pass)
+  - **Extended audit trail (F-A)**: PATCH now also tracks attachment changes (empty → new file, replace, etc). DELETE stamps `original_attachments`. Admin Audit Log tab renders attachments (📎 icon + filename) inside FINAL / ORIGINAL / EDIT HISTORY blocks.
+  - **Auto-scroll (F-B)**: Agent dashboard scrolls **instantly** to bottom on session switch, **smoothly** on new incoming messages. Customer widget scrolls instantly on phase transitions (Lily → connecting → chat) and smoothly on incoming messages.
+  - **Pending Accept flow (F-C)**: new sessions and Lily→human handoffs now become `status='pending'` with `pending_agent_id` + `pending_expires_at=now+30s`. Agent must click Accept (POST `/api/chat/sessions/{id}/accept`). Distinct **rising 2-tone chime** on offer arrival. Timeout scheduler (5s tick) auto-reassigns to next agent (excludes those who let it lapse) or pushes back to queue. WS events: `pending_offer`, `pending_offer_expired`, `session_accepted`, `chat_accepted`, `reassigning`. Customer sees "Connecting you to the next available agent…" during pending phase.
+- **2026-02-09**: **Sprint bundle: sync replay + sound + language + audit trail** (iter15)
   - **since_id WS replay**: customer and agent WS now handle `{type:'sync', since_id, session_id?}` → server replays missed messages after that anchor id. Frontend keeps `lastMsgIdRef`, sends sync on reconnect. Full REST fetch is now only a first-connect fallback.
   - **Sound notifications**: customer widget plays a synthesized Web Audio ping on incoming agent/lily messages. Bell/BellOff toggle in header persists to localStorage (`pulse_sound_on`).
   - **Language switcher (EN/BM/中文)**: globe icon in widget header opens popover with the three languages. Choice persists to localStorage (`pulse_lang`). Lily's greetings + option labels come back localized from the backend (`/api/lily/status?lang=`, `/api/lily/open?lang=`, `/api/lily/regreet?lang=`).
