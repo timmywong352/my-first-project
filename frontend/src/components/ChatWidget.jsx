@@ -11,7 +11,7 @@ import { speak, cancelSpeak, primeTTS } from "@/lib/tts";
 import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
   Loader2, FileText, Image as ImageIcon, Star, Clock, UserCog, Volume2, VolumeX,
-  Sparkles, XCircle, Plus, Camera, Trash2, ChevronUp,
+  Sparkles, XCircle, Plus, Camera, Trash2, ChevronUp, Bell, BellOff, Globe,
 } from "lucide-react";
 import {
   Popover,
@@ -28,6 +28,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { SUPPORTED_LANGS, getInitialLang, saveLang, tFactory } from "@/lib/i18n";
+
+const SOUND_KEY = "pulse_sound_on";
 
 const ATTACH_ACCEPT = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.mp4,.zip";
 const CLIENT_ID_KEY = "pulse_client_id";
@@ -125,6 +128,13 @@ export default function ChatWidget() {
   const lastGreetingRef = useRef("");
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [lang, setLang] = useState(getInitialLang);
+  const [soundOn, setSoundOn] = useState(() => {
+    const v = localStorage.getItem(SOUND_KEY);
+    return v === null ? true : v === "1";
+  });
+  const t = tFactory(lang);
+  const lastMsgIdRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -144,9 +154,9 @@ export default function ChatWidget() {
     minHeight: 40, maxHeight: 180, onChange: (v) => handleTyping(v),
   });
 
-  // Localised options list from server
+  // Localised options list from server — re-fetch when language changes.
   useEffect(() => {
-    api.get("/lily/status?lang=en")
+    api.get(`/lily/status?lang=${lang}`)
       .then(({ data }) => {
         setLilyEnabled(!!data.enabled);
         if (data.options) {
@@ -155,7 +165,7 @@ export default function ChatWidget() {
         }
       })
       .catch(() => { /* keep fallbacks */ });
-  }, []);
+  }, [lang]);
 
   const speakLily = useCallback((textToSpeak) => {
     if (!textToSpeak) return;
@@ -179,7 +189,7 @@ export default function ChatWidget() {
       const params = new URLSearchParams({
         session_id: session.session_id,
         session_token: session.session_token,
-        lang: "en",
+        lang,
       });
       if (lastGreetingRef.current) params.set("exclude", lastGreetingRef.current);
       const resp = await fetch(`${API}/lily/regreet?${params.toString()}`, {
@@ -217,6 +227,7 @@ export default function ChatWidget() {
             const msgs = await check.json();
             setSession(s);
             setMessages(msgs);
+            if (msgs.length) lastMsgIdRef.current = msgs[msgs.length - 1].id;
             // If a human agent has ever spoken, we're in human chat mode.
             const hasHuman = msgs.some((m) => m.sender_type === "agent");
             const stillLily = !hasHuman;
@@ -238,7 +249,7 @@ export default function ChatWidget() {
       const clientId = ensureClientId();
       const { data } = await api.post("/chat/session/anonymous", {
         client_id: clientId,
-        language: "en",
+        language: lang,
         page: window.location.href,
       });
       setSession(data);
@@ -249,7 +260,7 @@ export default function ChatWidget() {
 
       // Open Lily immediately
       const resp = await fetch(
-        `${API}/lily/open?session_id=${data.session_id}&session_token=${data.session_token}&lang=en`,
+        `${API}/lily/open?session_id=${data.session_id}&session_token=${data.session_token}&lang=${lang}`,
         { method: "POST" },
       );
       const r = await resp.json();
@@ -284,15 +295,35 @@ export default function ChatWidget() {
     ? `${WS_BASE}/api/ws/customer?session_id=${session.session_id}&session_token=${session.session_token}`
     : null;
 
+  const playPing = useCallback(() => {
+    if (!soundOn) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      const ctx = new AC();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 780;
+      gain.gain.value = 0.06;
+      osc.start();
+      osc.stop(ctx.currentTime + 0.14);
+    } catch { /* ignore */ }
+  }, [soundOn]);
+
   const handleWsMessage = useCallback((data) => {
     if (data.type === "message") {
       setMessages((prev) => {
         if (prev.find((m) => m.id === data.message.id)) return prev;
         return [...prev, data.message];
       });
+      lastMsgIdRef.current = data.message.id;
       if (data.message.sender_type === "agent") {
         setAgentTyping(false);
         setAgentPreview("");
+        playPing();
+      } else if (data.message.sender_type === "lily") {
+        playPing();
       }
     } else if (data.type === "message_edited") {
       setMessages((prev) => prev.map((m) => (m.id === data.message.id ? data.message : m)));
@@ -326,24 +357,35 @@ export default function ChatWidget() {
         setClosedNotice(data.message || "This chat has ended.");
       }
     }
-  }, []);
+  }, [playPing]);
 
   const { send, connected } = useWebSocket(wsUrl, handleWsMessage);
   sendRef.current = send;
 
-  // Heal-on-reconnect: re-fetch messages for this session whenever the WS
-  // transitions to open, so any messages that arrived while we were briefly
-  // disconnected (e.g. an in-flight file upload from the agent) don't get lost.
+  // Heal-on-reconnect via since_id sync: whenever the WS transitions to open,
+  // ask the server to replay any messages after the last id we've seen. If we
+  // have no lastMsgId yet (fresh open), we fall back to a REST fetch so we
+  // start with the persisted history.
   const wasConnectedRef = useRef(false);
   useEffect(() => {
     if (connected && !wasConnectedRef.current && session) {
-      fetch(`${API}/chat/public/${session.session_id}/messages?session_token=${session.session_token}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((msgs) => { if (Array.isArray(msgs)) setMessages(msgs); })
-        .catch(() => { /* ignore */ });
+      if (lastMsgIdRef.current) {
+        // WS-level replay — no extra REST round-trip.
+        send({ type: "sync", since_id: lastMsgIdRef.current });
+      } else {
+        fetch(`${API}/chat/public/${session.session_id}/messages?session_token=${session.session_token}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((msgs) => {
+            if (Array.isArray(msgs)) {
+              setMessages(msgs);
+              if (msgs.length) lastMsgIdRef.current = msgs[msgs.length - 1].id;
+            }
+          })
+          .catch(() => { /* ignore */ });
+      }
     }
     wasConnectedRef.current = connected;
-  }, [connected, session]);
+  }, [connected, session, send]);
 
   // ---------- Hand-off ----------
   const handoffToHuman = async (customerText) => {
@@ -352,7 +394,7 @@ export default function ChatWidget() {
       const params = new URLSearchParams({
         session_id: session.session_id,
         session_token: session.session_token,
-        lang: "en",
+        lang,
       });
       if (customerText) params.set("customer_text", customerText);
       const resp = await fetch(`${API}/lily/handoff?${params.toString()}`, { method: "POST" });
@@ -514,15 +556,15 @@ export default function ChatWidget() {
                 <Sparkles className="w-4 h-4" />
               </div>
               <div>
-                <div className="font-bold text-sm leading-tight">Lily · Support</div>
+                <div className="font-bold text-sm leading-tight">{t("header_title")}</div>
                 <div className="text-[10px] opacity-90 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                   {phase === "closed"
                     ? "Chat ended"
                     : phase === "queued"
-                      ? `In queue · #${queuePosition ?? "—"}`
+                      ? `${t("queued_title")} · #${queuePosition ?? "—"}`
                       : phase === "chat"
-                        ? (connected ? "Live agent" : "Reconnecting…")
+                        ? (connected ? t("header_status") : t("reconnecting"))
                         : phase === "lily"
                           ? "AI Assistant · Online"
                           : "Connecting…"}
@@ -534,20 +576,59 @@ export default function ChatWidget() {
                 <button
                   onClick={() => setCloseConfirmOpen(true)}
                   className="p-1.5 rounded-lg hover:bg-red-500/20 hover:text-red-300 transition-colors"
-                  title="Close chat"
-                  aria-label="Close chat"
+                  title={t("close_chat")}
+                  aria-label={t("close_chat")}
                   data-testid="close-chat-btn"
                 >
                   <XCircle className="w-4 h-4" />
                 </button>
               )}
+              {/* Language switcher */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                    title={t("language")}
+                    data-testid="lang-toggle"
+                  >
+                    <Globe className="w-4 h-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-40 p-1 bg-slate-900 border-slate-700 text-slate-100">
+                  {SUPPORTED_LANGS.map((L) => (
+                    <button
+                      key={L.code}
+                      onClick={() => { setLang(L.code); saveLang(L.code); }}
+                      className={`w-full text-left px-2.5 py-2 rounded-md text-xs flex items-center gap-2 hover:bg-slate-800 ${lang === L.code ? "bg-slate-800" : ""}`}
+                      data-testid={`lang-option-${L.code}`}
+                    >
+                      <span>{L.flag}</span>
+                      <span className="flex-1">{L.label}</span>
+                      {lang === L.code && <Check className="w-3 h-3" />}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+              {/* Sound (message ping) toggle */}
+              <button
+                onClick={() => setSoundOn((v) => {
+                  const next = !v;
+                  try { localStorage.setItem(SOUND_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+                  return next;
+                })}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                title={soundOn ? t("sound_on") : t("sound_off")}
+                data-testid="sound-toggle"
+              >
+                {soundOn ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+              </button>
               <button
                 onClick={() => setTtsOn((v) => {
                   if (v) { cancelSpeak(); setLilySpeaking(false); }
                   return !v;
                 })}
                 className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                title={ttsOn ? "Mute voice" : "Enable voice"}
+                title={ttsOn ? t("voice_on") : t("voice_off")}
                 data-testid="lily-tts-toggle"
               >
                 {ttsOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
@@ -880,7 +961,7 @@ export default function ChatWidget() {
                       }
                     }}
                     onPaste={composerPaste}
-                    placeholder="Type your message…"
+                    placeholder={t("input_placeholder")}
                     rows={1}
                     data-testid="chat-input"
                     className="flex-1 resize-none min-h-[40px] rounded-xl bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 text-sm focus-visible:ring-blue-500 leading-relaxed"
@@ -945,10 +1026,10 @@ export default function ChatWidget() {
         >
           <AlertDialogHeader>
             <AlertDialogTitle className="text-slate-100">
-              Are you sure you want to close this chat?
+              {t("close_confirm_title")}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400">
-              Your conversation history will be saved. You can always start a new chat later.
+              {t("close_confirm_body")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -956,7 +1037,7 @@ export default function ChatWidget() {
               className="bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700 hover:text-white"
               data-testid="close-confirm-cancel"
             >
-              Cancel
+              {t("close_confirm_no")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmClose}
@@ -964,7 +1045,7 @@ export default function ChatWidget() {
               className="bg-red-500 text-white hover:bg-red-600 focus-visible:ring-red-500"
               data-testid="close-confirm-confirm"
             >
-              {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Close Chat"}
+              {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : t("close_confirm_yes")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

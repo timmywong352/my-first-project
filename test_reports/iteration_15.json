@@ -1,0 +1,41 @@
+{
+  "summary": "Iter15 verified end-to-end. Backend pytest suite (10/10 PASS): (F3) /api/lily/status?lang=en/ms/zh returns properly-localized option labels (Chinese CJK for zh; 'Status/Pengeluaran/Promosi/Tiket' cues for ms) and POST /api/lily/open?lang=zh returns a greeting containing Chinese characters. (F1) WS since_id replay works on BOTH sides: customer disconnected → agent injected 2 messages → customer reconnected + sent {type:'sync',since_id} and received exactly the 2 missed messages (anchor NOT replayed). Same verified for agent side (agent WS sync recovers a customer message injected while agent was disconnected). (F4) Edit twice as agent → admin GET /api/admin/audit/edits returns full audit with previous_versions.length===2, original_content='v0-original', first pv content='v0-original', second pv content='v1-edit', edited_by_name present. Agent GET /api/chat/sessions/{id}/messages strips previous_versions/original_content/edited_by_name (keeps edited flag). Customer GET /api/chat/public/{id}/messages returns ONLY the final content 'v2-final' with `edited` flag stripped. Non-admin call to /api/admin/audit/edits → 403. Regression: neither public nor admin settings contain FRONTEND_TEST_MSG. Frontend (Playwright): (F2) [data-testid='sound-toggle'] present in widget header, click flips localStorage.pulse_sound_on (initially null→'0'). (F3) [data-testid='lang-toggle'] opens popover with lang-option-en/ms/zh; selecting 中文 renders header 'Lily · 客服' and lily-option chips '查询充值状态/查询提现状态/查看优惠活动/查询工单状态' — pulse_lang='zh' saved, persists across full page reload (verified ms persistence too). (F4 admin UI) /admin → tab-audit shows audit-list with 5 audit-item cards including the one we edited: FINAL (green) 'v2-final', ORIGINAL (grey) 'v0-original', EDIT HISTORY (2) yellow entries with names+timestamps. Refresh button works. No pageerrors, no console errors during any flow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter15_features.py",
+    "/app/test_reports/pytest/iter15_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx and AgentDashboard.jsx still exceed 700-line guideline (carried over from prior iterations).",
+    "Admin audit endpoint returns all audit fields for every hit — for large histories consider pagination (limit is already capped at 500 which is fine short-term).",
+    "manager._safe_send is called from a plain module method (routers/chat.py) using a private attribute (`_safe_send`). Consider promoting to a public API on WSManager to avoid accidental breakage."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter15_features.py",
+    "/app/test_reports/iteration_15.json"
+  ],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% (F2 sound, F3 zh/ms + persistence, F4 admin audit tab)"},
+  "test_credentials": "admin@livechat.com / admin123, agent@livechat.com / agent123",
+  "seed_data_creation": "3 anon sessions created per run with client_id prefixes iter15_/iter15b_/iter15c_. One agent message edited twice ('v0-original' → 'v1-edit' → 'v2-final') per run, persists in audit collection for later inspection.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "For WS testing over the public preview URL, WS path must be /api/ws/agent and /api/ws/customer (the /api prefix from server.py). Backend login returns 'token' key. Use pytest-asyncio not asyncio.get_event_loop() when mixing async and websockets. When testing widget popovers (like lang-toggle), the Radix popover closes after each option pick — re-click the toggle explicitly to reopen for the next selection. Backend audit endpoint filter accepts session_id which is useful for isolating your own edited rows from previous iterations.",
+  "verification": {
+    "F1_customer_since_id_replay": "PASS",
+    "F1_agent_since_id_replay": "PASS",
+    "F2_sound_toggle_localStorage_flip": "PASS",
+    "F3_lang_zh_header_and_chips": "PASS",
+    "F3_lang_persistence_reload": "PASS",
+    "F3_lily_status_backend_zh_ms_labels": "PASS",
+    "F3_lily_open_zh_greeting": "PASS",
+    "F4_admin_audit_previous_versions_len_2": "PASS",
+    "F4_agent_response_stripped": "PASS",
+    "F4_customer_response_no_edited_flag": "PASS",
+    "F4_non_admin_403_on_audit": "PASS",
+    "F4_admin_ui_final_original_history_blocks": "PASS",
+    "regression_frontend_test_msg_absent": "PASS",
+    "regression_no_console_errors": "PASS"
+  }
+}

@@ -91,6 +91,25 @@ async def ws_agent(websocket: WebSocket, token: str = Query(...)):
                     {"$set": {"status": "read"}},
                 )
                 await manager.send_to_customer(session_id, {"type": "read_receipt", "session_id": session_id})
+            elif t == "sync":
+                # Agent-side replay for a specific session.
+                session_id = data.get("session_id")
+                since_id = data.get("since_id")
+                if not session_id:
+                    continue
+                cursor_ts = None
+                if since_id:
+                    anchor = await db.messages.find_one({"id": since_id})
+                    if anchor:
+                        cursor_ts = anchor.get("created_at")
+                query = {"session_id": session_id}
+                if cursor_ts:
+                    query["created_at"] = {"$gt": cursor_ts}
+                async for m in db.messages.find(query).sort("created_at", 1):
+                    m.pop("_id", None)
+                    if m.get("id") == since_id:
+                        continue
+                    await websocket.send_json({"type": "message", "message": m})
             elif t == "ping":
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
@@ -167,6 +186,22 @@ async def ws_customer(
                     {"$set": {"status": "read"}},
                 )
                 await manager.send_to_agents({"type": "read_receipt", "session_id": session_id})
+            elif t == "sync":
+                # Replay any messages this customer missed while disconnected.
+                since_id = data.get("since_id")
+                cursor_ts = None
+                if since_id:
+                    anchor = await db.messages.find_one({"id": since_id})
+                    if anchor:
+                        cursor_ts = anchor.get("created_at")
+                query = {"session_id": session_id}
+                if cursor_ts:
+                    query["created_at"] = {"$gt": cursor_ts}
+                async for m in db.messages.find(query).sort("created_at", 1):
+                    m.pop("_id", None)
+                    if m.get("id") == since_id:
+                        continue
+                    await websocket.send_json({"type": "message", "message": m})
             elif t == "ping":
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:

@@ -120,6 +120,7 @@ export default function AgentDashboard() {
   // Bug 5: track un-read customer messages per session
   const [unread, setUnread] = useState({});   // { sessionId: number }
   const selectedIdRef = useRef(null);
+  const lastMsgIdRef = useRef({}); // { sessionId: lastMessageId } for since_id replay
 
   const sess = useAgentSessions();
   const arch = useArchiveSearch(sess.activeTab === "archived");
@@ -155,6 +156,9 @@ export default function AgentDashboard() {
     try {
       const { data } = await api.get(`/chat/sessions/${id}/messages`);
       setMessages(data);
+      if (Array.isArray(data) && data.length) {
+        lastMsgIdRef.current[id] = data[data.length - 1].id;
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -232,6 +236,7 @@ export default function AgentDashboard() {
     if (data.type === "message") {
       const m = data.message;
       sess.applyMessage(m);
+      lastMsgIdRef.current[m.session_id] = m.id;
       if (m.session_id === selectedId) {
         setMessages((prev) => (prev.find((x) => x.id === m.id) ? prev : [...prev, m]));
       }
@@ -279,20 +284,25 @@ export default function AgentDashboard() {
 
   const { send, connected } = useWebSocket(wsUrl, handleWs);
 
-  // Heal-on-reconnect: whenever the WS transitions to open, re-sync the
-  // currently-selected session's messages so any events that arrived while we
-  // were disconnected are not lost (e.g. customer file uploads).
+  // Heal-on-reconnect: on WS reconnect, replay missed messages for the
+  // currently-selected session via a `sync` WS message (using since_id). If
+  // this is the first connect (no last id), fall back to loadMessages.
   const wasConnected = useRef(false);
   useEffect(() => {
     if (connected && !wasConnected.current) {
-      // First connect or reconnect after a drop.
-      if (selectedIdRef.current) {
-        loadMessages(selectedIdRef.current);
+      const sid = selectedIdRef.current;
+      if (sid) {
+        const sinceId = lastMsgIdRef.current[sid];
+        if (sinceId) {
+          send({ type: "sync", session_id: sid, since_id: sinceId });
+        } else {
+          loadMessages(sid);
+        }
       }
       sess.loadSessions();
     }
     wasConnected.current = connected;
-  }, [connected, loadMessages, sess]);
+  }, [connected, loadMessages, sess, send]);
 
   const changeStatus = async (newStatus) => {
     setStatus(newStatus);

@@ -19,6 +19,31 @@ from services import (
 from utils import get_real_client_ip, now_iso
 from ws_manager import manager
 
+# ---------- Audit-safe response helpers ----------
+_AUDIT_FIELDS = ("previous_versions", "original_content", "deleted_by", "deleted_by_name", "edited_by_name")
+
+
+def strip_audit(m: dict) -> dict:
+    """Return a copy of a message safe to send to non-admin clients.
+
+    Keeps the `edited`/`deleted` booleans and timestamps but hides the
+    per-version content history and editor identities. Those live only in the
+    admin audit endpoint.
+    """
+    if not isinstance(m, dict):
+        return m
+    out = {k: v for k, v in m.items() if k not in _AUDIT_FIELDS}
+    return out
+
+
+def strip_audit_for_customer(m: dict) -> dict:
+    """Even stricter: also drop the `edited` flag so the customer sees a clean
+    message (the boss wants the customer experience to be pristine)."""
+    out = strip_audit(m)
+    out.pop("edited", None)
+    out.pop("edited_at", None)
+    return out
+
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 RATE_LIMIT_PER_HOUR = 60
@@ -227,9 +252,10 @@ async def get_session(session_id: str, user: dict = Depends(get_current_user)):
 async def get_messages(session_id: str, user: dict = Depends(get_current_user)):
     cur = db.messages.find({"session_id": session_id, "deleted": {"$ne": True}}).sort("created_at", 1)
     out = []
+    is_admin = user.get("role") == "admin"
     async for m in cur:
         m.pop("_id", None)
-        out.append(m)
+        out.append(m if is_admin else strip_audit(m))
     return out
 
 
@@ -242,7 +268,7 @@ async def public_get_messages(session_id: str, session_token: str = Query(...)):
     out = []
     async for m in cur:
         m.pop("_id", None)
-        out.append(m)
+        out.append(strip_audit_for_customer(m))
     return out
 
 
@@ -311,14 +337,39 @@ async def edit_message(msg_id: str, body: EditMessageBody, user: dict = Depends(
         raise HTTPException(status_code=404, detail="Message not found")
     if msg.get("sender_id") != user["id"]:
         raise HTTPException(status_code=403, detail="Not your message")
-    await db.messages.update_one(
-        {"id": msg_id},
-        {"$set": {"content": body.content, "edited": True, "edited_at": now_iso()}},
-    )
+    if msg.get("content") == body.content:
+        # No-op edit — don't pollute the audit trail.
+        msg.pop("_id", None)
+        return strip_audit(msg) if user.get("role") != "admin" else msg
+    # Preserve the CURRENT content as a historical version before overwriting.
+    prev_version = {
+        "content": msg.get("content", ""),
+        "edited_by": user["id"],
+        "edited_by_name": user.get("name") or user.get("email"),
+        "edited_at": now_iso(),
+    }
+    update = {
+        "$set": {
+            "content": body.content,
+            "edited": True,
+            "edited_at": now_iso(),
+        },
+        "$push": {"previous_versions": prev_version},
+    }
+    # Only stamp original_content the first time we edit.
+    if not msg.get("original_content"):
+        update["$set"]["original_content"] = msg.get("content", "")
+    await db.messages.update_one({"id": msg_id}, update)
     updated = await db.messages.find_one({"id": msg_id})
     updated.pop("_id", None)
-    await manager.broadcast_to_session(msg["session_id"], {"type": "message_edited", "message": updated})
-    return updated
+    # Broadcast a lean copy — customers get a completely-clean payload
+    # (no `edited` flag), agents get the audit-stripped message.
+    for ws in list(manager.customer_conns.get(msg["session_id"], [])):
+        await manager._safe_send(ws, {"type": "message_edited", "message": strip_audit_for_customer(updated)})
+    for agent_id, conns in list(manager.agent_conns.items()):
+        for ws in list(conns):
+            await manager._safe_send(ws, {"type": "message_edited", "message": strip_audit(updated)})
+    return strip_audit(updated) if user.get("role") != "admin" else updated
 
 
 @router.delete("/messages/{msg_id}")
@@ -328,7 +379,18 @@ async def delete_message(msg_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Message not found")
     if msg.get("sender_id") != user["id"]:
         raise HTTPException(status_code=403, detail="Not your message")
-    await db.messages.update_one({"id": msg_id}, {"$set": {"deleted": True, "deleted_at": now_iso()}})
+    update = {
+        "$set": {
+            "deleted": True,
+            "deleted_at": now_iso(),
+            "deleted_by": user["id"],
+            "deleted_by_name": user.get("name") or user.get("email"),
+        },
+    }
+    # Preserve the last content for the audit trail even after deletion.
+    if not msg.get("original_content"):
+        update["$set"]["original_content"] = msg.get("content", "")
+    await db.messages.update_one({"id": msg_id}, update)
     await manager.broadcast_to_session(msg["session_id"], {"type": "message_deleted", "message_id": msg_id})
     return {"ok": True}
 

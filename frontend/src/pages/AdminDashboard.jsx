@@ -58,6 +58,8 @@ export default function AdminDashboard() {
   const [addErr, setAddErr] = useState("");
   const [quickReplies, setQuickReplies] = useState([]);
   const [newReply, setNewReply] = useState({ title: "", content: "" });
+  const [audit, setAudit] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   useEffect(() => {
     if (user && user.role === "admin") {
@@ -98,6 +100,14 @@ export default function AdminDashboard() {
       await api.delete(`/agents/${id}`);
       loadAll();
     } catch { /* ignore */ }
+  };
+
+  const loadAudit = async () => {
+    setAuditLoading(true);
+    try {
+      const { data } = await api.get("/admin/audit/edits?limit=200");
+      setAudit(data);
+    } catch { setAudit([]); } finally { setAuditLoading(false); }
   };
 
   const saveSettings = async () => {
@@ -172,6 +182,14 @@ export default function AdminDashboard() {
             <TabsTrigger value="hours" data-testid="tab-hours" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg">Business Hours</TabsTrigger>
             <TabsTrigger value="inactivity" data-testid="tab-inactivity" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg">Inactivity</TabsTrigger>
             <TabsTrigger value="replies" data-testid="tab-replies" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg">Quick Replies</TabsTrigger>
+            <TabsTrigger
+              value="audit"
+              data-testid="tab-audit"
+              onClick={loadAudit}
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg"
+            >
+              Audit Log
+            </TabsTrigger>
           </TabsList>
 
           {/* OVERVIEW */}
@@ -526,6 +544,108 @@ export default function AdminDashboard() {
                   <button onClick={() => deleteQuickReply(q.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" data-testid={`delete-reply-${q.id}`}>
                     <Trash2 className="w-4 h-4" />
                   </button>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* AUDIT LOG */}
+          <TabsContent value="audit" className="space-y-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-1">Audit Log</h1>
+                <p className="text-sm text-slate-500">
+                  Every time an agent edits or deletes a message, the original content is preserved
+                  here for quality control, training and dispute resolution. The customer only ever
+                  sees the final version.
+                </p>
+              </div>
+              <Button
+                onClick={loadAudit}
+                variant="outline"
+                className="border-slate-200"
+                data-testid="audit-refresh-btn"
+              >
+                {auditLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Refresh"}
+              </Button>
+            </div>
+
+            {audit.length === 0 && !auditLoading && (
+              <Card className="p-8 text-center text-slate-500 border-slate-200" data-testid="audit-empty">
+                No edited or deleted messages yet — clean slate. 🎉
+              </Card>
+            )}
+
+            <div className="space-y-3" data-testid="audit-list">
+              {audit.map((m) => (
+                <Card
+                  key={m.id}
+                  className="p-4 border-slate-200"
+                  data-testid={`audit-item-${m.id}`}
+                >
+                  <div className="flex items-center justify-between mb-2 text-xs text-slate-500">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-800">
+                        {m.sender_name || m.sender_type}
+                      </span>
+                      <span className="text-slate-400">·</span>
+                      <span>{m.customer_name || "Guest"}</span>
+                      {m.deleted && (
+                        <Badge variant="destructive" className="ml-2 text-[10px]">Deleted</Badge>
+                      )}
+                      {m.edited && !m.deleted && (
+                        <Badge className="ml-2 bg-amber-500 text-white text-[10px]">Edited</Badge>
+                      )}
+                    </div>
+                    <div>{new Date(m.edited_at || m.deleted_at || m.created_at).toLocaleString()}</div>
+                  </div>
+
+                  {/* Current (final) content */}
+                  {!m.deleted && (
+                    <div className="text-sm bg-emerald-50 border border-emerald-100 rounded-lg p-3 mb-2 whitespace-pre-wrap break-words">
+                      <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">
+                        Final (what the customer sees)
+                      </div>
+                      {m.content}
+                    </div>
+                  )}
+
+                  {/* Original */}
+                  {m.original_content && m.original_content !== m.content && (
+                    <div className="text-sm bg-slate-50 border border-slate-200 rounded-lg p-3 mb-2 whitespace-pre-wrap break-words">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Original
+                      </div>
+                      {m.original_content}
+                    </div>
+                  )}
+
+                  {/* Version history */}
+                  {Array.isArray(m.previous_versions) && m.previous_versions.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Edit history ({m.previous_versions.length})
+                      </div>
+                      {m.previous_versions.map((v, i) => (
+                        <div
+                          key={i}
+                          className="text-xs bg-amber-50 border border-amber-100 rounded-lg p-2.5 whitespace-pre-wrap break-words"
+                        >
+                          <div className="text-[10px] text-amber-700 mb-1">
+                            {v.edited_by_name || v.edited_by} · {new Date(v.edited_at).toLocaleString()}
+                          </div>
+                          {v.content}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {m.deleted && (
+                    <div className="text-xs text-red-600 mt-2">
+                      Deleted by {m.deleted_by_name || m.deleted_by} on{" "}
+                      {new Date(m.deleted_at).toLocaleString()}
+                    </div>
+                  )}
                 </Card>
               ))}
             </div>

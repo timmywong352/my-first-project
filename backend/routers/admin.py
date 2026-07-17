@@ -102,3 +102,38 @@ async def update_settings(body: SettingsBody, admin: dict = Depends(require_admi
 
 router.include_router(_admin)
 router.include_router(_public)
+
+
+# ---------- Audit trail ----------
+# Note: this route is registered on `router` directly (not `_admin`) so it works
+# even though include_router has already been called above. We keep the
+# `/admin` prefix by declaring it inline.
+@router.get("/admin/audit/edits")
+async def list_edited_messages(
+    admin: dict = Depends(require_admin),
+    agent_id: str = None,
+    session_id: str = None,
+    limit: int = 100,
+):
+    """List all messages that were edited or deleted, with their full history.
+
+    Filterable by agent_id (the sender) and/or session_id. Newest first.
+    Used by the admin dashboard's "Audit Log" tab for quality control and
+    dispute resolution.
+    """
+    q = {"$or": [{"edited": True}, {"deleted": True}]}
+    if agent_id:
+        q["sender_id"] = agent_id
+    if session_id:
+        q["session_id"] = session_id
+    limit = max(1, min(int(limit), 500))
+    out = []
+    async for m in db.messages.find(q).sort("edited_at", -1).limit(limit):
+        m.pop("_id", None)
+        s = await db.sessions.find_one({"id": m["session_id"]}, {"customer_name": 1, "customer_email": 1})
+        m["customer_name"] = (s or {}).get("customer_name")
+        m["customer_email"] = (s or {}).get("customer_email")
+        out.append(m)
+    return out
+
+
