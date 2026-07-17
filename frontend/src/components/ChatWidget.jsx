@@ -331,6 +331,20 @@ export default function ChatWidget() {
   const { send, connected } = useWebSocket(wsUrl, handleWsMessage);
   sendRef.current = send;
 
+  // Heal-on-reconnect: re-fetch messages for this session whenever the WS
+  // transitions to open, so any messages that arrived while we were briefly
+  // disconnected (e.g. an in-flight file upload from the agent) don't get lost.
+  const wasConnectedRef = useRef(false);
+  useEffect(() => {
+    if (connected && !wasConnectedRef.current && session) {
+      fetch(`${API}/chat/public/${session.session_id}/messages?session_token=${session.session_token}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((msgs) => { if (Array.isArray(msgs)) setMessages(msgs); })
+        .catch(() => { /* ignore */ });
+    }
+    wasConnectedRef.current = connected;
+  }, [connected, session]);
+
   // ---------- Hand-off ----------
   const handoffToHuman = async (customerText) => {
     if (!session) return;

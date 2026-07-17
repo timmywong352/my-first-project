@@ -279,6 +279,21 @@ export default function AgentDashboard() {
 
   const { send, connected } = useWebSocket(wsUrl, handleWs);
 
+  // Heal-on-reconnect: whenever the WS transitions to open, re-sync the
+  // currently-selected session's messages so any events that arrived while we
+  // were disconnected are not lost (e.g. customer file uploads).
+  const wasConnected = useRef(false);
+  useEffect(() => {
+    if (connected && !wasConnected.current) {
+      // First connect or reconnect after a drop.
+      if (selectedIdRef.current) {
+        loadMessages(selectedIdRef.current);
+      }
+      sess.loadSessions();
+    }
+    wasConnected.current = connected;
+  }, [connected, loadMessages, sess]);
+
   const changeStatus = async (newStatus) => {
     setStatus(newStatus);
     try { await api.post("/agents/status", { status: newStatus }); } catch { /* ignore */ }
