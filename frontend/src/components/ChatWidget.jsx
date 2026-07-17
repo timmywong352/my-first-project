@@ -356,16 +356,14 @@ export default function ChatWidget() {
             : "This chat has ended. Thanks for chatting with us!",
       );
     } else if (data.type === "queue_promoted") {
-      // Server found an agent to offer this chat to. We treat this as
-      // "waiting_agent" — actual chat begins once the agent hits Accept and
-      // emits `chat_accepted`.
+      // Agent auto-assigned — go straight to chat.
       setQueuePosition(null);
-      setPhase("waiting_agent");
+      setPhase("chat");
     } else if (data.type === "chat_accepted") {
+      // Legacy path (kept for compatibility with older backend deploys).
       setPhase("chat");
     } else if (data.type === "reassigning") {
-      // Previous agent didn't accept in time — server is trying somebody else.
-      setPhase(data.queued ? "queued" : "waiting_agent");
+      setPhase(data.queued ? "queued" : "chat");
     } else if (data.type === "queue_update") {
       setQueuePosition(data.position);
     } else if (data.type === "error") {

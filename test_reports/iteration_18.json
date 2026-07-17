@@ -1,0 +1,55 @@
+{
+  "summary": "Iter18 — Auto-assign (no Accept step) verified end-to-end. Backend: 8/8 pytest cases passed. Session goes directly to status='open' after Lily handoff when an agent is online (no pending state); assigned_agent_id populated; pending_agent_id/pending_expires_at are None; agent WS receives 'new_session' event (NOT 'pending_offer'); default sessions listing includes the new session immediately (no /accept needed); no status='pending' sessions leak into the active view; no stale iter1*/TEST_Iter17 sessions in active view (only archived closed ones remain, which is expected). Queued path also works: with both admin & agent offline, session becomes status='queued' with queue_position; bringing an agent back online promotes it directly to 'open' via promote_from_queue. Frontend: agent /dashboard renders WITHOUT any pending-offers element; a session created via API + handoff appears in [data-testid='sessions-list'] within 408ms with 'Open' badge; agent can click and reply without any Accept action; agent-side pending-offers section stays at 0 offers throughout. Customer widget: Lily→chat transitions directly (waiting-agent-view NEVER visible), chat-input visible immediately, customer message sent successfully, 0 console errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter18_auto_assign.py",
+    "/app/test_reports/pytest/iter18_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL cleanup: legacy code still present (PendingOfferCard, acceptOffer, POST /api/chat/sessions/:id/accept, `pending` status in models, expire_pending_offers no-op stub). Not exercised in happy path but adds dead weight — consider deleting in a follow-up PR.",
+    "OPTIONAL: agent status endpoint is POST /api/agents/status (NOT /agents/me/status). Update docs / test_credentials.md to reflect. Not a bug; iter18 tests use the correct path.",
+    "OPTIONAL: 13 legacy archived sessions with client_id prefixes iter13_/iter14_/iter14ui_/iter18ui_ still exist in DB as status='closed'. These do NOT appear in the agent Incoming/active section (only in Archived). Safe to leave; delete if noise builds up."
+  ],
+  "critical_code_review_comments": [
+    "Handoff flow is now clean: services.route_new_session sets status='open' directly, lily.py broadcasts new_session, AgentDashboard handles new_session with playIncoming() chime — matches PRD.",
+    "Consider REMOVING dead code (PendingOfferCard, acceptOffer, POST /accept, pending status) rather than leaving as no-ops — reduces future confusion and prevents accidental regression.",
+    "AgentDashboard.jsx still > 1100 lines — should still be split (unchanged from iter17)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter18_auto_assign.py (new)",
+    "/app/test_reports/iteration_18.json",
+    "/app/test_reports/pytest/iter18_results.xml"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% (agent auto-assign visible in 408ms, no pending-offers UI, customer widget goes Lily→chat directly, 0 console errors)"},
+  "test_credentials": "admin@livechat.com / admin123 (routes to /admin); agent@livechat.com / agent123 (routes to /dashboard). Anonymous customer via POST /api/chat/session/anonymous {client_id, language}. Set status via POST /api/agents/status (not /agents/me/status).",
+  "seed_data_creation": "Created ~6 iter18ui_* and iter18_* anonymous sessions during testing. All closed and cleaned up in the test's zzz_cleanup fixture. Prefix 'iter18_' used as agreed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Auto-assign flow: (1) POST /api/chat/session/anonymous returns {session_id, session_token, ...} (note key is `session_id`, not `id`), status='lily'. (2) POST /api/lily/handoff?session_id=X&session_token=Y&lang=en — this transitions status to 'open' (if agent online) or 'queued' (if not) and broadcasts a `new_session` WS event to agents. NEVER expect 'pending_offer' events or status='pending' anywhere in the happy path. Agent /dashboard: [data-testid='sessions-list'] is the active list; [data-testid='pending-offers'] is legacy and should have 0 children. Customer widget: `queue_promoted` event transitions phase directly to 'chat' — [data-testid='waiting-agent-view'] should NEVER be visible in the auto-assign path. To force queued path in tests: POST /api/agents/status {status:'offline'} for BOTH admin and agent (both are eligible agents).",
+  "bug_verification": {
+    "auto_assign_status_open_after_handoff": "PASS",
+    "assigned_agent_id_populated": "PASS",
+    "no_pending_agent_id_or_expires_at": "PASS",
+    "ws_new_session_broadcast": "PASS",
+    "ws_no_pending_offer_broadcast": "PASS",
+    "session_in_default_listing_immediately": "PASS",
+    "no_pending_status_sessions_in_listing": "PASS",
+    "queued_path_when_all_agents_offline": "PASS",
+    "promote_from_queue_transitions_open_and_broadcasts_new_session": "PASS",
+    "no_stale_test_sessions_in_active_view": "PASS (closed archived leftovers OK; none in active/queued/pending/lily)",
+    "agent_dashboard_no_pending_offers_ui": "PASS (element not rendered)",
+    "session_appears_in_sessions_list_within_3s": "PASS (408ms)",
+    "agent_reply_without_accept_step": "PASS",
+    "customer_widget_lily_to_chat_direct": "PASS (waiting-agent-view NOT visible)",
+    "customer_can_send_message_immediately": "PASS",
+    "no_console_errors": "PASS"
+  }
+}

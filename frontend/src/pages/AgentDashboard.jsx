@@ -325,30 +325,15 @@ export default function AgentDashboard() {
           setUnread((prev) => ({ ...prev, [m.session_id]: (prev[m.session_id] || 0) + 1 }));
         }
       }
-    } else if (data.type === "pending_offer") {
-      // Only queue the offer for the agent it was actually addressed to.
-      if (data.session.pending_agent_id === currentAgentId) {
-        setPendingOffers((prev) => ({
-          ...prev,
-          [data.session.id]: { session: data.session, expires_at: data.expires_at },
-        }));
+    } else if (data.type === "new_session") {
+      // Auto-assigned chat lands directly in the active list. Play the loud
+      // incoming chime so the agent knows a new customer just showed up.
+      if (!isArchivedView) {
+        sess.prependSession(data.session);
         playIncoming();
       }
-    } else if (data.type === "pending_offer_expired" || data.type === "session_accepted") {
-      // Remove from the pending list on ALL agents (was rerouted or accepted).
-      const sid = data.session_id || data.session?.id;
-      if (sid) {
-        setPendingOffers((prev) => {
-          if (!prev[sid]) return prev;
-          const copy = { ...prev }; delete copy[sid]; return copy;
-        });
-      }
-      // If it was accepted (by ANY agent — including us), also insert into the
-      // active list. If accepted by us, refresh full sessions so we own it.
-      if (data.type === "session_accepted" && data.session) {
-        sess.prependSession(data.session);
-        if (data.accepted_by === currentAgentId) refreshLoad();
-      }
+    } else if (data.type === "pending_offer" || data.type === "pending_offer_expired" || data.type === "session_accepted") {
+      // Legacy events from the removed Accept flow — ignore.
     } else if (data.type === "message_edited") {
       if (data.message.session_id === selectedId) {
         setMessages((prev) => prev.map((x) => (x.id === data.message.id ? data.message : x)));
@@ -362,9 +347,6 @@ export default function AgentDashboard() {
           setCustomerPreview((prev) => ({ ...prev, [data.session_id]: data.preview }));
         }
       }
-    } else if (data.type === "new_session") {
-      // Backwards compat: keeps old bookkeeping if a legacy code path fires it.
-      if (!isArchivedView) sess.prependSession(data.session);
     } else if (data.type === "read_receipt") {
       if (data.session_id === selectedId) {
         setMessages((prev) => prev.map((m) => (m.sender_type === "agent" ? { ...m, status: "read" } : m)));
@@ -398,23 +380,9 @@ export default function AgentDashboard() {
         }
       }
       sess.loadSessions();
-      // Also fetch any offers this agent is currently the pending target for
-      // (e.g. if they just refreshed while an offer was live).
-      api.get("/chat/sessions?status_filter=pending")
-        .then(({ data }) => {
-          if (!Array.isArray(data) || !currentAgentId) return;
-          const mine = data.filter((s) => s.pending_agent_id === currentAgentId);
-          if (mine.length === 0) return;
-          setPendingOffers((prev) => {
-            const next = { ...prev };
-            for (const s of mine) next[s.id] = { session: s, expires_at: s.pending_expires_at };
-            return next;
-          });
-        })
-        .catch(() => { /* ignore */ });
     }
     wasConnected.current = connected;
-  }, [connected, loadMessages, sess, send, currentAgentId]);
+  }, [connected, loadMessages, sess, send]);
 
   const changeStatus = async (newStatus) => {
     setStatus(newStatus);
