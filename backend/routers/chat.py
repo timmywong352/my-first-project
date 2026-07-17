@@ -90,28 +90,14 @@ async def create_chat_session(body: PreChatBody, request: Request):
         "auto_msg_sent": False,
     }
 
-    # Route: assign least-busy agent OR queue
-    await route_new_session(doc)
-    assigned_agent = doc.pop("_assigned_agent", None)
+    # Fresh sessions start in the Lily-handled state. They do NOT appear on
+    # the agent dashboard until Lily's handoff endpoint routes them.
+    doc["status"] = "lily"
+    doc["handled_by_lily"] = True
+    doc["queue_position"] = None
+    doc["assigned_agent_id"] = None
 
     await db.sessions.insert_one(doc)
-
-    if doc["status"] == "pending":
-        await manager.send_to_agents({
-            "type": "pending_offer",
-            "session": clean_session(doc),
-            "expires_at": doc.get("pending_expires_at"),
-        })
-        if assigned_agent:
-            active = await agent_active_count(assigned_agent["id"])
-            if active >= MAX_ACTIVE_CHATS_PER_AGENT:
-                await db.users.update_one(
-                    {"id": assigned_agent["id"]},
-                    {"$set": {"status": "busy", "auto_busy": True}},
-                )
-                await manager.send_to_agents({
-                    "type": "agent_status", "agent_id": assigned_agent["id"], "status": "busy",
-                })
 
     return {
         "session_id": session_id,
@@ -120,7 +106,7 @@ async def create_chat_session(body: PreChatBody, request: Request):
         "customer_email": body.email,
         "subject": body.subject,
         "status": doc["status"],
-        "queue_position": doc.get("queue_position"),
+        "queue_position": None,
     }
 
 
@@ -162,26 +148,12 @@ async def create_anonymous_session(body: AnonymousSessionBody, request: Request)
         "anonymous": True,
     }
 
-    await route_new_session(doc)
-    assigned_agent = doc.pop("_assigned_agent", None)
+    # Fresh anonymous sessions live in Lily-handled land — invisible to the
+    # agent dashboard until Lily's handoff endpoint routes them.
+    doc["status"] = "lily"
+    doc["handled_by_lily"] = True
+    doc["queue_position"] = None
     await db.sessions.insert_one(doc)
-
-    if doc["status"] == "pending":
-        await manager.send_to_agents({
-            "type": "pending_offer",
-            "session": clean_session(doc),
-            "expires_at": doc.get("pending_expires_at"),
-        })
-        if assigned_agent:
-            active = await agent_active_count(assigned_agent["id"])
-            if active >= MAX_ACTIVE_CHATS_PER_AGENT:
-                await db.users.update_one(
-                    {"id": assigned_agent["id"]},
-                    {"$set": {"status": "busy", "auto_busy": True}},
-                )
-                await manager.send_to_agents({
-                    "type": "agent_status", "agent_id": assigned_agent["id"], "status": "busy",
-                })
 
     return {
         "session_id": session_id,
@@ -191,7 +163,7 @@ async def create_anonymous_session(body: AnonymousSessionBody, request: Request)
         "customer_email": doc["customer_email"],
         "anonymous": True,
         "status": doc["status"],
-        "queue_position": doc.get("queue_position"),
+        "queue_position": None,
     }
 
 
@@ -270,10 +242,15 @@ async def accept_pending_session(session_id: str, user: dict = Depends(get_curre
     return clean_session(fresh)
 
 
+@router.get("/sessions")
 async def list_sessions(status_filter: Optional[str] = None, user: dict = Depends(get_current_user)):
     q = {}
     if status_filter:
         q["status"] = status_filter
+    else:
+        # Default: exclude "lily" sessions from the agent dashboard — they only
+        # show up after Lily's handoff routes them to pending/queued/open.
+        q["status"] = {"$ne": "lily"}
     cur = db.sessions.find(q).sort("last_message_at", -1).limit(200)
     out = []
     async for s in cur:

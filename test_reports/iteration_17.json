@@ -1,0 +1,55 @@
+{
+  "summary": "Iter17 — three UX bug fixes verified end-to-end. CRITICAL regression discovered & fixed: GET /api/chat/sessions was returning 404 because chat.py's list_sessions() function had lost its @router.get('/sessions') decorator during the Bug 2 refactor — this broke the entire agent dashboard sessions listing. After adding the decorator, all 11 backend pytest cases pass and the full frontend flow works. Bug 1 (Playwright): selecting a session with 2 prior threads renders [data-testid='load-previous-chats-btn'] with text '↑ Load 2 previous chats' and ZERO [data-testid^='prior-thread-'] elements; clicking the button loads 2 prior-thread elements. Bug 2 (pytest): POST /api/chat/session/anonymous & POST /api/chat/session both return status='lily' and are excluded from default GET /api/chat/sessions listing; status_filter=lily returns them; POST /api/lily/handoff flips status to pending/queued/open and makes the session visible in the default listing; WS test confirms NO pending_offer at session creation but a broadcast fires after handoff. Bug 3 (Playwright timing): agent close-session-btn click → session-item disappears in 62ms; customer close-confirm-confirm click → 'Chat ended / Rate your experience' UI visible in 194ms. Both well under the 1s target.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter17_ux_bugs.py",
+    "/app/test_reports/pytest/iter17_results.xml"
+  ],
+  "action_items": [
+    "CRITICAL (already fixed by testing agent): The @router.get('/sessions') decorator was missing on list_sessions() in /app/backend/routers/chat.py at line 245. Added it. Please review the fix and merge — without this line the entire agent dashboard cannot list sessions (returns 404).",
+    "Consider extracting the duplicated 'set status=lily / handled_by_lily=True / queue_position=None' block from POST /chat/session and POST /chat/session/anonymous into a helper (DRY, matches iter16's earlier suggestion)."
+  ],
+  "critical_code_review_comments": [
+    "CRITICAL: list_sessions was missing @router.get('/sessions') decorator — total endpoint outage on the agent dashboard listing. Fixed in this iteration.",
+    "AgentDashboard.jsx now 1160+ lines; still needs splitting per prior guidance.",
+    "closeSession's optimistic pattern is correct (patchSession + setSessions + setSelectedId(null) BEFORE api.post) but does not restore state on API failure. If /close returns non-2xx (network drop), the session vanishes locally forever until reload. Consider a rollback on catch or a background retry.",
+    "ChatWidget.confirmClose fires POST in background — same fire-and-forget concern: an offline customer will see 'Chat ended' locally but the server session remains open until inactivity timer.",
+    "customer_close_endpoint calls ai_summarize synchronously inside the request. For sub-1s guarantee end-to-end (backend included), consider moving summary generation to a background task."
+  ],
+  "updated_files": [
+    "/app/backend/routers/chat.py (added missing @router.get('/sessions') decorator)",
+    "/app/backend/tests/test_iter17_ux_bugs.py (new)",
+    "/app/test_reports/iteration_17.json",
+    "/app/test_reports/pytest/iter17_results.xml"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (Bug1 load-button lazy-load, Bug3-agent 62ms, Bug3-customer 194ms)"},
+  "test_credentials": "admin@livechat.com / admin123, agent@livechat.com / agent123",
+  "seed_data_creation": "Multiple anon sessions with client_id 'uitest_*' and 'iter17_prior_*' — some closed, current handed off. May accumulate; safe to purge via db.sessions.deleteMany({status:{$in:['lily','pending','queued','closed']}}) if noise builds up.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login response key is 'token' (NOT 'access_token'). GET /api/chat/sessions requires an @router.get decorator that was momentarily missing — verify it stays present after any future refactor of chat.py. To create a customer with prior threads for Bug 1 UI testing, call /api/chat/session/anonymous with the SAME client_id repeatedly, then /api/lily/handoff and /api/chat/sessions/{id}/close for each older session. Admin is auto-online and receives pending offers deterministically when agent user is offline.",
+  "bug_verification": {
+    "bug1_load_previous_chats_btn_renders_with_correct_text": "PASS ('↑ Load 2 previous chats')",
+    "bug1_prior_threads_zero_before_click": "PASS",
+    "bug1_prior_threads_render_after_click": "PASS (2 threads)",
+    "bug2_anon_status_lily": "PASS",
+    "bug2_prechat_status_lily": "PASS",
+    "bug2_default_listing_excludes_lily": "PASS",
+    "bug2_status_filter_lily_returns_them": "PASS",
+    "bug2_no_ws_pending_offer_at_creation": "PASS",
+    "bug2_handoff_flips_status_and_broadcasts": "PASS",
+    "bug2_threads_endpoint_returns_all_threads": "PASS",
+    "bug3_agent_close_under_1s": "PASS (62ms, session-item detached)",
+    "bug3_customer_close_under_1s": "PASS (194ms, 'Chat ended / Rate your experience' visible)",
+    "regression_no_console_errors": "PASS",
+    "regression_pending_offer_and_accept_flow": "PASS (4 pending offers rendered, Accept works)"
+  }
+}

@@ -156,6 +156,8 @@ export default function AgentDashboard() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyCount, setHistoryCount] = useState(0); // Bug 4: how many past sessions for this customer
   const [priorThreads, setPriorThreads] = useState([]); // scroll-back threads for the same customer
+  const [historyLoaded, setHistoryLoaded] = useState(false); // Bug 1: prior threads only render on scroll-up
+  const [historyLoading, setHistoryLoading] = useState(false);
   // Bug 5: track un-read customer messages per session
   const [unread, setUnread] = useState({});   // { sessionId: number }
   // Pending offers awaiting agent Accept. { session_id: {session, expires_at} }
@@ -175,6 +177,7 @@ export default function AgentDashboard() {
   });
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const fileRef = useRef(null);
   const sendRef = useRef(null);
 
@@ -240,20 +243,20 @@ export default function AgentDashboard() {
       return;
     }
     let cancelled = false;
-    // Full threaded history — used both for the "Returning customer" count
-    // AND for the scroll-back rendering of previous chats above the current one.
+    // Bug 1 fix: only count the returning-customer badge, do NOT auto-load
+    // the prior threads into the visible chat. Threads render only when the
+    // agent scrolls up to the top (see the scroll-triggered effect below).
+    setPriorThreads([]);
+    setHistoryLoaded(false);
     api.get(`/chat/threads/${currentSession.id}`)
       .then(({ data }) => {
         if (cancelled) return;
         const all = Array.isArray(data) ? data : [];
-        // Everything BEFORE the current session becomes scroll-back history.
         const prior = all.filter((t) => t.session.id !== currentSession.id);
-        setPriorThreads(prior);
         setHistoryCount(prior.length);
       })
       .catch(() => {
         if (cancelled) return;
-        setPriorThreads([]);
         setHistoryCount(0);
       });
     return () => { cancelled = true; };
@@ -395,17 +398,30 @@ export default function AgentDashboard() {
         }
       }
       sess.loadSessions();
+      // Also fetch any offers this agent is currently the pending target for
+      // (e.g. if they just refreshed while an offer was live).
+      api.get("/chat/sessions?status_filter=pending")
+        .then(({ data }) => {
+          if (!Array.isArray(data) || !currentAgentId) return;
+          const mine = data.filter((s) => s.pending_agent_id === currentAgentId);
+          if (mine.length === 0) return;
+          setPendingOffers((prev) => {
+            const next = { ...prev };
+            for (const s of mine) next[s.id] = { session: s, expires_at: s.pending_expires_at };
+            return next;
+          });
+        })
+        .catch(() => { /* ignore */ });
     }
     wasConnected.current = connected;
-  }, [connected, loadMessages, sess, send]);
+  }, [connected, loadMessages, sess, send, currentAgentId]);
 
   const changeStatus = async (newStatus) => {
     setStatus(newStatus);
     try { await api.post("/agents/status", { status: newStatus }); } catch { /* ignore */ }
   };
 
-  const acceptOffer = async (sessionId) => {
-    try {
+  const acceptOffer = async (sessionId) => {    try {
       const { data } = await api.post(`/chat/sessions/${sessionId}/accept`);
       setPendingOffers((prev) => {
         const copy = { ...prev }; delete copy[sessionId]; return copy;
@@ -421,6 +437,33 @@ export default function AgentDashboard() {
       });
     }
   };
+
+  // Bug 1: fetch and expose prior threads only when the agent asks for them
+  // (by clicking the top-of-chat button OR scrolling to the top of the msgs).
+  const loadPreviousChats = useCallback(async () => {
+    if (!currentSession || historyLoaded || historyLoading) return;
+    setHistoryLoading(true);
+    try {
+      const { data } = await api.get(`/chat/threads/${currentSession.id}`);
+      const all = Array.isArray(data) ? data : [];
+      const prior = all.filter((t) => t.session.id !== currentSession.id);
+      setPriorThreads(prior);
+      setHistoryLoaded(true);
+    } catch { /* ignore */ } finally {
+      setHistoryLoading(false);
+    }
+  }, [currentSession, historyLoaded, historyLoading]);
+
+  const handleMessagesScroll = useCallback((e) => {
+    // When agent scrolls to the very top, auto-load prior chats. The button
+    // is still there for explicit action.
+    if (!historyLoaded && !historyLoading && historyCount > 0) {
+      const el = e.currentTarget;
+      if (el.scrollTop <= 4) {
+        loadPreviousChats();
+      }
+    }
+  }, [historyLoaded, historyLoading, historyCount, loadPreviousChats]);
 
   const sendMessage = () => {
     if (!selectedId || isReadOnly) return;
@@ -486,13 +529,20 @@ export default function AgentDashboard() {
     } catch { /* ignore */ } finally { setLoadingSuggest(false); }
   };
 
-  const closeSession = async () => {
+  const closeSession = () => {
     if (!selectedId) return;
-    try {
-      await api.post(`/chat/sessions/${selectedId}/close`);
-      sess.loadSessions();
-      refreshLoad();
-    } catch { /* ignore */ }
+    const sid = selectedId;
+    // Optimistic UI: remove from active list, deselect, decrement load,
+    // stamp status locally — do this BEFORE the network call so the agent
+    // sees the chat vanish instantly.
+    sess.patchSession(sid, { status: "closed" });
+    sess.setSessions((prev) => (Array.isArray(prev) ? prev.filter((x) => x.id !== sid) : prev));
+    setSelectedId(null);
+    setMessages([]);
+    refreshLoad();
+    // Fire the API call in the background. WS `session_closed` broadcast will
+    // finalise everything for other clients.
+    api.post(`/chat/sessions/${sid}/close`).catch(() => { /* silent */ });
   };
 
   const openHistory = async () => {
@@ -748,9 +798,29 @@ export default function AgentDashboard() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 bg-slate-50/30 dark:bg-slate-950/50" data-testid="messages-container">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleMessagesScroll}
+              className="flex-1 overflow-y-auto px-6 py-4 space-y-3 bg-slate-50/30 dark:bg-slate-950/50"
+              data-testid="messages-container"
+            >
+              {/* Bug 1: prior threads only render after the agent scrolls to top */}
+              {historyCount > 0 && !historyLoaded && (
+                <button
+                  onClick={loadPreviousChats}
+                  disabled={historyLoading}
+                  className="w-full py-2.5 mb-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition flex items-center justify-center gap-2"
+                  data-testid="load-previous-chats-btn"
+                >
+                  {historyLoading ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading previous chats…</>
+                  ) : (
+                    <>↑ Load {historyCount} previous {historyCount === 1 ? "chat" : "chats"}</>
+                  )}
+                </button>
+              )}
               {/* ── Scroll-back: previous threads for this customer ── */}
-              {priorThreads.map((th) => (
+              {historyLoaded && priorThreads.map((th) => (
                 <div key={th.session.id} data-testid={`prior-thread-${th.session.id}`} className="space-y-3 opacity-90">
                   {/* Thread start divider */}
                   <div className="relative flex items-center py-4">

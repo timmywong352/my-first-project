@@ -12,10 +12,17 @@ export function useAgentSessions() {
   const loadSessions = useCallback(async (tab) => {
     const useTab = tab || activeTab;
     try {
-      const statusFilter = useTab === "archived" ? "closed" : "open";
-      const { data } = await api.get(`/chat/sessions?status_filter=${statusFilter}`);
-      setSessions(data);
-      return data;
+      // "active" bucket includes both accepted (open) chats AND pending offers
+      // so refreshing the browser mid-offer still shows them (backend excludes
+      // "lily" sessions by default).
+      const statusFilter = useTab === "archived" ? "closed" : "";
+      const { data } = await api.get(`/chat/sessions${statusFilter ? `?status_filter=${statusFilter}` : ""}`);
+      // Pending sessions are surfaced separately in AgentDashboard's Incoming
+      // section (via WS `pending_offer` events) — keep them out of the main
+      // active list to avoid double-rendering.
+      const filtered = Array.isArray(data) ? data.filter((s) => s.status !== "pending") : data;
+      setSessions(filtered);
+      return filtered;
     } catch {
       return [];
     }

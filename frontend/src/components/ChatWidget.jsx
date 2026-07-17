@@ -506,23 +506,23 @@ export default function ChatWidget() {
     } catch { /* ignore */ }
   };
 
-  // Customer-initiated close: hits our new public endpoint. The session_closed
-  // WS broadcast will move us to the "closed" phase and show CSAT.
-  const confirmClose = async () => {
+  // Customer-initiated close: instant UI flip, network call fires in background.
+  const confirmClose = () => {
     if (!session || closing) return;
+    // 1) Optimistic UI flip so the modal disappears and the "closed" screen
+    //    shows within a single frame.
+    setPhase("closed");
+    setClosedNotice("This chat has been closed. Thank you for contacting us!");
+    setCloseConfirmOpen(false);
+    // 2) Fire the actual API call in the background — no await so we don't
+    //    block the UI. If it fails, the server-side WS event will eventually
+    //    reconcile us anyway.
     setClosing(true);
-    try {
-      await fetch(
-        `${API}/chat/public/${session.session_id}/close?session_token=${session.session_token}`,
-        { method: "POST" },
-      );
-      // Optimistic: broadcast might arrive after we already flip the phase
-      setPhase("closed");
-      setClosedNotice("This chat has been closed. Thank you for contacting us!");
-    } catch { /* silent */ } finally {
-      setClosing(false);
-      setCloseConfirmOpen(false);
-    }
+    fetch(
+      `${API}/chat/public/${session.session_id}/close?session_token=${session.session_token}`,
+      { method: "POST" },
+    ).catch(() => { /* silent — UI already reflects closed state */ })
+      .finally(() => setClosing(false));
   };
 
   const endChat = () => {
