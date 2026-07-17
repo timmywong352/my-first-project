@@ -58,7 +58,8 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
-- **2026-02-09**: **UX bugs sprint: lazy history + Lily-only session hiding + instant close** (iter17, 11/11 backend + 14/14 checks pass)
+- **2026-02-09**: **Reverted Pending Accept flow — auto-assign restored** (iter18, 8/8 backend + 15/15 checks PASS). User feedback: they don't want to click Accept, chats should auto-drop into the active list. `route_new_session` + `promote_from_queue` now set `status='open'` directly (no `pending` intermediate); Lily handoff broadcasts `new_session` (not `pending_offer`); customer widget flows Lily→chat directly (no `waiting_agent` phase); agent-side `new_session` handler still plays the distinct incoming chime for audio recognition. Verified auto-assign visible in **408ms** end-to-end. Also cleaned 37 stale iter16/17 test sessions from the DB.
+- **2026-02-09**: **UX bugs sprint: lazy history + Lily-only session hiding + instant close** (iter17)
   - **Bug 1 fixed — Lazy history load**: On session select, ONLY current session messages render. Prior threads no longer auto-load. A "↑ Load N previous chats" button (or auto-trigger on scrollTop≤4) surfaces the historical threads.
   - **Bug 2 fixed — Sessions hidden during Lily phase**: New sessions are created with `status='lily'` and are excluded from the default agent GET /sessions and from WS broadcasts. Only after POST /api/lily/handoff does the session flip to pending/queued and become visible on the agent dashboard.
   - **Bug 3 fixed — Instant close (<1s)**: Both customer and agent close flows now do optimistic UI updates FIRST, then fire the API call in the background. Verified 62ms (agent) / 194ms (customer) end-to-end.
