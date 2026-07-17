@@ -284,11 +284,20 @@ export default function ChatWidget() {
     if (open) bootstrap();
   }, [open, bootstrap]);
 
+  // Auto-scroll on new messages & typing preview.
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [messages, agentTyping]);
+
+  // On phase transitions (Lily → queued → chat) snap to the bottom so the
+  // customer immediately sees the latest state without having to scroll.
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "instant", block: "end" });
+    }
+  }, [phase]);
 
   // ---------- WebSocket ----------
   const wsUrl = session
@@ -347,8 +356,16 @@ export default function ChatWidget() {
             : "This chat has ended. Thanks for chatting with us!",
       );
     } else if (data.type === "queue_promoted") {
+      // Server found an agent to offer this chat to. We treat this as
+      // "waiting_agent" — actual chat begins once the agent hits Accept and
+      // emits `chat_accepted`.
       setQueuePosition(null);
+      setPhase("waiting_agent");
+    } else if (data.type === "chat_accepted") {
       setPhase("chat");
+    } else if (data.type === "reassigning") {
+      // Previous agent didn't accept in time — server is trying somebody else.
+      setPhase(data.queued ? "queued" : "waiting_agent");
     } else if (data.type === "queue_update") {
       setQueuePosition(data.position);
     } else if (data.type === "error") {
@@ -765,6 +782,20 @@ export default function ChatWidget() {
                 All our agents are helping other customers. We&apos;ll connect you as soon as one is free.
               </div>
               <Clock className="w-4 h-4 text-slate-600 mb-3" />
+            </div>
+          )}
+
+          {/* Waiting for a specific agent to Accept (30s pending offer) */}
+          {phase === "waiting_agent" && session && (
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-slate-900" data-testid="waiting-agent-view">
+              <LilyAvatar mode="2d" speaking={false} emotion="friendly" size={90} />
+              <div className="mt-4 flex items-center gap-2 text-slate-100">
+                <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                <span className="text-sm font-semibold">Connecting you to the next available agent…</span>
+              </div>
+              <div className="text-xs text-slate-500 max-w-[280px] mt-3">
+                Hang tight — one of our agents is picking up your chat right now.
+              </div>
             </div>
           )}
 

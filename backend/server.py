@@ -27,7 +27,7 @@ from routers import files as files_router
 from routers import lily as lily_router
 from routers import quick_replies as qr_router
 from routers import ws as ws_router
-from scheduler import scheduler_loop
+from scheduler import scheduler_loop, pending_scheduler_loop
 from storage import init_storage
 from utils import hash_password, now_iso, verify_password
 
@@ -149,6 +149,8 @@ async def startup_event():
 
     # Kick off background inactivity scheduler
     asyncio.create_task(scheduler_loop(interval_seconds=60))
+    # Fast loop dedicated to expiring 30s pending-offer windows
+    asyncio.create_task(pending_scheduler_loop(interval_seconds=5))
 
 
 @app.on_event("shutdown")

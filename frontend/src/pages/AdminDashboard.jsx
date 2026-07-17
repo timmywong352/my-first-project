@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   MessageCircle, Users, TrendingUp, Star, Palette, Clock,
-  Plus, Trash2, LogOut, ArrowLeft, Loader2, Circle,
+  Plus, Trash2, LogOut, ArrowLeft, Loader2, Circle, Paperclip,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
@@ -609,17 +609,41 @@ export default function AdminDashboard() {
                       <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider mb-1">
                         Final (what the customer sees)
                       </div>
-                      {m.content}
+                      {m.content || <span className="italic opacity-60">(no text)</span>}
+                      {Array.isArray(m.attachments) && m.attachments.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {m.attachments.map((a) => (
+                            <div key={a.id} className="text-[11px] flex items-center gap-1.5 opacity-80">
+                              <Paperclip className="w-3 h-3" />
+                              <span className="truncate">{a.filename}</span>
+                              <span className="opacity-60">· {a.content_type}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Original */}
-                  {m.original_content && m.original_content !== m.content && (
+                  {((m.original_content && m.original_content !== m.content) ||
+                    (Array.isArray(m.original_attachments) && m.original_attachments.length > 0
+                      && JSON.stringify(m.original_attachments.map((a) => a.id)) !== JSON.stringify((m.attachments || []).map((a) => a.id)))) && (
                     <div className="text-sm bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 rounded-lg p-3 mb-2 whitespace-pre-wrap break-words">
                       <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                         Original
                       </div>
-                      {m.original_content}
+                      {m.original_content || <span className="italic opacity-60">(no text)</span>}
+                      {Array.isArray(m.original_attachments) && m.original_attachments.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {m.original_attachments.map((a) => (
+                            <div key={a.id} className="text-[11px] flex items-center gap-1.5 opacity-80">
+                              <Paperclip className="w-3 h-3" />
+                              <span className="truncate">{a.filename}</span>
+                              <span className="opacity-60">· {a.content_type}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -637,7 +661,17 @@ export default function AdminDashboard() {
                           <div className="text-[10px] text-amber-700 dark:text-amber-300 mb-1">
                             {v.edited_by_name || v.edited_by} · {new Date(v.edited_at).toLocaleString()}
                           </div>
-                          {v.content}
+                          {v.content || <span className="italic opacity-60">(no text)</span>}
+                          {Array.isArray(v.attachments) && v.attachments.length > 0 && (
+                            <div className="mt-1.5 space-y-0.5">
+                              {v.attachments.map((a) => (
+                                <div key={a.id} className="text-[10px] flex items-center gap-1.5 opacity-80">
+                                  <Paperclip className="w-2.5 h-2.5" />
+                                  <span className="truncate">{a.filename}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

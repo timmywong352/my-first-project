@@ -48,6 +48,7 @@ class SendMessageBody(BaseModel):
 
 class EditMessageBody(BaseModel):
     content: str
+    attachments: Optional[List[Dict[str, Any]]] = None
 
 
 class QuickReplyBody(BaseModel):

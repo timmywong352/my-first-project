@@ -20,7 +20,7 @@ from utils import get_real_client_ip, now_iso
 from ws_manager import manager
 
 # ---------- Audit-safe response helpers ----------
-_AUDIT_FIELDS = ("previous_versions", "original_content", "deleted_by", "deleted_by_name", "edited_by_name")
+_AUDIT_FIELDS = ("previous_versions", "original_content", "original_attachments", "deleted_by", "deleted_by_name", "edited_by_name")
 
 
 def strip_audit(m: dict) -> dict:
@@ -96,9 +96,12 @@ async def create_chat_session(body: PreChatBody, request: Request):
 
     await db.sessions.insert_one(doc)
 
-    if doc["status"] == "open":
-        await manager.send_to_agents({"type": "new_session", "session": clean_session(doc)})
-        # If this assignment tips the agent over the cap, flip to busy
+    if doc["status"] == "pending":
+        await manager.send_to_agents({
+            "type": "pending_offer",
+            "session": clean_session(doc),
+            "expires_at": doc.get("pending_expires_at"),
+        })
         if assigned_agent:
             active = await agent_active_count(assigned_agent["id"])
             if active >= MAX_ACTIVE_CHATS_PER_AGENT:
@@ -163,8 +166,12 @@ async def create_anonymous_session(body: AnonymousSessionBody, request: Request)
     assigned_agent = doc.pop("_assigned_agent", None)
     await db.sessions.insert_one(doc)
 
-    if doc["status"] == "open":
-        await manager.send_to_agents({"type": "new_session", "session": clean_session(doc)})
+    if doc["status"] == "pending":
+        await manager.send_to_agents({
+            "type": "pending_offer",
+            "session": clean_session(doc),
+            "expires_at": doc.get("pending_expires_at"),
+        })
         if assigned_agent:
             active = await agent_active_count(assigned_agent["id"])
             if active >= MAX_ACTIVE_CHATS_PER_AGENT:
@@ -217,7 +224,52 @@ async def update_session_contact(session_id: str, body: UpdateContactBody):
     return {"ok": True, "updated": True, "session": clean_session(updated)}
 
 
-@router.get("/sessions")
+@router.post("/sessions/{session_id}/accept")
+async def accept_pending_session(session_id: str, user: dict = Depends(get_current_user)):
+    """Agent accepts an incoming pending chat offer.
+
+    Only the agent the session was offered to may accept. On acceptance the
+    session flips to `status="open"`, the assigned_agent_id is set, and both
+    the customer and all agents are notified so competing offers disappear.
+    """
+    s = await db.sessions.find_one({"id": session_id})
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if s.get("status") != "pending":
+        raise HTTPException(status_code=409, detail="This chat is no longer pending")
+    if s.get("pending_agent_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="This chat was offered to another agent")
+
+    accepted_at = now_iso()
+    await db.sessions.update_one(
+        {"id": session_id},
+        {"$set": {
+            "status": "open",
+            "assigned_agent_id": user["id"],
+            "accepted_at": accepted_at,
+            "last_message_at": accepted_at,
+            "updated_at": accepted_at,
+        }, "$unset": {"pending_agent_id": "", "pending_expires_at": ""}},
+    )
+    fresh = await db.sessions.find_one({"id": session_id})
+    # Tell every agent it's off the pending list & is now an active chat.
+    await manager.send_to_agents({
+        "type": "session_accepted",
+        "session": clean_session(fresh),
+        "accepted_by": user["id"],
+    })
+    # Backwards-compat: keep the "new_session" event so any client that listens
+    # for it (analytics, load counters) still updates.
+    await manager.send_to_agents({"type": "new_session", "session": clean_session(fresh)})
+    # Customer sees the agent name now that it's real.
+    await manager.send_to_customer(session_id, {
+        "type": "chat_accepted",
+        "session_id": session_id,
+        "agent_name": user.get("name") or user.get("email"),
+    })
+    return clean_session(fresh)
+
+
 async def list_sessions(status_filter: Optional[str] = None, user: dict = Depends(get_current_user)):
     q = {}
     if status_filter:
@@ -337,28 +389,42 @@ async def edit_message(msg_id: str, body: EditMessageBody, user: dict = Depends(
         raise HTTPException(status_code=404, detail="Message not found")
     if msg.get("sender_id") != user["id"]:
         raise HTTPException(status_code=403, detail="Not your message")
-    if msg.get("content") == body.content:
+
+    old_content = msg.get("content", "")
+    old_attachments = msg.get("attachments") or []
+    new_content = body.content
+    new_attachments = body.attachments if body.attachments is not None else old_attachments
+
+    content_changed = old_content != new_content
+    attachments_changed = (
+        body.attachments is not None
+        and [a.get("id") for a in old_attachments] != [a.get("id") for a in new_attachments]
+    )
+
+    if not content_changed and not attachments_changed:
         # No-op edit — don't pollute the audit trail.
         msg.pop("_id", None)
         return strip_audit(msg) if user.get("role") != "admin" else msg
-    # Preserve the CURRENT content as a historical version before overwriting.
+
     prev_version = {
-        "content": msg.get("content", ""),
+        "content": old_content,
+        "attachments": old_attachments,
         "edited_by": user["id"],
         "edited_by_name": user.get("name") or user.get("email"),
         "edited_at": now_iso(),
     }
-    update = {
-        "$set": {
-            "content": body.content,
-            "edited": True,
-            "edited_at": now_iso(),
-        },
-        "$push": {"previous_versions": prev_version},
+    set_updates = {
+        "content": new_content,
+        "attachments": new_attachments,
+        "edited": True,
+        "edited_at": now_iso(),
     }
-    # Only stamp original_content the first time we edit.
+    update = {"$set": set_updates, "$push": {"previous_versions": prev_version}}
+    # Stamp original content & attachments the first time we edit.
     if not msg.get("original_content"):
-        update["$set"]["original_content"] = msg.get("content", "")
+        set_updates["original_content"] = old_content
+    if "original_attachments" not in msg:
+        set_updates["original_attachments"] = old_attachments
     await db.messages.update_one({"id": msg_id}, update)
     updated = await db.messages.find_one({"id": msg_id})
     updated.pop("_id", None)
@@ -387,9 +453,11 @@ async def delete_message(msg_id: str, user: dict = Depends(get_current_user)):
             "deleted_by_name": user.get("name") or user.get("email"),
         },
     }
-    # Preserve the last content for the audit trail even after deletion.
+    # Preserve the last content + attachments for the audit trail after deletion.
     if not msg.get("original_content"):
         update["$set"]["original_content"] = msg.get("content", "")
+    if "original_attachments" not in msg:
+        update["$set"]["original_attachments"] = msg.get("attachments") or []
     await db.messages.update_one({"id": msg_id}, update)
     await manager.broadcast_to_session(msg["session_id"], {"type": "message_deleted", "message_id": msg_id})
     return {"ok": True}

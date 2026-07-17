@@ -1,0 +1,48 @@
+{
+  "summary": "Iter16 sprint bundle (F-A audit attachments, F-B auto-scroll, F-C pending Accept flow) verified end-to-end. Backend pytest 6/6 PASS: (F-C1) POST /api/chat/session/anonymous with admin online returns status='pending' + pending_agent_id=admin.id + pending_expires_at ~30s; POST /api/chat/sessions/{id}/accept flips it to status='open' with assigned_agent_id set and pending_* unset. (F-C2) Force-expired pending_expires_at + wait 7s → pending_scheduler_loop tick populates pending_declined_by with the original agent and, with only one online agent, moves session to status='queued' with queue_position + cleared pending fields. (F-C3) Wrong agent POST /accept returns 403 'This chat was offered to another agent'; correct pending_agent_id returns 200 open. (F-A1) DELETE /api/chat/messages/{id} on a message that had an attachment stamps original_attachments (id+filename preserved), deleted=true, deleted_by_name; customer GET /api/chat/public/{sid}/messages does NOT include the deleted message. (F-A2) PATCH /api/chat/messages/{id} adding an attachment as agent role: agent response strips previous_versions/original_content/original_attachments (edited=true kept); admin /api/admin/audit/edits returns previous_versions[0].attachments===[], attachments===[{new-att-1}], original_attachments===[]; customer public GET returns final attachments only with no 'edited' flag. Frontend (Playwright, admin logged into /dashboard): [data-testid='pending-offers'] container renders with 4 incoming offers, each PendingOfferCard shows customer name 'Guest' + live 'Auto-reassign in Ns' countdown + Accept button. Clicking accept-offer-<sid> removes the card from pending-offers and inserts session-item-<sid> into the active list (backend GET confirms status='open', assigned_agent_id=admin.id). /admin → tab-audit renders 13 audit-item cards, 2 with Paperclip/attachment renderings (F-A UI). Widget loads cleanly on / (Lily greeting visible, launcher works). No pageerrors and no console errors during the flow (only expected WS reconnect warning while token was refreshed).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter16_sprint.py",
+    "/app/test_reports/pytest/iter16_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AgentDashboard.jsx (1125 lines) and ChatWidget.jsx still exceed the 700-line guideline; splitting PendingOfferCard, chime hook, and session list into modules would help.",
+    "chat.py::edit_message still uses manager._safe_send (private). Same call site was flagged in iter15 — consider promoting to a public WSManager API.",
+    "Both /api/chat/session and /api/chat/session/anonymous duplicate the 'if status==pending → send_to_agents(pending_offer) + auto_busy check' block. Extract a helper (e.g. services.notify_pending(session_doc)) to keep DRY.",
+    "expire_pending_offers() has a subtle race: pending_declined_by is updated before offer_session_to_agent, but the reassignment doc write occurs in a separate update; two concurrent scheduler ticks (only one runs today, but if scaled) could double-offer. Consider $findOneAndUpdate with status pre-condition.",
+    "Admin audit endpoint returns rows sorted by edited_at, but deleted-only messages may have no edited_at set — those may sort last. Consider $ifNull to fall back to deleted_at/created_at."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter16_sprint.py",
+    "/app/test_reports/iteration_16.json",
+    "/app/test_reports/pytest/iter16_results.xml"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (pending-offers UI + accept flow + audit tab attachment rendering)"},
+  "test_credentials": "admin@livechat.com / admin123, agent@livechat.com / agent123",
+  "seed_data_creation": "Multiple anon sessions created per run with client_id prefixes iter16_/iter16_ui_. One deleted message + one edited message with attachment change persist in messages/audit collection. Agent is toggled online/offline during tests — final state may leave agent offline; main agent should reset if needed for interactive testing.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The agent user (agent@livechat.com) is set OFFLINE during iter16 tests so admin becomes the sole online agent and receives pending offers deterministically. If a future test needs both agents online, explicitly bring both online. To exercise the pending timeout without waiting 30s, monkey-patch pending_expires_at directly in mongo (db.sessions.updateOne({id:sid},{$set:{pending_expires_at:'2000-01-01T00:00:00+00:00'}})) then sleep >=6s for the pending_scheduler_loop 5s tick. Route for the agent workspace is /dashboard (not /agent). Admins can access /dashboard directly. Pending offers accumulated in prior runs may remain visible until reassigned or accepted — feel free to db.sessions.deleteMany({status:{$in:['pending','queued']}}) before your run.",
+  "verification": {
+    "F-A_delete_original_attachments_preserved": "PASS",
+    "F-A_delete_customer_public_excludes_msg": "PASS",
+    "F-A_edit_agent_response_strips_audit": "PASS",
+    "F-A_edit_audit_pv0_empty_attachments": "PASS",
+    "F-A_edit_audit_final_attachments_new": "PASS",
+    "F-A_edit_customer_no_edited_flag": "PASS",
+    "F-A_admin_audit_tab_paperclip_rendering": "PASS (2 of 13 items show attachments)",
+    "F-B_agent_auto_scroll_code_present": "PASS (code inspected — instant on switch, smooth on new msg)",
+    "F-C_pending_status_and_expiry_field": "PASS",
+    "F-C_pending_agent_id_matches_admin": "PASS",
+    "F-C_accept_flips_to_open_with_assigned_agent": "PASS",
+    "F-C_timeout_declines_and_reassigns_or_queues": "PASS",
+    "F-C_wrong_agent_accept_403": "PASS",
+    "F-C_pending_offers_ui_container_visible": "PASS",
+    "F-C_accept_button_click_removes_card_and_adds_session_item": "PASS",
+    "F-C_playIncoming_defined_and_wired_in_handleWs": "PASS (code inspected: AgentDashboard.jsx lines 289 + 332)",
+    "regression_no_console_errors": "PASS",
+    "regression_no_frontend_test_msg": "PASS"
+  }
+}

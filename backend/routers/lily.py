@@ -283,6 +283,8 @@ async def lily_handoff(
     updates = {
         "status": doc["status"],
         "assigned_agent_id": doc.get("assigned_agent_id"),
+        "pending_agent_id": doc.get("pending_agent_id"),
+        "pending_expires_at": doc.get("pending_expires_at"),
         "queue_position": doc.get("queue_position"),
         "handled_by_lily": False,
         "handoff_at": now_iso(),
@@ -291,8 +293,12 @@ async def lily_handoff(
     }
     await db.sessions.update_one({"id": session_id}, {"$set": updates})
     updated = await db.sessions.find_one({"id": session_id})
-    if doc["status"] == "open":
-        await manager.send_to_agents({"type": "new_session", "session": clean_session(updated)})
+    if doc["status"] == "pending":
+        await manager.send_to_agents({
+            "type": "pending_offer",
+            "session": clean_session(updated),
+            "expires_at": doc.get("pending_expires_at"),
+        })
         if assigned_agent:
             active = await agent_active_count(assigned_agent["id"])
             if active >= MAX_ACTIVE_CHATS_PER_AGENT:

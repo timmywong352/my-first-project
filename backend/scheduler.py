@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 from config import db, MAX_ACTIVE_CHATS_PER_AGENT
 from services import (
     agent_active_count,
+    expire_pending_offers,
     least_busy_online_agent,
     promote_from_queue,
     save_message,
@@ -150,4 +151,19 @@ async def scheduler_loop(interval_seconds: int = 60):
             await _tick()
         except Exception as e:
             logger.error(f"scheduler tick failed: {e}")
+        await asyncio.sleep(interval_seconds)
+
+
+async def pending_scheduler_loop(interval_seconds: int = 5):
+    """Fast loop dedicated to expiring pending-offer chats (30s Accept window).
+
+    Runs at a much higher cadence than the inactivity scheduler so agents get
+    a snappy reassignment.
+    """
+    logger.info("Pending-offer scheduler started")
+    while True:
+        try:
+            await expire_pending_offers()
+        except Exception as e:
+            logger.error(f"pending scheduler tick failed: {e}")
         await asyncio.sleep(interval_seconds)

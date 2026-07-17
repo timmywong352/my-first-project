@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -54,8 +54,47 @@ const formatDateTime = (iso) => {
   } catch { return ""; }
 };
 
-function AgentAttachment({ att }) {
-  const token = localStorage.getItem("token");
+function PendingOfferCard({ session, expiresAt, onAccept }) {
+  const [remaining, setRemaining] = useState(() => {
+    if (!expiresAt) return 30;
+    return Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000));
+  });
+  useEffect(() => {
+    if (!expiresAt) return;
+    const tick = () => setRemaining(Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000)));
+    const id = setInterval(tick, 500);
+    tick();
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  const urgent = remaining <= 10;
+  return (
+    <div
+      className="px-3 py-3 border-b border-amber-200/60 dark:border-amber-500/20 last:border-b-0 flex items-center gap-3"
+      data-testid={`pending-offer-${session.id}`}
+    >
+      <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0">
+        {(session.customer_name || "G")[0].toUpperCase()}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+          {session.customer_name || "Guest"}
+        </div>
+        <div className={`text-[11px] font-semibold ${urgent ? "text-red-600 dark:text-red-400" : "text-amber-700 dark:text-amber-300"}`}>
+          Auto-reassign in {remaining}s
+        </div>
+      </div>
+      <button
+        onClick={onAccept}
+        className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-sm active:scale-95 transition"
+        data-testid={`accept-offer-${session.id}`}
+      >
+        Accept
+      </button>
+    </div>
+  );
+}
+
+function AgentAttachment({ att }) {  const token = localStorage.getItem("token");
   const url = `${API}/files/${att.id}?auth=${token}`;
   const isImage = att.content_type && att.content_type.startsWith("image/");
   if (isImage) {
@@ -119,8 +158,13 @@ export default function AgentDashboard() {
   const [priorThreads, setPriorThreads] = useState([]); // scroll-back threads for the same customer
   // Bug 5: track un-read customer messages per session
   const [unread, setUnread] = useState({});   // { sessionId: number }
+  // Pending offers awaiting agent Accept. { session_id: {session, expires_at} }
+  const [pendingOffers, setPendingOffers] = useState({});
   const selectedIdRef = useRef(null);
   const lastMsgIdRef = useRef({}); // { sessionId: lastMessageId } for since_id replay
+  const currentAgentId = useMemo(() => {
+    try { return JSON.parse(atob(localStorage.getItem("token").split(".")[1])).sub; } catch { return null; }
+  }, []);
 
   const sess = useAgentSessions();
   const arch = useArchiveSearch(sess.activeTab === "archived");
@@ -215,8 +259,16 @@ export default function AgentDashboard() {
     return () => { cancelled = true; };
   }, [currentSession?.customer_email, currentSession?.id]);
 
+  // On session switch: jump instantly to the bottom (no smooth scroll)
   useEffect(() => {
-    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (selectedId && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "instant", block: "end" });
+    }
+  }, [selectedId]);
+
+  // On new message / typing preview: smooth scroll so it feels alive
+  useEffect(() => {
+    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, customerTyping[selectedId], customerPreview[selectedId]]);
 
   const playPing = useCallback(() => {
@@ -229,6 +281,27 @@ export default function AgentDashboard() {
       osc.connect(gain); gain.connect(ctx.destination);
       osc.frequency.value = 900; gain.gain.value = 0.05;
       osc.start(); osc.stop(ctx.currentTime + 0.12);
+    } catch { /* ignore */ }
+  }, [soundOn]);
+
+  // Distinct sound for INCOMING chat offers: a rising 2-tone chime so it's
+  // instantly recognisable versus the single-tone new-message ping.
+  const playIncoming = useCallback(() => {
+    if (!soundOn) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      const ctx = new AC();
+      const play = (freq, when, dur = 0.18) => {
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; gain.gain.value = 0.08;
+        osc.start(ctx.currentTime + when);
+        osc.stop(ctx.currentTime + when + dur);
+      };
+      play(660, 0);
+      play(880, 0.18);
+      play(1100, 0.36, 0.22);
     } catch { /* ignore */ }
   }, [soundOn]);
 
@@ -249,6 +322,30 @@ export default function AgentDashboard() {
           setUnread((prev) => ({ ...prev, [m.session_id]: (prev[m.session_id] || 0) + 1 }));
         }
       }
+    } else if (data.type === "pending_offer") {
+      // Only queue the offer for the agent it was actually addressed to.
+      if (data.session.pending_agent_id === currentAgentId) {
+        setPendingOffers((prev) => ({
+          ...prev,
+          [data.session.id]: { session: data.session, expires_at: data.expires_at },
+        }));
+        playIncoming();
+      }
+    } else if (data.type === "pending_offer_expired" || data.type === "session_accepted") {
+      // Remove from the pending list on ALL agents (was rerouted or accepted).
+      const sid = data.session_id || data.session?.id;
+      if (sid) {
+        setPendingOffers((prev) => {
+          if (!prev[sid]) return prev;
+          const copy = { ...prev }; delete copy[sid]; return copy;
+        });
+      }
+      // If it was accepted (by ANY agent — including us), also insert into the
+      // active list. If accepted by us, refresh full sessions so we own it.
+      if (data.type === "session_accepted" && data.session) {
+        sess.prependSession(data.session);
+        if (data.accepted_by === currentAgentId) refreshLoad();
+      }
     } else if (data.type === "message_edited") {
       if (data.message.session_id === selectedId) {
         setMessages((prev) => prev.map((x) => (x.id === data.message.id ? data.message : x)));
@@ -263,10 +360,8 @@ export default function AgentDashboard() {
         }
       }
     } else if (data.type === "new_session") {
-      if (!isArchivedView) {
-        sess.prependSession(data.session);
-        playPing();
-      }
+      // Backwards compat: keeps old bookkeeping if a legacy code path fires it.
+      if (!isArchivedView) sess.prependSession(data.session);
     } else if (data.type === "read_receipt") {
       if (data.session_id === selectedId) {
         setMessages((prev) => prev.map((m) => (m.sender_type === "agent" ? { ...m, status: "read" } : m)));
@@ -280,7 +375,7 @@ export default function AgentDashboard() {
     } else if (data.type === "agent_status" && data.agent_id === user?.id) {
       setStatus(data.status);
     }
-  }, [selectedId, isArchivedView, playPing, refreshLoad, sess, user?.id]);
+  }, [selectedId, isArchivedView, playPing, playIncoming, refreshLoad, sess, user?.id, currentAgentId]);
 
   const { send, connected } = useWebSocket(wsUrl, handleWs);
 
@@ -307,6 +402,24 @@ export default function AgentDashboard() {
   const changeStatus = async (newStatus) => {
     setStatus(newStatus);
     try { await api.post("/agents/status", { status: newStatus }); } catch { /* ignore */ }
+  };
+
+  const acceptOffer = async (sessionId) => {
+    try {
+      const { data } = await api.post(`/chat/sessions/${sessionId}/accept`);
+      setPendingOffers((prev) => {
+        const copy = { ...prev }; delete copy[sessionId]; return copy;
+      });
+      sess.prependSession(data);
+      setSelectedId(sessionId);
+      loadMessages(sessionId);
+      refreshLoad();
+    } catch (err) {
+      // Offer likely lapsed or was accepted by someone else — just drop it.
+      setPendingOffers((prev) => {
+        const copy = { ...prev }; delete copy[sessionId]; return copy;
+      });
+    }
   };
 
   const sendMessage = () => {
@@ -517,7 +630,24 @@ export default function AgentDashboard() {
         )}
 
         <div className="flex-1 overflow-y-auto" data-testid="sessions-list">
-          {listSource.length === 0 && (
+          {/* Pending offers — shown above the active list */}
+          {Object.values(pendingOffers).length > 0 && (
+            <div className="border-b-2 border-amber-300 dark:border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/5" data-testid="pending-offers">
+              <div className="px-3 py-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                Incoming ({Object.values(pendingOffers).length})
+              </div>
+              {Object.values(pendingOffers).map(({ session: ps, expires_at }) => (
+                <PendingOfferCard
+                  key={ps.id}
+                  session={ps}
+                  expiresAt={expires_at}
+                  onAccept={() => acceptOffer(ps.id)}
+                />
+              ))}
+            </div>
+          )}
+          {listSource.length === 0 && Object.values(pendingOffers).length === 0 && (
             <div className="p-8 text-center text-sm text-slate-400">
               {isArchivedView ? <Archive className="w-10 h-10 mx-auto mb-3 text-slate-200 dark:text-slate-700" /> : <MessageCircle className="w-10 h-10 mx-auto mb-3 text-slate-200 dark:text-slate-700" />}
               {isArchivedView ? "No archived chats match." : "No chats yet."}
