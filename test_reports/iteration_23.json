@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only regression on ChatWidget Promotions flow after 3 UX/copy changes. All acceptance criteria pass: (1) Globe/lang-toggle removed; other header controls (sound, TTS, restart, close) present. (2) Step 2B View Promotion Page shows the correct MD88 ms-MY URL and follow-up bubble, then returns to promo-choose-method. (3) Step 3 detail panel renders new paragraph template with detailIntro, 6 numbered howToClaim steps, detailClosingParagraph (14-day / T&Cs), Related Articles header with a single clickable self-referencing link (promo-related-article-<id>), detailFollowup question, and Claim/View-others buttons. Old 'Terms' section and gradient title header no longer appear. (4) Related Articles click keeps user on same detail panel — no crash / navigation. (5) Step 5 claim: first bubble 'Absolutely, let me guide you', second bubble (after ~1s) starts with 'Here's how to claim your Monthly Exclusive 188 Free Spins:' followed by 6 numbered steps + closing paragraph. All 3 promotions validated: monthly_188_spins (6 steps, fourteen days), welcome_lucky_288 (5 steps, 30 days, 20x), welcome_100_100 (5 steps, 25x). Translation source files /lib/i18n.js and /lib/promotions.js untouched. No console errors (only a benign TTS play() interruption warning and a transient WS-closed warning during restart — both non-blocking).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx is ~1550 lines — consider splitting Promo* sub-components and confirm dialogs into separate files for maintainability (not blocking).",
+    "promoRelatedArticle() currently just re-voices detailFollowup; per spec this is acceptable ('self-referencing'), but consider adding a subtle visual pulse to acknowledge the click for better UX feedback.",
+    "TTS console warning 'play() request was interrupted by a call to pause()' appears when two speakLily calls fire in rapid succession (e.g. Step 2B two-bubble sequence). Harmless but noisy — consider debouncing or awaiting cancelSpeak before starting the next utterance."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (out of scope)", "frontend": "100%"},
+  "test_credentials": "N/A — anonymous widget flow",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 3 UX/copy changes verified end-to-end on /widget. PROMOTIONS_PAGE_URL = https://m.md88top.com/ms-MY/promotions is rendered verbatim in Lily's subtitle bubble. Detail panel selector is promo-detail-<id>; related article link is promo-related-article-<id>; there are exactly (howToClaim.length + 1) <li> items in the OL (steps + related article link). Language switcher intentionally removed — do not re-add. Translation dictionaries in /lib/i18n.js + /lib/promotions.js are kept as source-of-truth.",
+  "rca of the issue": "N/A — no bugs found."
+}

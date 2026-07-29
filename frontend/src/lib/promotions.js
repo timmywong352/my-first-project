@@ -16,13 +16,10 @@ export const PROMOTIONS = [
       "Read the T&C, click 'Claim' and follow the on-screen instructions.",
       "Your 288% bonus will be credited automatically after your deposit clears.",
     ],
-    terms: [
-      "New members only",
-      "Minimum deposit MYR 30",
-      "Wagering requirement 20x (bonus + deposit)",
-      "Bonus valid for 30 days",
-      "Terms and conditions apply",
-    ],
+    detailClosingParagraph:
+      "Remember that this bonus is valid for 30 days unless stated otherwise, carries a 20x wagering requirement on the bonus and deposit, and there are specific terms and conditions that apply to this promotion.",
+    claimClosingParagraph:
+      "Your bonus is valid for 30 days unless stated otherwise, and the wagering requirement is 20x on the bonus plus deposit. If you have any questions about the terms or run into any issues, just let me know.",
   },
   // ── Verified content from the customer spec ──
   {
@@ -37,12 +34,10 @@ export const PROMOTIONS = [
       "Select the promo code [CLAIM SLOTS FREE SPINS].",
       "Free spins will be credited by 4:00 PM (GMT+8) within the next working day.",
     ],
-    terms: [
-      "Minimum deposit MYR 50",
-      "Valid for Pragmatic Play slots",
-      "Free spins valid for 14 days",
-      "Terms and conditions apply",
-    ],
+    detailClosingParagraph:
+      "Remember that free spins are valid for fourteen days unless stated otherwise, and there are specific terms and conditions that apply to this promotion.",
+    claimClosingParagraph:
+      "Your free spins are valid for 14 days unless stated otherwise. If you have any questions about the terms or run into any issues, just let me know.",
   },
   // PLACEHOLDER copy — swap when real MD88 marketing content arrives.
   {
@@ -56,17 +51,14 @@ export const PROMOTIONS = [
       "Enter the promo code [WELCOME100] if prompted.",
       "Your 100% bonus + 100 Free Spins will be credited within 24 hours.",
     ],
-    terms: [
-      "New members only, one claim per account",
-      "Minimum deposit MYR 50",
-      "Free Spins valid on selected slot titles",
-      "Wagering requirement 25x on bonus amount",
-      "Terms and conditions apply",
-    ],
+    detailClosingParagraph:
+      "Remember that this bonus is for new members only with a minimum deposit of MYR 50, carries a 25x wagering requirement on the bonus amount, and there are specific terms and conditions that apply.",
+    claimClosingParagraph:
+      "Your 100 Free Spins are valid on selected slot titles and the wagering requirement is 25x on the bonus. If you have any questions about the terms or run into any issues, just let me know.",
   },
 ];
 
-export const PROMOTIONS_PAGE_URL = "https://m.md88top.com/en-MY/promotions";
+export const PROMOTIONS_PAGE_URL = "https://m.md88top.com/ms-MY/promotions";
 
 export function findPromotion(id) {
   return PROMOTIONS.find((p) => p.id === id) || null;
@@ -128,14 +120,23 @@ export const PROMO_UI_I18N = {
     dropdownRequired: "Please select a promotion first.",
     sendBtn: "Send",
     neverMindBtn: "Never mind",
-    viewPageMsg: `Discover our latest promotions at the MD88 promotions page, where you'll find exciting offers to boost your gaming experience. ${PROMOTIONS_PAGE_URL}`,
-    viewPageFollowup: "Any questions, just let us know.",
-    howToClaimHeader: "How to claim",
-    termsHeader: "Terms",
+    // ── View Promotion Page (Step 2B) — two-bubble sequence ──
+    viewPageMsg: `Fantastic! All of our latest promotions can be found here: ${PROMOTIONS_PAGE_URL}`,
+    viewPageFollowup: "If you have any questions, just let me know!",
+    // ── Promotion Detail (Step 3) — paragraph-style template ──
+    detailIntro: "To check the promotion, you can follow these steps:",
+    relatedArticlesHeader: "Related Articles:",
+    detailFollowup: "Would you like to claim this promo or view others?",
     claimNowBtn: "Claim now",
     viewOthersBtn: "View other promotions",
-    claimIntro: (name) =>
-      `Certainly, I'll be happy to assist you.\nHere's how to claim your bonus '${name}':\n1. Log in to your MD88 account.\n2. Head to the Promotions section and select the ${name}.\n3. Read the terms and conditions to make sure you're eligible.\n4. Click 'Claim' and follow the on-screen instructions to complete your claim.\n5. Make your qualifying deposit as required by the promotion.\n6. Once you've completed these steps, your bonus should be credited automatically. If you run into any issues, just let me know.`,
+    // ── Claim Instructions (Step 5) — two-bubble sequence ──
+    claimIntro1: "Absolutely, let me guide you",
+    claimIntro2: (promo) => {
+      const steps = promo.howToClaim
+        .map((s, i) => `${i + 1}. ${s}`)
+        .join("\n");
+      return `Here's how to claim your ${promo.title}:\n${steps}\n\n${promo.claimClosingParagraph}`;
+    },
     confirmHandoffYes: "Yes, connect me",
     confirmHandoffNo: "No, thanks",
   },

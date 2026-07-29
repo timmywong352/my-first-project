@@ -11,7 +11,7 @@ import { speak, cancelSpeak, primeTTS } from "@/lib/tts";
 import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
   Loader2, FileText, Image as ImageIcon, Star, Clock, UserCog, Volume2, VolumeX,
-  Sparkles, XCircle, Plus, Camera, Trash2, ChevronUp, Bell, BellOff, Globe, RotateCcw,
+  Sparkles, XCircle, Plus, Camera, Trash2, ChevronUp, Bell, BellOff, RotateCcw,
 } from "lucide-react";
 import {
   Popover,
@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { SUPPORTED_LANGS, getInitialLang, saveLang, tFactory } from "@/lib/i18n";
+import { tFactory } from "@/lib/i18n";
 import {
   PROMOTIONS,
   findPromotion,
@@ -182,37 +182,50 @@ function PromoPickPromoPanel({ t, promotions, value, onChange, error, onSend, on
   );
 }
 
-function PromoDetailPanel({ t, promo, onClaim, onViewOthers }) {
+function PromoDetailPanel({ t, promo, onClaim, onViewOthers, onRelatedArticle }) {
   if (!promo) return null;
   return (
     <div
       className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-3 max-h-[380px] overflow-y-auto"
       data-testid={`promo-detail-${promo.id}`}
     >
-      <div className="rounded-2xl bg-gradient-to-br from-blue-600/30 to-blue-500/10 border border-blue-500/40 p-3">
-        <div className="text-sm font-extrabold text-white leading-snug">{promo.detailTitle}</div>
+      {/* Paragraph-style intro + numbered steps */}
+      <div className="text-[13px] text-slate-100 leading-relaxed">
+        {t.detailIntro}
+      </div>
+      <ol className="list-decimal list-inside text-[12px] text-slate-200 space-y-1 pl-1">
+        {promo.howToClaim.map((step, i) => (
+          <li key={i} className="leading-snug">{step}</li>
+        ))}
+      </ol>
+
+      {/* Closing paragraph (per-promotion T&C summary) */}
+      <div className="text-[12px] text-slate-300 leading-relaxed">
+        {promo.detailClosingParagraph}
       </div>
 
+      {/* Related Articles — self-referencing in-widget link */}
       <div>
-        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-          {t.howToClaimHeader}
+        <div className="text-[12px] font-semibold text-slate-100 mb-1">
+          {t.relatedArticlesHeader}
         </div>
-        <ol className="list-decimal list-inside text-[12px] text-slate-200 space-y-1 pl-1">
-          {promo.howToClaim.map((step, i) => (
-            <li key={i} className="leading-snug">{step}</li>
-          ))}
+        <ol className="list-decimal list-inside text-[12px] pl-1">
+          <li className="leading-snug">
+            <button
+              type="button"
+              onClick={onRelatedArticle}
+              className="text-blue-400 hover:text-blue-300 underline underline-offset-2 text-left"
+              data-testid={`promo-related-article-${promo.id}`}
+            >
+              {promo.title}
+            </button>
+          </li>
         </ol>
       </div>
 
-      <div>
-        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-          {t.termsHeader}
-        </div>
-        <ul className="list-disc list-inside text-[12px] text-slate-300 space-y-0.5 pl-1">
-          {promo.terms.map((term, i) => (
-            <li key={i} className="leading-snug">{term}</li>
-          ))}
-        </ul>
+      {/* Follow-up question */}
+      <div className="text-[13px] text-slate-100 leading-relaxed pt-1">
+        {t.detailFollowup}
       </div>
 
       <div className="grid grid-cols-1 gap-2 pt-1">
@@ -314,7 +327,7 @@ export default function ChatWidget() {
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [restartConfirmOpen, setRestartConfirmOpen] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [lang, setLang] = useState(getInitialLang);
+  const [lang] = useState("en");
   const [soundOn, setSoundOn] = useState(() => {
     const v = localStorage.getItem(SOUND_KEY);
     return v === null ? true : v === "1";
@@ -662,8 +675,20 @@ export default function ChatWidget() {
     setActivePromoId(p.id);
     setPromoStep("detail");
     setPromoDropdownError("");
-    cancelSpeak();
-    setLilySpeaking(false);
+    // Lily voices the follow-up question; the detailed steps + closing
+    // paragraph + related articles are rendered in the panel below.
+    speakLily(promoT.detailFollowup);
+  };
+
+  // "Related Articles" list item — self-referencing per spec: re-open Step 3
+  // for the same promotion. Since we're already on the detail panel, this is
+  // effectively a no-op re-render; we voice the follow-up again so the user
+  // gets an audible cue that the "link" was activated.
+  const promoRelatedArticle = () => {
+    const p = findPromotion(activePromoId);
+    if (!p) return;
+    setPromoStep("detail");
+    speakLily(promoT.detailFollowup);
   };
 
   const promoNeverMind = () => {
@@ -677,7 +702,11 @@ export default function ChatWidget() {
     const p = findPromotion(activePromoId);
     if (!p) return;
     setPromoStep("claim_instructions");
-    speakLily(promoT.claimIntro(p.title));
+    // Two-bubble sequence per spec: short opener, then the detailed steps.
+    speakLily(promoT.claimIntro1);
+    setTimeout(() => {
+      speakLily(promoT.claimIntro2(p));
+    }, 1000);
   };
 
   const promoViewOthers = () => {
@@ -939,32 +968,8 @@ export default function ChatWidget() {
                   <XCircle className="w-4 h-4" />
                 </button>
               )}
-              {/* Language switcher */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                    title={t("language")}
-                    data-testid="lang-toggle"
-                  >
-                    <Globe className="w-4 h-4" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-40 p-1 bg-slate-900 border-slate-700 text-slate-100">
-                  {SUPPORTED_LANGS.map((L) => (
-                    <button
-                      key={L.code}
-                      onClick={() => { setLang(L.code); saveLang(L.code); }}
-                      className={`w-full text-left px-2.5 py-2 rounded-md text-xs flex items-center gap-2 hover:bg-slate-800 ${lang === L.code ? "bg-slate-800" : ""}`}
-                      data-testid={`lang-option-${L.code}`}
-                    >
-                      <span>{L.flag}</span>
-                      <span className="flex-1">{L.label}</span>
-                      {lang === L.code && <Check className="w-3 h-3" />}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
+              {/* Language switcher removed — widget forced to English. Translation
+                  strings remain in /lib/i18n.js and /lib/promotions.js. */}
               {/* Restart / Start-over — resets local UI to the Lily frontdesk */}
               <button
                 onClick={onRestartClick}
@@ -1132,6 +1137,7 @@ export default function ChatWidget() {
                   promo={findPromotion(activePromoId)}
                   onClaim={promoClaim}
                   onViewOthers={promoViewOthers}
+                  onRelatedArticle={promoRelatedArticle}
                 />
               ) : promoHandoffPrompt ? (
                 <PromoHandoffConfirm
