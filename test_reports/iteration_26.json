@@ -1,0 +1,26 @@
+{
+  "summary": "Retest of iter25 X-clear closed-chat bug fixes on Agent Dashboard. Both fixes verified live end-to-end via Playwright against the preview URL: (1) useAgentSessions.loadSessions now filters `status==='closed'` out of the Active tab; (2) AgentDashboard.handleWs `session_closed` branch no longer calls sess.loadSessions() — only refreshLoad() + patchSession(status:'closed'). Every acceptance bullet from the review request passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "useAgentSessions.loadSessions correctly filters both 'pending' and 'closed' from Active tab (line 27). Comment block clearly documents the spec intent. LGTM.",
+    "AgentDashboard.jsx session_closed WS branch (line 354–360): now only calls refreshLoad() + patchSession, no loadSessions re-fetch. Comment explicitly warns future maintainers not to re-add the fetch. LGTM.",
+    "Note: useWebSocket reconnect handler (line 385) still calls sess.loadSessions() on reconnect. This is intentional (heal-on-reconnect) and will re-apply the closed-filter, so it does not resurface the bug. Confirmed by manual reload test.",
+    "AgentDashboard.jsx remains ~1160 lines — extracting <SessionListItem/> would still help maintainability but is out of scope for this iteration.",
+    "GET /api/chat/sessions backend default (no status_filter) still returns closed sessions. Frontend correctly compensates via the new filter, but if any other consumer relies on the default list expecting only non-closed sessions they may hit the same historical-flood issue. Consider tightening backend default in future."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (out of scope)", "frontend": "100% — 8/8 acceptance points passed"},
+  "test_credentials": "agent@livechat.com / agent123",
+  "seed_data_creation": "None — used the 3 pre-existing open sessions in Active to reproduce the multi-close edge case.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter25 → iter26 fix verified. Testids intact: session-item-<sid>, clear-closed-<sid>, close-session-btn, chat-closed-badge, readonly-banner. Verified live: (a) initial-load Active has zero X buttons (only status='open' sessions), (b) close 3 chats → 3 grey rows + 3 X buttons persist, (c) X on middle closes only that row (siblings intact) and it stays gone after 2.5s, (d) hard refresh → all 3 closed sessions absent from Active and present in Archive, (e) Archive view shows readonly-banner and no close-session-btn/X-button. Archive count is 50 (pagination cap) — historical closed sessions exist in DB but no longer leak into Active. If future work touches the WS session_closed branch, DO NOT re-add sess.loadSessions() — patchSession alone is sufficient and the useWebSocket reconnect effect already handles heal-on-reconnect.",
+  "rca of the issue": "Not applicable — bug is fixed. Root cause history: (1) frontend loadSessions passed no status_filter for Active tab → backend returned all non-lily sessions including status='closed', flooding Active on every fetch/refresh; (2) WS session_closed handler called sess.loadSessions() → re-fetched the flooded list, undoing removeSession() from the X-click. Both are resolved: useAgentSessions filters closed client-side for Active; session_closed WS branch no longer refetches."
+}

@@ -352,7 +352,10 @@ export default function AgentDashboard() {
         setMessages((prev) => prev.map((m) => (m.sender_type === "agent" ? { ...m, status: "read" } : m)));
       }
     } else if (data.type === "session_closed") {
-      sess.loadSessions();
+      // Do NOT re-fetch the session list here — that would clobber the
+      // client-side `removeSession` state (spec: greyed rows stay in Active
+      // until the agent manually clicks X). patchSession alone flips the
+      // status locally so the row turns grey and the X clear button appears.
       refreshLoad();
       sess.patchSession(data.session_id, { status: "closed", summary: data.summary });
     } else if (data.type === "emotion_update") {

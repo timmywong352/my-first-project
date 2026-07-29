@@ -17,10 +17,15 @@ export function useAgentSessions() {
       // "lily" sessions by default).
       const statusFilter = useTab === "archived" ? "closed" : "";
       const { data } = await api.get(`/chat/sessions${statusFilter ? `?status_filter=${statusFilter}` : ""}`);
-      // Pending sessions are surfaced separately in AgentDashboard's Incoming
-      // section (via WS `pending_offer` events) — keep them out of the main
-      // active list to avoid double-rendering.
-      const filtered = Array.isArray(data) ? data.filter((s) => s.status !== "pending") : data;
+      // For the Active tab, exclude:
+      //   - `pending` (rendered separately as WS `pending_offer` incoming card)
+      //   - `closed` (belongs to the Archive tab; per spec, closed rows only
+      //     linger in Active during the current session lifetime — after a
+      //     refresh they must appear only in Archive).
+      let filtered = Array.isArray(data) ? data : [];
+      if (useTab !== "archived") {
+        filtered = filtered.filter((s) => s.status !== "pending" && s.status !== "closed");
+      }
       setSessions(filtered);
       return filtered;
     } catch {
