@@ -70,6 +70,32 @@ function fileIcon(ct) {
   return <FileText className="w-4 h-4" />;
 }
 
+// Render plain text with any http(s) URLs converted into clickable anchor
+// tags. Used for Lily's subtitle so promo links (e.g. the ms-MY promotions
+// page URL) are tappable instead of showing as plain text.
+const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
+function renderWithLinks(text) {
+  if (!text) return null;
+  const parts = text.split(URL_REGEX);
+  return parts.map((part, i) => {
+    if (part && /^https?:\/\//i.test(part)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-blue-400 hover:text-blue-300 underline underline-offset-2 break-all"
+          data-testid="lily-subtitle-link"
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 function TypingDots({ label }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
@@ -655,12 +681,18 @@ export default function ChatWidget() {
       setPromoDropdownError("");
       speakLily(promoT.pickPromoIntro);
     } else {
-      // "View Promotion Page" branch — post two Lily bubbles, then reset.
+      // "View Promotion Page" branch — two Lily bubbles, then the widget
+      // stays in "view_page" (no button panel, just the input) so the user
+      // can type freely. We deliberately DO NOT reset back to the promo
+      // chooser or the 4-button frontdesk here.
       setPromoStep("view_page");
       speakLily(promoT.viewPageMsg);
       setTimeout(() => {
+        // Cancel any TTS still playing so the two utterances don't clip
+        // each other (avoids the "play() was interrupted" warning too).
+        cancelSpeak();
+        setLilySpeaking(false);
         speakLily(promoT.viewPageFollowup);
-        setPromoStep("choose_method");
       }, 1000);
     }
   };
@@ -1059,7 +1091,7 @@ export default function ChatWidget() {
                       <Loader2 className="w-3 h-3 animate-spin" /> Lily is thinking…
                     </span>
                   ) : lilySubtitle ? (
-                    <span>{lilySubtitle}</span>
+                    <span>{renderWithLinks(lilySubtitle)}</span>
                   ) : (
                     <span className="text-slate-500 italic">Lily is getting ready …</span>
                   )}
@@ -1145,6 +1177,16 @@ export default function ChatWidget() {
                   onYes={promoConfirmHandoffYes}
                   onNo={promoConfirmHandoffNo}
                   loading={lilyLoading}
+                />
+              ) : promoStep === "view_page" ? (
+                // Step 2B ("View Promotion Page") passive state — the two
+                // Lily bubbles are already shown in the subtitle. We render
+                // no button panel here so the widget doesn't fall through to
+                // the 4-option frontdesk. The input below stays available
+                // for the customer to type freely.
+                <div
+                  className="px-3 py-2 bg-slate-900/70 backdrop-blur border-t border-slate-800"
+                  data-testid="promo-view-page-passive"
                 />
               ) : (
                 /* 4 fixed option buttons */
