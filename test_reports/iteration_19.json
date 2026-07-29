@@ -1,0 +1,61 @@
+{
+  "summary": "Iter19 — Deposit-status two-step confirm gate. Backend: 4/4 pytest cases passed (i18n endpoint returns deposit_confirm{line1,line2,yes,no} in en/zh/ms with exact expected copy; enabled/options/language fields unchanged; handoff parity works). Frontend Playwright: (T1) tapping [data-testid='lily-option-query_recharge'] shows [data-testid='deposit-confirm'], hides [data-testid='lily-options'], displays BOTH line1 & line2 bubbles, exposes yes/no buttons, and fires NO POST /api/lily/handoff during confirm phase — ALL PASS. (T2) [data-testid='deposit-confirm-no'] returns to frontdesk (all 4 options reappear, deposit-confirm disappears, no network call, phase stays 'lily') — ALL PASS. (T3) [data-testid='deposit-confirm-yes'] fires POST /api/lily/handoff EXACTLY ONCE — PASS (handoff_count=1). (T4) query_withdrawal / view_promotions / query_ticket bypass the confirm gate and fire handoff immediately with NO deposit-confirm view — ALL PASS. (T5/T6) Language-aware copy verified: after switching to zh via [data-testid='lang-option-zh'], line1 contains Chinese chars, Yes='好的，继续', No='不用了，取消'; after switching to ms via [data-testid='lang-option-ms'], line1='Saya akan sambungkan anda dengan ejen sembang langsung...', Yes='Ya, teruskan', No='Tidak, batal' — ALL PASS on second run with 2s settle (first run at 800ms failed intermittently — see notes below). No console errors, no FRONTEND_TEST_MSG, no email UI.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter19_deposit_confirm.py",
+    "/app/test_reports/pytest/iter19_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx is 1155 lines — should be split (e.g., LilyPhase, DepositConfirm, ChatPhase, ClosedPhase, ContactHeader as sub-components). Unchanged from prior iterations.",
+    "cancelDepositConfirm sets lilySubtitle to '' — this also blanks Lily's original greeting. Consider restoring the last greeting instead of clearing (so returning to frontdesk still shows her Hi message). Cosmetic only — feature spec met.",
+    "chooseOption for query_recharge calls speakLily(depositConfirmCopy.line1 + line2) — will trigger TTS network+audio; if the customer keeps toggling between confirm/cancel this could stack TTS requests. Consider debouncing or cancelling prior TTS before starting new. Not a spec violation.",
+    "Widget re-fetches /lily/status on every `lang` change (good) but does NOT re-fetch when `open` toggles or on session-resume. Since initial state has FALLBACK_OPTIONS in English and the useEffect fires on mount, this is fine — but worth an integration test if a customer resumes an existing session that was created with a different language.",
+    "Backend /lily/status has no cache-control header — every widget open + language toggle hits Mongo (via _lily_enabled which reads db.settings). Add a small in-process TTL cache to reduce load."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter19_deposit_confirm.py (new)",
+    "/app/test_reports/iteration_19.json (new)",
+    "/app/test_reports/pytest/iter19_results.xml (new)"
+  ],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% on core spec (deposit-confirm gate, YES/NO paths, non-deposit bypass, en/zh/ms copy). Two transient false-negatives on first pass at 800ms lang-switch settle time — retried at 2000ms all green."},
+  "test_credentials": "admin@livechat.com / admin123, agent@livechat.com / agent123. Anonymous: POST /api/chat/session/anonymous {client_id, language}.",
+  "seed_data_creation": "Created ~4 iter19_* anonymous sessions during testing; test closes them via /chat/public/{id}/close. Not persisted beyond test run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "GET /api/lily/status?lang={en|zh|ms} now returns a `deposit_confirm` object with keys {line1, line2, yes, no}. English copy is EXACT match: line1='Let me connect you with our live chat agents who can help check your deposit status.'  line2=\"You'll be now redirected to another window to chat with our Customer Support team.\"  yes='Yes, proceed'  no='No, cancel'. Widget testids added: `deposit-confirm`, `deposit-confirm-yes`, `deposit-confirm-no`. Behavior: ONLY the query_recharge option opens the confirm gate; the other 3 (query_withdrawal, view_promotions, query_ticket) still fire POST /api/lily/handoff immediately. Confirm-YES = handoff, Confirm-NO = local reset (no network). If asserting language switching, wait ≥1500ms after clicking [data-testid='lang-option-{zh|ms}'] before reading the confirm copy — the useEffect axios round-trip needs time.",
+  "bug_verification": {
+    "backend_status_deposit_confirm_en_exact_copy": "PASS",
+    "backend_status_deposit_confirm_zh": "PASS",
+    "backend_status_deposit_confirm_ms": "PASS",
+    "backend_status_unchanged_fields": "PASS (enabled, options, language still present)",
+    "widget_query_recharge_shows_deposit_confirm": "PASS",
+    "widget_options_hidden_during_confirm": "PASS",
+    "widget_both_lines_visible": "PASS",
+    "widget_yes_no_buttons_exist": "PASS",
+    "widget_no_handoff_during_confirm_phase": "PASS",
+    "widget_confirm_no_returns_to_frontdesk": "PASS",
+    "widget_confirm_no_no_network_call": "PASS",
+    "widget_confirm_yes_fires_handoff_exactly_once": "PASS",
+    "widget_query_withdrawal_no_confirm_immediate_handoff": "PASS",
+    "widget_view_promotions_no_confirm_immediate_handoff": "PASS",
+    "widget_query_ticket_no_confirm_immediate_handoff": "PASS",
+    "widget_zh_yes_button_text": "PASS (好的，继续)",
+    "widget_zh_no_button_text": "PASS (不用了，取消)",
+    "widget_zh_line1_chinese_chars": "PASS",
+    "widget_ms_yes_button_text": "PASS (Ya, teruskan)",
+    "widget_ms_no_button_text": "PASS (Tidak, batal)",
+    "widget_ms_line1_contains_phrase": "PASS (ejen sembang langsung)",
+    "no_console_errors": "PASS",
+    "no_frontend_test_msg": "PASS",
+    "no_email_ui": "PASS"
+  }
+}

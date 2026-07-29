@@ -12,6 +12,7 @@ from deps import get_current_user
 from lily_service import (
     QUICK_OPTIONS,
     compose_reply,
+    deposit_confirm,
     get_customer_memory,
     handoff_line,
     opening_message,
@@ -88,7 +89,12 @@ async def _lily_enabled() -> bool:
 @router.get("/status")
 async def lily_status(lang: str = Query("en")):
     opts = options_for_lang(lang)
-    return {"enabled": await _lily_enabled(), "options": opts, "language": lang}
+    return {
+        "enabled": await _lily_enabled(),
+        "options": opts,
+        "language": lang,
+        "deposit_confirm": deposit_confirm(lang),
+    }
 
 
 @router.post("/open")

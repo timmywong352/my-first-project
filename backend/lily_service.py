@@ -83,6 +83,42 @@ def handoff_line(lang: str) -> str:
     return HANDOFF_LINE_I18N["en"]
 
 
+# ---------- Deposit-status confirm step (client-side gate) ----------
+# When the customer taps the "Deposit status" quick-option, the widget shows
+# these two Lily lines and offers Yes / No buttons. Only "Yes" fires the
+# existing handoff. Other quick-options keep their immediate-handoff behavior.
+DEPOSIT_CONFIRM_I18N = {
+    "en": {
+        "line1": "Let me connect you with our live chat agents who can help check your deposit status.",
+        "line2": "You'll be now redirected to another window to chat with our Customer Support team.",
+        "yes": "Yes, proceed",
+        "no": "No, cancel",
+    },
+    "zh": {
+        "line1": "让我为您转接在线客服，他们可以帮您查询充值状态。",
+        "line2": "接下来将为您切换到客服窗口，与我们的客户支持团队沟通。",
+        "yes": "好的，继续",
+        "no": "不用了，取消",
+    },
+    "ms": {
+        "line1": "Saya akan sambungkan anda dengan ejen sembang langsung kami yang boleh membantu menyemak status deposit anda.",
+        "line2": "Anda akan dialihkan ke tetingkap sembang bersama pasukan Sokongan Pelanggan kami.",
+        "yes": "Ya, teruskan",
+        "no": "Tidak, batal",
+    },
+}
+
+
+def deposit_confirm(lang: str) -> Dict[str, str]:
+    """Localized copy for the Deposit-status confirm prompt."""
+    lang = (lang or "en").lower()
+    if lang.startswith("zh"):
+        return DEPOSIT_CONFIRM_I18N["zh"]
+    if lang.startswith("ms"):
+        return DEPOSIT_CONFIRM_I18N["ms"]
+    return DEPOSIT_CONFIRM_I18N["en"]
+
+
 # ---------- Customer Memory ----------
 async def get_customer_memory(email: str) -> Optional[dict]:
     if not email:

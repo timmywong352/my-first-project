@@ -123,6 +123,15 @@ export default function ChatWidget() {
   const [lilySubtitle, setLilySubtitle] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [options, setOptions] = useState(FALLBACK_OPTIONS);
+  // Deposit-status confirm gate — populated from /api/lily/status per language.
+  const [depositConfirmCopy, setDepositConfirmCopy] = useState({
+    line1: "Let me connect you with our live chat agents who can help check your deposit status.",
+    line2: "You'll be now redirected to another window to chat with our Customer Support team.",
+    yes: "Yes, proceed",
+    no: "No, cancel",
+  });
+  // Which quick-option is currently awaiting Yes/No confirm ({} when idle).
+  const [pendingConfirm, setPendingConfirm] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [avatarClickPulse, setAvatarClickPulse] = useState(0);
   const lastGreetingRef = useRef("");
@@ -163,6 +172,7 @@ export default function ChatWidget() {
           const arr = Object.entries(data.options).map(([key, v]) => ({ key, ...v }));
           setOptions(arr);
         }
+        if (data.deposit_confirm) setDepositConfirmCopy(data.deposit_confirm);
       })
       .catch(() => { /* keep fallbacks */ });
   }, [lang]);
@@ -427,6 +437,13 @@ export default function ChatWidget() {
 
   const chooseOption = async (opt) => {
     if (!session || lilyLoading || phase !== "lily") return;
+    // Deposit status has a two-step confirmation gate. All other quick
+    // options still hand off immediately (unchanged behavior).
+    if (opt.key === "query_recharge") {
+      setPendingConfirm(opt);
+      speakLily(`${depositConfirmCopy.line1} ${depositConfirmCopy.line2}`);
+      return;
+    }
     setLilyLoading(true);
     speakLily("Great — connecting you to a human agent now.");
     try {
@@ -434,6 +451,27 @@ export default function ChatWidget() {
     } finally {
       setLilyLoading(false);
     }
+  };
+
+  const confirmDepositProceed = async () => {
+    if (!pendingConfirm || lilyLoading) return;
+    const opt = pendingConfirm;
+    setPendingConfirm(null);
+    setLilyLoading(true);
+    speakLily("Great — connecting you to a human agent now.");
+    try {
+      await handoffToHuman(opt.label);
+    } finally {
+      setLilyLoading(false);
+    }
+  };
+
+  const cancelDepositConfirm = () => {
+    // Reset to the frontdesk (initial Lily greeting + 4 quick-option buttons).
+    setPendingConfirm(null);
+    setLilySubtitle("");
+    cancelSpeak();
+    setLilySpeaking(false);
   };
 
   // ---------- Send message ----------
@@ -722,21 +760,54 @@ export default function ChatWidget() {
                 )}
               </div>
 
-              {/* 4 fixed option buttons */}
-              <div className="px-3 py-2 grid grid-cols-2 gap-2 bg-slate-900/70 backdrop-blur border-t border-slate-800" data-testid="lily-options">
-                {options.map((o) => (
-                  <button
-                    key={o.key}
-                    onClick={() => chooseOption(o)}
-                    disabled={lilyLoading}
-                    className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 text-slate-100 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                    data-testid={`lily-option-${o.key}`}
-                  >
-                    <span className="text-base">{o.emoji}</span>
-                    <span>{o.label}</span>
-                  </button>
-                ))}
-              </div>
+              {/* Deposit-status confirm gate — shown INSTEAD of the 4 options */}
+              {pendingConfirm ? (
+                <div
+                  className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-2"
+                  data-testid="deposit-confirm"
+                >
+                  <div className="rounded-2xl bg-slate-800/60 border border-slate-700 px-3 py-2 text-[13px] text-slate-100 leading-snug">
+                    {depositConfirmCopy.line1}
+                  </div>
+                  <div className="rounded-2xl bg-slate-800/60 border border-slate-700 px-3 py-2 text-[13px] text-slate-100 leading-snug">
+                    {depositConfirmCopy.line2}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      onClick={confirmDepositProceed}
+                      disabled={lilyLoading}
+                      className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50"
+                      data-testid="deposit-confirm-yes"
+                    >
+                      {depositConfirmCopy.yes}
+                    </button>
+                    <button
+                      onClick={cancelDepositConfirm}
+                      disabled={lilyLoading}
+                      className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-red-500/40 text-slate-100 transition-colors disabled:opacity-50"
+                      data-testid="deposit-confirm-no"
+                    >
+                      {depositConfirmCopy.no}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* 4 fixed option buttons */
+                <div className="px-3 py-2 grid grid-cols-2 gap-2 bg-slate-900/70 backdrop-blur border-t border-slate-800" data-testid="lily-options">
+                  {options.map((o) => (
+                    <button
+                      key={o.key}
+                      onClick={() => chooseOption(o)}
+                      disabled={lilyLoading}
+                      className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 text-slate-100 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                      data-testid={`lily-option-${o.key}`}
+                    >
+                      <span className="text-base">{o.emoji}</span>
+                      <span>{o.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Input */}
               <div className="p-3 border-t border-slate-800 bg-slate-900">
