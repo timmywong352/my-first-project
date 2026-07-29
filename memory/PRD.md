@@ -58,7 +58,14 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
-- **2026-02-15**: **Closed-chat clear X button on Agent Dashboard** (iter26, 100% PASS after fixing 2 regressions found in iter25). Fixes the "greyed-out closed chats stay in Active list forever until refresh" bug.
+- **2026-02-15**: **Lily-only greeting + SYSTEM messages + 3-dot typing indicator** (iter27→iter28, 100% PASS after fixing the phase='chat' renderer bug). Semantic + visual refactor of Lily's chat log:
+  - `sayLily` → `saySystem`: now pushes `sender_type='system'` (never speaks TTS). Client-side utterances (promo copy, deposit gate, transitions, keyword replies, "Great — connecting…") all become SYSTEM messages. The greeting bubble remains as the ONLY Lily message.
+  - New `isProcessing` state — set to `true` for 500ms before every `saySystem` push, so a WhatsApp-style 3-dot animated indicator ("System is processing…" or "Lily is thinking…" during real async) appears immediately after clicks, then disappears when the bubble arrives.
+  - Unified `TypingDots({label})` component with staggered animation-delay 0/200/400ms and 1s duration. Renders `<label> is typing…` when given a label; otherwise raw dots.
+  - Distinct bubble styling: Lily = slate-800 with green LILY tag; System = slate-900/70 with **purple SYSTEM tag** and `border-l-2 border-l-purple-500` accent; Customer = blue right-aligned.
+  - Both ChatWidget message renderers (Lily phase + Chat phase post-handoff) and AgentDashboard (current + prior threads + customer typing indicator) handle all three sender types consistently. `data-testid` coverage: `sender-tag-lily`, `sender-tag-system`, `typing-dots`, `processing-indicator`, `customer-typing-indicator`.
+  - Live-verified via Playwright: after Deposit→Yes handoff, the 3 SYSTEM bubbles retain their purple tag + border in the post-handoff chat view.
+- **2026-02-15**: **Closed-chat clear X button on Agent Dashboard** (iter26, 100% PASS).
   - `useAgentSessions`: added `removeSession(id)` helper; `loadSessions` for the Active tab now filters out `status==='closed'` (and 'pending' as before) so page refresh keeps Active clean.
   - `AgentDashboard.closeSession`: no longer auto-filters the closed session out — it only patches `status='closed'` locally so the row stays visible (greyed with opacity-70 + Closed badge). `refreshLoad()` decrements the agent's active count.
   - `AgentDashboard.dismissClosedSession(sid)`: new handler wired to an X icon rendered at top-right of each closed row in Active view (`data-testid="clear-closed-<sid>"`). Clicking X calls `sess.removeSession(sid)` and clears `selectedId`/`messages` if that session was selected. Uses `<span role="button">` with `e.stopPropagation()` so the row-select click doesn't fire. Keyboard Enter/Space also dismiss.
