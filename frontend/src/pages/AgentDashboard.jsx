@@ -859,21 +859,26 @@ export default function AgentDashboard() {
                   {th.messages.map((m) => {
                     const isAgent = m.sender_type === "agent";
                     const isLily = m.sender_type === "lily";
+                    const isSystem = m.sender_type === "system";
                     return (
                       <div key={m.id} className={`flex ${isAgent ? "justify-end" : "justify-start"}`}>
                         <div className="max-w-[70%] space-y-1">
                           {!isAgent && (
-                            <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 px-1 uppercase tracking-wider">
-                              {m.sender_name}{isLily && " · AI"}
+                            <div className={`text-[10px] font-semibold px-1 uppercase tracking-wider ${
+                              isSystem ? "text-purple-500 dark:text-purple-400" : "text-slate-400 dark:text-slate-500"
+                            }`}>
+                              {isSystem ? "System" : m.sender_name}{isLily && " · AI"}
                             </div>
                           )}
                           {m.content && (
-                            <div className={`px-4 py-2 text-[13px] rounded-2xl shadow-sm ${
+                            <div className={`px-4 py-2 text-[13px] rounded-2xl shadow-sm whitespace-pre-wrap break-words ${
                               isAgent
                                 ? "bg-blue-500/70 text-white rounded-tr-sm"
                                 : isLily
                                   ? "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 rounded-tl-sm border border-slate-200 dark:border-slate-700 italic"
-                                  : "bg-white/80 dark:bg-slate-800/60 text-slate-800 dark:text-slate-200 rounded-tl-sm border border-slate-200 dark:border-slate-700"
+                                  : isSystem
+                                    ? "bg-white/60 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 rounded-tl-sm border border-slate-200 dark:border-slate-700 border-l-2 border-l-purple-500"
+                                    : "bg-white/80 dark:bg-slate-800/60 text-slate-800 dark:text-slate-200 rounded-tl-sm border border-slate-200 dark:border-slate-700"
                             }`}>
                               {m.content}
                             </div>
@@ -911,11 +916,21 @@ export default function AgentDashboard() {
 
               {messages.map((m) => {
                 const isAgent = m.sender_type === "agent";
+                const isLily = m.sender_type === "lily";
+                const isSystem = m.sender_type === "system";
                 const isMine = isAgent && m.sender_id === user.id;
                 return (
                   <div key={m.id} className={`flex ${isAgent ? "justify-end" : "justify-start"} group`}>
                     <div className={`max-w-[70%] space-y-1.5 ${isAgent ? "items-end" : "items-start"}`} data-testid={`agent-msg-${m.id}`}>
-                      {!isAgent && <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 px-1 uppercase tracking-wider">{m.sender_name}</div>}
+                      {!isAgent && (
+                        <div className={`text-[10px] font-semibold px-1 uppercase tracking-wider ${
+                          isSystem ? "text-purple-500 dark:text-purple-400"
+                          : isLily ? "text-emerald-500 dark:text-emerald-400"
+                          : "text-slate-400 dark:text-slate-500"
+                        }`}>
+                          {isSystem ? "System" : m.sender_name}{isLily && " · AI"}
+                        </div>
+                      )}
                       {(m.attachments || []).map((att, i) => (
                         <div key={i} className={isAgent ? "flex justify-end" : ""}><AgentAttachment att={att} /></div>
                       ))}
@@ -929,8 +944,11 @@ export default function AgentDashboard() {
                         )}
                         {m.content && (
                           <div className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm whitespace-pre-wrap break-words ${
-                            isAgent ? "bg-blue-600 text-white rounded-tr-sm"
-                                    : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-tl-sm border border-slate-100 dark:border-slate-700"
+                            isAgent
+                              ? "bg-blue-600 text-white rounded-tr-sm"
+                              : isSystem
+                                ? "bg-white/70 dark:bg-slate-900/60 text-slate-800 dark:text-slate-200 rounded-tl-sm border border-slate-200 dark:border-slate-700 border-l-2 border-l-purple-500"
+                                : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-tl-sm border border-slate-100 dark:border-slate-700"
                           }`}>
                             {m.content}
                             {m.edited && <span className="text-[10px] opacity-70 ml-1.5 italic">(edited)</span>}
@@ -946,11 +964,11 @@ export default function AgentDashboard() {
                 );
               })}
               {!isReadOnly && customerTyping[selectedId] && (
-                <div className="flex items-center gap-2 px-4 py-2">
-                  <div className="flex space-x-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                <div className="flex items-center gap-2 px-4 py-2" data-testid="customer-typing-indicator">
+                  <div className="flex space-x-1" data-testid="typing-dots">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1s" }} />
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "200ms", animationDuration: "1s" }} />
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "400ms", animationDuration: "1s" }} />
                   </div>
                   <span className="text-xs text-slate-500 dark:text-slate-400">Customer is typing…</span>
                 </div>

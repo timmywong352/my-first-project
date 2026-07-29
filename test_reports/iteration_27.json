@@ -1,0 +1,35 @@
+{
+  "summary": "Verified iter27 changes for (1) Lily-only greeting vs SYSTEM-tagged other bot messages and (2) 3-dot typing indicator with 'Lily is thinking…' / 'System is processing…' labels. Widget-side Lily-phase renderer (phase='lily') behaves correctly: 1 Lily bubble (green LILY tag, slate bubble) + 6 SYSTEM bubbles (purple SYSTEM tag, purple-left-border) across the full Promotions → Pick a Promo → Send → Claim now flow; the processing-indicator (data-testid=processing-indicator + typing-dots) briefly appears with 'System is processing…' after every quick-option click and disappears when the SYSTEM bubble arrives; clickable http URL renders inside a SYSTEM bubble; Lily 'Speaking…' TTS status stays idle when SYSTEM messages appear (verified after greeting TTS completed). Agent Dashboard code correctly handles sender_type==='system' in both prior-thread and current-thread renderers (purple-left-border + SYSTEM label) and customer-typing-indicator has data-testid + 3 staggered animated dots. FOUND ONE FRONTEND BUG: after Deposit→Yes handoff (phase transitions to 'chat'), the ChatWidget's phase='chat' message renderer does NOT branch on sender_type==='system' — so the previously-pushed SYSTEM messages ('Let me connect you…', 'You'll be now redirected…', 'Great — connecting you to a human agent now.') lose their purple SYSTEM tag and purple-left-border and render as plain slate bubbles, which contradicts acceptance bullets (g) and (h).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ChatWidget.jsx (phase='chat' post-handoff renderer, lines 1343-1388)",
+        "issue": "Post-handoff chat log renderer only branches on isCustomer / isLily. Missing `const isSystem = m.sender_type === 'system'` and the corresponding purple-left-border bubble style + SYSTEM sender tag. Result: after Deposit→Yes handoff the deposit-gate SYSTEM bubbles ('Let me connect you with our live chat agents…', 'You'll be now redirected to another window…', 'Great — connecting you to a human agent now.') render as plain slate bubbles with no SYSTEM label — same visual as a generic non-Lily message. Confirmed via live Playwright screenshot: the SYSTEM sender tags disappear the moment `phase` flips from 'lily' to 'chat'.",
+        "selector": "[data-testid^='msg-']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "In /app/frontend/src/components/ChatWidget.jsx lines 1346-1388 (phase==='chat' renderer), add `const isSystem = m.sender_type === 'system';` and mirror the styling used in the Lily-phase renderer (purple `sender-tag-system` tag + `border-l-2 border-l-purple-500` bubble). Also skip TTS/attachments for system messages if applicable. Same fix pattern as already applied in AgentDashboard.jsx lines 862/920.",
+    "Optional: capture the bootstrap 'Lily is thinking…' label under a slower network path — on the current preview URL /api/lily/open resolves in <100 ms so lilyLoading barely renders. The code path (ChatWidget lines 1177-1188) is correct by inspection."
+  ],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx phase='chat' renderer (line 1348) omits sender_type='system' handling — see ui_bugs above.",
+    "saySystem pushes local_sys_* messages only into local React state; they are never persisted server-side. Agent dashboard therefore will never see 'system' bubbles for messages generated during the Lily phase — the agent-side isSystem branch (AgentDashboard.jsx L862/L920) is technically dead code for those messages. If the product intent is for agents to see the deposit-gate hand-off transcript, saySystem must POST them to the backend as sender_type='system'. Confirm with product intent.",
+    "ChatWidget.jsx is 1658 lines — recommend extracting Lily-phase and Chat-phase renderers into their own components; the exact bug above (isSystem missing in one of two renderers) is a symptom of duplication.",
+    "TypingDots component is duplicated in AgentDashboard.jsx (lines 966-974 hand-rolls the same three-dot markup). Extract shared component."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (out of scope, frontend-only change)", "frontend": "~85% — Lily-phase pass, Agent-dashboard pass by inspection, post-handoff render fails acceptance bullets (g)+(h)"},
+  "test_credentials": "agent@livechat.com / agent123",
+  "seed_data_creation": "None — fresh widget session created via localStorage.clear() + /api/lily/open bootstrap.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter27 introduced sender_type='system' + processing-indicator. Lily-phase renderer (ChatWidget.jsx ~line 1141) and Agent-dashboard (AgentDashboard.jsx L859/L917) both handle isSystem correctly. The MISSING branch is in ChatWidget.jsx phase==='chat' renderer at line ~1346. After the main agent adds the isSystem check + purple SYSTEM tag + border-l-purple-500 to that block, retest by: (a) fresh widget → Deposit status → Yes, and verify the three deposit-gate bubbles retain purple SYSTEM tag AFTER phase flips to chat, (b) confirm data-testid='sender-tag-system' count is still >=3 in the post-handoff view. Bootstrap 'Lily is thinking…' label could not be captured live because /api/lily/open returns fast on preview URL; code path is correct by inspection (ChatWidget.jsx L1181/L1185). Testids in place: sender-tag-lily, sender-tag-system, typing-dots, processing-indicator, customer-typing-indicator, chat-launcher, lily-option-*, promo-pick-btn, promo-send-btn, promo-claim-now-btn, deposit-confirm-yes, deposit-confirm-no.",
+  "rca of the issue": "ChatWidget.jsx has TWO independent message render loops — one for phase==='lily' (updated with isSystem branch in iter27) and one for phase==='chat' (post-handoff, NOT updated). saySystem() pushes messages with sender_type='system' into the shared `messages` state; when phase flips to 'chat' these messages persist in state but the phase-'chat' renderer falls through the isLily branch and lands on the generic bubble style, dropping both the SYSTEM tag and the purple-left-border. Fix: add `const isSystem = m.sender_type === 'system';` and a corresponding class/tag branch in the phase-'chat' renderer (lines 1346-1388)."
+}

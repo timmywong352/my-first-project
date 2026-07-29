@@ -65,6 +65,24 @@ function ensureClientId() {
   return cid;
 }
 
+// WhatsApp-style animated 3-dot typing indicator. Kept unified — used both
+// by the customer widget's post-handoff "Agent is typing…" preview and by
+// the Lily-phase "Lily is thinking… / System is processing…" indicator.
+// Pass a `label` to render "<label> is typing…" alongside the dots; omit
+// it (used inside a pre-labelled bubble) to render just the dots.
+function TypingDots({ label }) {
+  return (
+    <div className="flex items-center gap-2" data-testid="typing-dots">
+      <div className="flex space-x-1">
+        <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1s" }} />
+        <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "200ms", animationDuration: "1s" }} />
+        <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "400ms", animationDuration: "1s" }} />
+      </div>
+      {label && <span className="text-xs text-slate-500">{label} is typing…</span>}
+    </div>
+  );
+}
+
 function fileIcon(ct) {
   if (ct && ct.startsWith("image/")) return <ImageIcon className="w-4 h-4" />;
   return <FileText className="w-4 h-4" />;
@@ -94,19 +112,6 @@ function renderWithLinks(text) {
     }
     return <span key={i}>{part}</span>;
   });
-}
-
-function TypingDots({ label }) {
-  return (
-    <div className="flex items-center gap-2 px-4 py-2">
-      <div className="flex space-x-1">
-        <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-        <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-        <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "300ms" }} />
-      </div>
-      <span className="text-xs text-slate-500">{label} is typing…</span>
-    </div>
-  );
 }
 
 function AttachmentBubble({ att, sessionId, sessionToken, isCustomerSide }) {
@@ -314,6 +319,7 @@ export default function ChatWidget() {
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [restartConfirmOpen, setRestartConfirmOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [lang] = useState("en");
   const [soundOn, setSoundOn] = useState(() => {
     const v = localStorage.getItem(SOUND_KEY);
@@ -367,26 +373,31 @@ export default function ChatWidget() {
     });
   }, [ttsOn]);
 
-  // Push a client-side Lily utterance into the messages log AND fire TTS.
-  // Used for all in-widget Lily prompts (promo flow copy, deposit gate,
-  // transition strings) so they persist as scrollable chat bubbles rather
-  // than only flashing in a single subtitle bubble that gets overwritten.
-  const sayLily = useCallback((text) => {
+  // Push a client-side SYSTEM utterance into the messages log. Rendered
+  // with a distinct "System" style (see chat-log below) so the customer
+  // clearly distinguishes automated bot copy from Lily's actual greeting.
+  // Shows a brief typing-dots indicator (`isProcessing`) before the bubble
+  // appears — mimics BK8 / WhatsApp response latency. NO TTS: Lily's avatar
+  // stays idle for system messages; only her greetings speak.
+  const saySystem = useCallback((text, delay = 500) => {
     if (!text) return;
-    const id = `local_lily_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id,
-        sender_type: "lily",
-        sender_name: "Lily",
-        content: text,
-        attachments: [],
-        created_at: new Date().toISOString(),
-      },
-    ]);
-    speakLily(text);
-  }, [speakLily]);
+    setIsProcessing(true);
+    setTimeout(() => {
+      const id = `local_sys_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id,
+          sender_type: "system",
+          sender_name: "System",
+          content: text,
+          attachments: [],
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      setIsProcessing(false);
+    }, delay);
+  }, []);
 
   // Immediate visual echo of a customer utterance during the Lily phase so
   // the user gets feedback before Lily replies / handoff kicks in. Server
@@ -657,18 +668,18 @@ export default function ChatWidget() {
     if (!session || lilyLoading || phase !== "lily") return;
     if (opt.key === "query_recharge") {
       setPendingConfirm(opt);
-      sayLily(depositConfirmCopy.line1);
-      setTimeout(() => sayLily(depositConfirmCopy.line2), 700);
+      saySystem(depositConfirmCopy.line1);
+      setTimeout(() => saySystem(depositConfirmCopy.line2), 700);
       return;
     }
     if (opt.key === "view_promotions") {
       // Enter the promotions state machine — no handoff yet.
       setPromoStep("choose_method");
-      sayLily(promoT.stepChooseTitle);
+      saySystem(promoT.stepChooseTitle);
       return;
     }
     setLilyLoading(true);
-    sayLily("Great — connecting you to a human agent now.");
+    saySystem("Great — connecting you to a human agent now.");
     try {
       await handoffToHuman(opt.label);
     } finally {
@@ -681,20 +692,20 @@ export default function ChatWidget() {
     if (method === "pick") {
       setPromoStep("pick_promo");
       setPromoDropdownError("");
-      sayLily(promoT.pickPromoIntro);
+      saySystem(promoT.pickPromoIntro);
     } else {
       // "View Promotion Page" branch — two Lily bubbles, then the widget
       // stays in "view_page" (no button panel, just the input) so the user
       // can type freely. We deliberately DO NOT reset back to the promo
       // chooser or the 4-button frontdesk here.
       setPromoStep("view_page");
-      sayLily(promoT.viewPageMsg);
+      saySystem(promoT.viewPageMsg);
       setTimeout(() => {
         // Cancel any TTS still playing so the two utterances don't clip
         // each other (avoids the "play() was interrupted" warning too).
         cancelSpeak();
         setLilySpeaking(false);
-        sayLily(promoT.viewPageFollowup);
+        saySystem(promoT.viewPageFollowup);
       }, 1000);
     }
   };
@@ -721,11 +732,11 @@ export default function ChatWidget() {
       promoT.relatedArticlesHeader,
       `1. ${p.title}`,
     ].join("\n");
-    sayLily(detailText);
+    saySystem(detailText);
     setTimeout(() => {
       cancelSpeak();
       setLilySpeaking(false);
-      sayLily(promoT.detailFollowup);
+      saySystem(promoT.detailFollowup);
     }, 900);
   };
 
@@ -737,7 +748,7 @@ export default function ChatWidget() {
     setSelectedPromoId("");
     setPromoDropdownError("");
     setPromoStep("choose_method");
-    sayLily(promoT.stepChooseTitle);
+    saySystem(promoT.stepChooseTitle);
   };
 
   const promoClaim = () => {
@@ -745,11 +756,11 @@ export default function ChatWidget() {
     if (!p) return;
     setPromoStep("claim_instructions");
     // Two-bubble sequence per spec: short opener, then the detailed steps.
-    sayLily(promoT.claimIntro1);
+    saySystem(promoT.claimIntro1);
     setTimeout(() => {
       cancelSpeak();
       setLilySpeaking(false);
-      sayLily(promoT.claimIntro2(p));
+      saySystem(promoT.claimIntro2(p));
     }, 1000);
   };
 
@@ -757,7 +768,7 @@ export default function ChatWidget() {
     setSelectedPromoId("");
     setActivePromoId(null);
     setPromoStep("choose_method");
-    sayLily(promoT.stepChooseTitle);
+    saySystem(promoT.stepChooseTitle);
   };
 
   const promoConfirmHandoffYes = async () => {
@@ -766,7 +777,7 @@ export default function ChatWidget() {
     const p = findPromotion(activePromoId);
     const ctx = p ? `Promotions: ${p.title}` : "Promotions inquiry";
     setLilyLoading(true);
-    sayLily("Great — connecting you to a human agent now.");
+    saySystem("Great — connecting you to a human agent now.");
     try {
       await handoffToHuman(ctx);
     } finally {
@@ -776,7 +787,7 @@ export default function ChatWidget() {
 
   const promoConfirmHandoffNo = () => {
     setPromoHandoffPrompt(null);
-    sayLily("No problem — is there anything else I can help you with today?");
+    saySystem("No problem — is there anything else I can help you with today?");
   };
 
   const confirmDepositProceed = async () => {
@@ -784,7 +795,7 @@ export default function ChatWidget() {
     const opt = pendingConfirm;
     setPendingConfirm(null);
     setLilyLoading(true);
-    sayLily("Great — connecting you to a human agent now.");
+    saySystem("Great — connecting you to a human agent now.");
     try {
       await handoffToHuman(opt.label);
     } finally {
@@ -819,17 +830,17 @@ export default function ChatWidget() {
       if (activePromoId) {
         const match = matchPromoKeyword(userText);
         if (match?.action === "acknowledge") {
-          sayLily(match.reply);
+          saySystem(match.reply);
           return;
         }
         if (match?.action === "confirm_handoff") {
           setPromoHandoffPrompt({ reply: match.reply });
-          sayLily(match.reply);
+          saySystem(match.reply);
           return;
         }
         if (match?.action === "instant_handoff") {
           setLilyLoading(true);
-          sayLily(match.reply);
+          saySystem(match.reply);
           const p = findPromotion(activePromoId);
           const ctx = p ? `Promotions: ${p.title} — ${userText}` : `Promotions inquiry — ${userText}`;
           try { await handoffToHuman(ctx); } finally { setLilyLoading(false); }
@@ -839,7 +850,7 @@ export default function ChatWidget() {
       }
 
       setLilyLoading(true);
-      sayLily("Great — connecting you to a human agent now.");
+      saySystem("Great — connecting you to a human agent now.");
       try {
         const p = activePromoId ? findPromotion(activePromoId) : null;
         const ctx = p ? `Promotions: ${p.title} — ${userText}` : userText;
@@ -1129,29 +1140,50 @@ export default function ChatWidget() {
               >
                 {messages.map((m) => {
                   const isCustomer = m.sender_type === "customer";
+                  const isSystem = m.sender_type === "system";
                   return (
                     <div
                       key={m.id}
                       className={`flex ${isCustomer ? "justify-end" : "justify-start"}`}
                       data-testid={`lily-msg-${m.id}`}
                     >
-                      <div
-                        className={`max-w-[85%] px-4 py-2.5 text-sm rounded-2xl shadow-sm whitespace-pre-wrap break-words leading-relaxed ${
-                          isCustomer
-                            ? "text-white rounded-tr-sm bg-blue-500"
-                            : "bg-slate-800 text-slate-100 rounded-tl-sm border border-slate-700"
-                        }`}
-                      >
-                        {isCustomer ? m.content : renderWithLinks(m.content)}
+                      <div className="max-w-[85%]">
+                        {/* Sender tag above bubble (only for automated senders) */}
+                        {!isCustomer && (
+                          <div
+                            className={`text-[10px] font-semibold uppercase tracking-wider mb-1 px-1 ${
+                              isSystem ? "text-purple-400" : "text-emerald-400"
+                            }`}
+                            data-testid={`sender-tag-${isSystem ? "system" : "lily"}`}
+                          >
+                            {isSystem ? "System" : "Lily"}
+                          </div>
+                        )}
+                        <div
+                          className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm whitespace-pre-wrap break-words leading-relaxed ${
+                            isCustomer
+                              ? "text-white rounded-tr-sm bg-blue-500"
+                              : isSystem
+                                ? "bg-slate-900/70 text-slate-200 rounded-tl-sm border border-slate-700 border-l-2 border-l-purple-500"
+                                : "bg-slate-800 text-slate-100 rounded-tl-sm border border-slate-700"
+                          }`}
+                        >
+                          {isCustomer ? m.content : renderWithLinks(m.content)}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
-                {lilyLoading && (
-                  <div className="flex justify-start" data-testid="lily-thinking">
-                    <div className="rounded-2xl rounded-tl-sm px-4 py-2.5 bg-slate-800/70 border border-slate-700 text-slate-400 text-sm italic flex items-center gap-2">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Lily is thinking…
+                {(isProcessing || lilyLoading) && (
+                  <div className="flex justify-start" data-testid="processing-indicator">
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-1 px-1 text-slate-500">
+                        {lilyLoading ? "Lily" : "System"}
+                      </div>
+                      <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-slate-800/70 border border-slate-700 text-slate-400 text-xs italic flex items-center gap-2">
+                        <TypingDots />
+                        <span>{lilyLoading ? "Lily is thinking…" : "System is processing…"}</span>
+                      </div>
                     </div>
                   </div>
                 )}
