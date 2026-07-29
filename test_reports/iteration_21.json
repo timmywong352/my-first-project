@@ -1,0 +1,19 @@
+{
+  "summary": "Iter21 retest of the widget-reset fix from iter20. All spec scenarios PASS. Verified: (1) chat-close-btn onClick now resets promoStep/selectedPromoId/promoDropdownError/activePromoId/promoHandoffPrompt/pendingConfirm before setOpen(false) — confirmed in ChatWidget.jsx lines 975-986. (2) TDZ fix still in place — `const promoT = promoStrings(lang)` at line 322, AFTER `const [lang, setLang] = useState(...)` at line 316. No 'Uncaught runtime errors' overlay on page load. (3) Widget-reset test A (from promo-choose-method): open widget → view_promotions → promo-choose-method visible → close → reopen → lily-options restored, promo-choose-method absent. PASS. (4) Widget-reset test B (deeper into promo-detail-monthly_188_spins): open → view_promotions → pick_promo → select monthly_188_spins → send → detail panel visible → close → reopen → lily-options restored, promo-detail-monthly_188_spins absent. PASS. (5) Widget-reset test C (deposit-confirm): open → query_recharge → deposit-confirm visible → close → reopen → lily-options restored, deposit-confirm absent. PASS. (6) Regression happy path: view_promotions → pick 'Monthly Exclusive 188 Free Spins' → detail content visible → Claim now → typed 'ok thanks' → reply contains 'anything else' → typed 'can you claim for me' → promo-handoff-confirm shown → Yes → POST /api/lily/handoff fired EXACTLY ONCE with customer_text=Promotions:+Monthly+Exclusive+188+Free+Spins. PASS. (7) Fast regression: query_withdrawal → 1 handoff call with customer_text=Withdrawal+status, no promo/deposit view. query_ticket → 1 handoff call with customer_text=Ticket+status. query_recharge still shows deposit-confirm (verified in test C). PASS. (8) Zero console errors across all 5 flows (only benign TTS warnings on headless — no page.play() audio context, expected).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx is now ~1477 lines — extract PromoChooseMethod/PromoPickPromoPanel/PromoDetailPanel/PromoHandoffConfirm into their own files under components/promotions/ (they are already pure sub-components).",
+    "Consider DRYing the promo-reset code — chat-close-btn onClick (lines 976-985) and endChat (lines 852-857) duplicate the same 6 setters. Extract a `resetPromoState()` helper.",
+    "matchPromoKeyword uses simple substring matching — 'issue' matches 'no issue at all' which would wrongly trigger instant handoff. Consider word-boundary matching for negative-sentiment keywords."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no backend changes; /api/lily/handoff verified — exactly-once with correct payload)", "frontend": "14/14 spec scenarios PASS (100%)"},
+  "test_credentials": "Anonymous customer via POST /api/chat/session/anonymous with client_id.",
+  "seed_data_creation": "Multiple anonymous sessions created during Playwright runs (not cleaned up, transient).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter20 blocker (widget close+reopen not resetting promo state) is FIXED. All 14 spec scenarios green. TDZ fix from iter20 still in place. Handoff exactly-once semantics preserved. Widget can be safely opened/closed at any promo depth and reopens on the 4-option frontdesk. No console errors."
+}

@@ -973,7 +973,17 @@ export default function ChatWidget() {
                 {ttsOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
               </button>
               <button
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  // Reset promo/deposit flow state so reopening lands on the
+                  // 4-option frontdesk (Lily greeting) — spec requirement.
+                  setPromoStep(null);
+                  setSelectedPromoId("");
+                  setPromoDropdownError("");
+                  setActivePromoId(null);
+                  setPromoHandoffPrompt(null);
+                  setPendingConfirm(null);
+                  setOpen(false);
+                }}
                 className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
                 data-testid="chat-close-btn"
               >
