@@ -208,68 +208,30 @@ function PromoPickPromoPanel({ t, promotions, value, onChange, error, onSend, on
   );
 }
 
-function PromoDetailPanel({ t, promo, onClaim, onViewOthers, onRelatedArticle }) {
+function PromoDetailPanel({ t, promo, onClaim, onViewOthers }) {
   if (!promo) return null;
+  // Detail steps + closing + related articles now render as a persistent
+  // Lily chat bubble (pushed via sayLily on promoConfirmPick). This panel
+  // just carries the two action chips.
   return (
     <div
-      className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-3 max-h-[380px] overflow-y-auto"
+      className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-2"
       data-testid={`promo-detail-${promo.id}`}
     >
-      {/* Paragraph-style intro + numbered steps */}
-      <div className="text-[13px] text-slate-100 leading-relaxed">
-        {t.detailIntro}
-      </div>
-      <ol className="list-decimal list-inside text-[12px] text-slate-200 space-y-1 pl-1">
-        {promo.howToClaim.map((step, i) => (
-          <li key={i} className="leading-snug">{step}</li>
-        ))}
-      </ol>
-
-      {/* Closing paragraph (per-promotion T&C summary) */}
-      <div className="text-[12px] text-slate-300 leading-relaxed">
-        {promo.detailClosingParagraph}
-      </div>
-
-      {/* Related Articles — self-referencing in-widget link */}
-      <div>
-        <div className="text-[12px] font-semibold text-slate-100 mb-1">
-          {t.relatedArticlesHeader}
-        </div>
-        <ol className="list-decimal list-inside text-[12px] pl-1">
-          <li className="leading-snug">
-            <button
-              type="button"
-              onClick={onRelatedArticle}
-              className="text-blue-400 hover:text-blue-300 underline underline-offset-2 text-left"
-              data-testid={`promo-related-article-${promo.id}`}
-            >
-              {promo.title}
-            </button>
-          </li>
-        </ol>
-      </div>
-
-      {/* Follow-up question */}
-      <div className="text-[13px] text-slate-100 leading-relaxed pt-1">
-        {t.detailFollowup}
-      </div>
-
-      <div className="grid grid-cols-1 gap-2 pt-1">
-        <button
-          onClick={onClaim}
-          className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
-          data-testid="promo-claim-now-btn"
-        >
-          {t.claimNowBtn}
-        </button>
-        <button
-          onClick={onViewOthers}
-          className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
-          data-testid="promo-view-others-btn"
-        >
-          {t.viewOthersBtn}
-        </button>
-      </div>
+      <button
+        onClick={onClaim}
+        className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+        data-testid="promo-claim-now-btn"
+      >
+        {t.claimNowBtn}
+      </button>
+      <button
+        onClick={onViewOthers}
+        className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
+        data-testid="promo-view-others-btn"
+      >
+        {t.viewOthersBtn}
+      </button>
     </div>
   );
 }
@@ -322,7 +284,6 @@ export default function ChatWidget() {
   const [lilyLoading, setLilyLoading] = useState(false);
   const [ttsOn, setTtsOn] = useState(true);
   const [lilySubtitle, setLilySubtitle] = useState("");
-  const [showHistory, setShowHistory] = useState(false);
   const [options, setOptions] = useState(FALLBACK_OPTIONS);
   // Deposit-status confirm gate — populated from /api/lily/status per language.
   const [depositConfirmCopy, setDepositConfirmCopy] = useState({
@@ -405,6 +366,46 @@ export default function ChatWidget() {
       onEnd: () => setLilySpeaking(false),
     });
   }, [ttsOn]);
+
+  // Push a client-side Lily utterance into the messages log AND fire TTS.
+  // Used for all in-widget Lily prompts (promo flow copy, deposit gate,
+  // transition strings) so they persist as scrollable chat bubbles rather
+  // than only flashing in a single subtitle bubble that gets overwritten.
+  const sayLily = useCallback((text) => {
+    if (!text) return;
+    const id = `local_lily_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id,
+        sender_type: "lily",
+        sender_name: "Lily",
+        content: text,
+        attachments: [],
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    speakLily(text);
+  }, [speakLily]);
+
+  // Immediate visual echo of a customer utterance during the Lily phase so
+  // the user gets feedback before Lily replies / handoff kicks in. Server
+  // will persist the definitive copy on handoff (different id → no dupe).
+  const pushLocalCustomer = useCallback((text) => {
+    if (!text) return;
+    const id = `local_cust_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id,
+        sender_type: "customer",
+        sender_name: "You",
+        content: text,
+        attachments: [],
+        created_at: new Date().toISOString(),
+      },
+    ]);
+  }, []);
 
   // Click Lily's avatar → play a *different* random greeting.
   // Ignored while she's already speaking so audio never overlaps.
@@ -656,17 +657,18 @@ export default function ChatWidget() {
     if (!session || lilyLoading || phase !== "lily") return;
     if (opt.key === "query_recharge") {
       setPendingConfirm(opt);
-      speakLily(`${depositConfirmCopy.line1} ${depositConfirmCopy.line2}`);
+      sayLily(depositConfirmCopy.line1);
+      setTimeout(() => sayLily(depositConfirmCopy.line2), 700);
       return;
     }
     if (opt.key === "view_promotions") {
       // Enter the promotions state machine — no handoff yet.
       setPromoStep("choose_method");
-      speakLily(promoT.stepChooseTitle);
+      sayLily(promoT.stepChooseTitle);
       return;
     }
     setLilyLoading(true);
-    speakLily("Great — connecting you to a human agent now.");
+    sayLily("Great — connecting you to a human agent now.");
     try {
       await handoffToHuman(opt.label);
     } finally {
@@ -679,20 +681,20 @@ export default function ChatWidget() {
     if (method === "pick") {
       setPromoStep("pick_promo");
       setPromoDropdownError("");
-      speakLily(promoT.pickPromoIntro);
+      sayLily(promoT.pickPromoIntro);
     } else {
       // "View Promotion Page" branch — two Lily bubbles, then the widget
       // stays in "view_page" (no button panel, just the input) so the user
       // can type freely. We deliberately DO NOT reset back to the promo
       // chooser or the 4-button frontdesk here.
       setPromoStep("view_page");
-      speakLily(promoT.viewPageMsg);
+      sayLily(promoT.viewPageMsg);
       setTimeout(() => {
         // Cancel any TTS still playing so the two utterances don't clip
         // each other (avoids the "play() was interrupted" warning too).
         cancelSpeak();
         setLilySpeaking(false);
-        speakLily(promoT.viewPageFollowup);
+        sayLily(promoT.viewPageFollowup);
       }, 1000);
     }
   };
@@ -707,27 +709,35 @@ export default function ChatWidget() {
     setActivePromoId(p.id);
     setPromoStep("detail");
     setPromoDropdownError("");
-    // Lily voices the follow-up question; the detailed steps + closing
-    // paragraph + related articles are rendered in the panel below.
-    speakLily(promoT.detailFollowup);
+    // Post the full detail as ONE persistent Lily bubble (BK8-style):
+    // intro line + numbered steps + closing paragraph + related articles.
+    // The follow-up question fires as a second bubble after a short beat.
+    const detailText = [
+      promoT.detailIntro,
+      ...p.howToClaim.map((s, i) => `${i + 1}. ${s}`),
+      "",
+      p.detailClosingParagraph,
+      "",
+      promoT.relatedArticlesHeader,
+      `1. ${p.title}`,
+    ].join("\n");
+    sayLily(detailText);
+    setTimeout(() => {
+      cancelSpeak();
+      setLilySpeaking(false);
+      sayLily(promoT.detailFollowup);
+    }, 900);
   };
 
-  // "Related Articles" list item — self-referencing per spec: re-open Step 3
-  // for the same promotion. Since we're already on the detail panel, this is
-  // effectively a no-op re-render; we voice the follow-up again so the user
-  // gets an audible cue that the "link" was activated.
-  const promoRelatedArticle = () => {
-    const p = findPromotion(activePromoId);
-    if (!p) return;
-    setPromoStep("detail");
-    speakLily(promoT.detailFollowup);
-  };
+  // "Related Articles" list item is no longer a rendered UI element (the
+  // detail bubble is a plain text log entry now, matching BK8's format).
+  // Kept as a no-op stub in case future spec re-introduces it.
 
   const promoNeverMind = () => {
     setSelectedPromoId("");
     setPromoDropdownError("");
     setPromoStep("choose_method");
-    speakLily(promoT.stepChooseTitle);
+    sayLily(promoT.stepChooseTitle);
   };
 
   const promoClaim = () => {
@@ -735,9 +745,11 @@ export default function ChatWidget() {
     if (!p) return;
     setPromoStep("claim_instructions");
     // Two-bubble sequence per spec: short opener, then the detailed steps.
-    speakLily(promoT.claimIntro1);
+    sayLily(promoT.claimIntro1);
     setTimeout(() => {
-      speakLily(promoT.claimIntro2(p));
+      cancelSpeak();
+      setLilySpeaking(false);
+      sayLily(promoT.claimIntro2(p));
     }, 1000);
   };
 
@@ -745,7 +757,7 @@ export default function ChatWidget() {
     setSelectedPromoId("");
     setActivePromoId(null);
     setPromoStep("choose_method");
-    speakLily(promoT.stepChooseTitle);
+    sayLily(promoT.stepChooseTitle);
   };
 
   const promoConfirmHandoffYes = async () => {
@@ -754,7 +766,7 @@ export default function ChatWidget() {
     const p = findPromotion(activePromoId);
     const ctx = p ? `Promotions: ${p.title}` : "Promotions inquiry";
     setLilyLoading(true);
-    speakLily("Great — connecting you to a human agent now.");
+    sayLily("Great — connecting you to a human agent now.");
     try {
       await handoffToHuman(ctx);
     } finally {
@@ -764,7 +776,7 @@ export default function ChatWidget() {
 
   const promoConfirmHandoffNo = () => {
     setPromoHandoffPrompt(null);
-    speakLily("No problem — is there anything else I can help you with today?");
+    sayLily("No problem — is there anything else I can help you with today?");
   };
 
   const confirmDepositProceed = async () => {
@@ -772,7 +784,7 @@ export default function ChatWidget() {
     const opt = pendingConfirm;
     setPendingConfirm(null);
     setLilyLoading(true);
-    speakLily("Great — connecting you to a human agent now.");
+    sayLily("Great — connecting you to a human agent now.");
     try {
       await handoffToHuman(opt.label);
     } finally {
@@ -798,23 +810,26 @@ export default function ChatWidget() {
       setPendingAttachments([]);
       flushTyping("");
 
+      // Show the customer's own message immediately as a bubble in the log.
+      if (userText) pushLocalCustomer(userText);
+
       // Promotions flow: while the customer is inside an active promo
       // conversation, route their text through the keyword matcher instead
       // of the default immediate-handoff. Falls back to handoff on no match.
       if (activePromoId) {
         const match = matchPromoKeyword(userText);
         if (match?.action === "acknowledge") {
-          speakLily(match.reply);
+          sayLily(match.reply);
           return;
         }
         if (match?.action === "confirm_handoff") {
           setPromoHandoffPrompt({ reply: match.reply });
-          speakLily(match.reply);
+          sayLily(match.reply);
           return;
         }
         if (match?.action === "instant_handoff") {
           setLilyLoading(true);
-          speakLily(match.reply);
+          sayLily(match.reply);
           const p = findPromotion(activePromoId);
           const ctx = p ? `Promotions: ${p.title} — ${userText}` : `Promotions inquiry — ${userText}`;
           try { await handoffToHuman(ctx); } finally { setLilyLoading(false); }
@@ -824,7 +839,7 @@ export default function ChatWidget() {
       }
 
       setLilyLoading(true);
-      speakLily("Great — connecting you to a human agent now.");
+      sayLily("Great — connecting you to a human agent now.");
       try {
         const p = activePromoId ? findPromotion(activePromoId) : null;
         const ctx = p ? `Promotions: ${p.title} — ${userText}` : userText;
@@ -1067,72 +1082,91 @@ export default function ChatWidget() {
             </div>
           )}
 
-          {/* Lily Stage */}
+          {/* Lily Stage — BK8-style chat log: compact avatar + persistent
+              scrollable message bubbles. Client-side utterances (promo copy,
+              deposit gate, transitions) accumulate in `messages` via sayLily. */}
           {phase === "lily" && session && (
             <div className="flex-1 flex flex-col overflow-hidden bg-slate-900" data-testid="lily-stage">
-              {/* Stage area */}
-              <div className="flex-1 overflow-y-auto flex flex-col items-center px-4 py-5">
-                <LilyAvatar
-                  mode="2d"
-                  speaking={lilySpeaking}
-                  emotion={lilyLoading ? "thinking" : "greeting"}
-                  size={160}
-                  showLabel
-                  onAvatarClick={handleAvatarClick}
-                  clickPulse={avatarClickPulse}
-                />
-
-                <div
-                  data-testid="lily-subtitle"
-                  className="mt-5 w-full max-w-[300px] bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-100 shadow-md min-h-[80px] leading-relaxed"
-                >
-                  {lilyLoading ? (
-                    <span className="text-slate-500 italic flex items-center gap-2">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Lily is thinking…
-                    </span>
-                  ) : lilySubtitle ? (
-                    <span>{renderWithLinks(lilySubtitle)}</span>
-                  ) : (
-                    <span className="text-slate-500 italic">Lily is getting ready …</span>
-                  )}
+              {/* Compact avatar + status strip */}
+              <div className="px-4 pt-4 pb-2 flex items-center gap-3 border-b border-slate-800/60">
+                <div className="shrink-0">
+                  <LilyAvatar
+                    mode="2d"
+                    speaking={lilySpeaking}
+                    emotion={lilyLoading ? "thinking" : "greeting"}
+                    size={56}
+                    onAvatarClick={handleAvatarClick}
+                    clickPulse={avatarClickPulse}
+                  />
                 </div>
-
-                <button
-                  onClick={() => setShowHistory((v) => !v)}
-                  className="mt-3 text-[10px] font-semibold text-slate-500 hover:text-slate-200 uppercase tracking-wider"
-                  data-testid="lily-history-toggle"
-                >
-                  {showHistory ? "Hide transcript" : "View transcript"}
-                </button>
-                {showHistory && (
-                  <div className="mt-2 w-full space-y-2 max-h-40 overflow-y-auto pr-1" data-testid="lily-history">
-                    {messages.map((m) => (
-                      <div key={m.id} className={`text-[11px] ${m.sender_type === "customer" ? "text-right" : "text-left"}`}>
-                        <div className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">{m.sender_type === "customer" ? "You" : m.sender_name}</div>
-                        <div className={`inline-block px-2.5 py-1.5 rounded-lg mt-0.5 ${
-                          m.sender_type === "customer"
-                            ? "bg-blue-500 text-white"
-                            : "bg-slate-800 text-slate-100 border border-slate-700"
-                        }`}>{m.content}</div>
-                      </div>
-                    ))}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-slate-100 leading-tight">Lily</div>
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    {lilyLoading ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Thinking…</span>
+                      </>
+                    ) : lilySpeaking ? (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Speaking…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span>AI Assistant · Online</span>
+                      </>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* Deposit-status confirm gate — shown INSTEAD of the 4 options */}
+              {/* Scrollable chat log */}
+              <div
+                className="flex-1 overflow-y-auto p-4 space-y-3"
+                data-testid="lily-chat-log"
+              >
+                {messages.map((m) => {
+                  const isCustomer = m.sender_type === "customer";
+                  return (
+                    <div
+                      key={m.id}
+                      className={`flex ${isCustomer ? "justify-end" : "justify-start"}`}
+                      data-testid={`lily-msg-${m.id}`}
+                    >
+                      <div
+                        className={`max-w-[85%] px-4 py-2.5 text-sm rounded-2xl shadow-sm whitespace-pre-wrap break-words leading-relaxed ${
+                          isCustomer
+                            ? "text-white rounded-tr-sm bg-blue-500"
+                            : "bg-slate-800 text-slate-100 rounded-tl-sm border border-slate-700"
+                        }`}
+                      >
+                        {isCustomer ? m.content : renderWithLinks(m.content)}
+                      </div>
+                    </div>
+                  );
+                })}
+                {lilyLoading && (
+                  <div className="flex justify-start" data-testid="lily-thinking">
+                    <div className="rounded-2xl rounded-tl-sm px-4 py-2.5 bg-slate-800/70 border border-slate-700 text-slate-400 text-sm italic flex items-center gap-2">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Lily is thinking…
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Deposit-status confirm gate — shown INSTEAD of the 4 options.
+                  The two grey text boxes are gone; the confirm copy now lives
+                  in the chat log above (pushed by sayLily). Only Yes/No here. */}
               {pendingConfirm ? (
                 <div
-                  className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-2"
+                  className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800"
                   data-testid="deposit-confirm"
                 >
-                  <div className="rounded-2xl bg-slate-800/60 border border-slate-700 px-3 py-2 text-[13px] text-slate-100 leading-snug">
-                    {depositConfirmCopy.line1}
-                  </div>
-                  <div className="rounded-2xl bg-slate-800/60 border border-slate-700 px-3 py-2 text-[13px] text-slate-100 leading-snug">
-                    {depositConfirmCopy.line2}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={confirmDepositProceed}
                       disabled={lilyLoading}
@@ -1169,7 +1203,6 @@ export default function ChatWidget() {
                   promo={findPromotion(activePromoId)}
                   onClaim={promoClaim}
                   onViewOthers={promoViewOthers}
-                  onRelatedArticle={promoRelatedArticle}
                 />
               ) : promoHandoffPrompt ? (
                 <PromoHandoffConfirm
@@ -1187,6 +1220,15 @@ export default function ChatWidget() {
                 <div
                   className="px-3 py-2 bg-slate-900/70 backdrop-blur border-t border-slate-800"
                   data-testid="promo-view-page-passive"
+                />
+              ) : promoStep === "claim_instructions" ? (
+                // Step 5 ("Claim now") passive state — the two-bubble claim
+                // instructions live in the chat log above. No button panel
+                // here so the widget doesn't fall through to the 4-option
+                // frontdesk. Customer can type freely (→ handoff w/ context).
+                <div
+                  className="px-3 py-2 bg-slate-900/70 backdrop-blur border-t border-slate-800"
+                  data-testid="promo-claim-passive"
                 />
               ) : (
                 /* 4 fixed option buttons */

@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend-only regression for ChatWidget Lily-phase BK8-style redesign on /widget. All 9 acceptance criteria verified end-to-end. (1) BK8 layout: compact avatar top strip, scrollable lily-chat-log, initial Lily greeting as chat bubble; no lily-subtitle element, no View-Transcript toggle. (2) Deposit status flow: clicking Deposit status (data-testid=lily-option-query_recharge) pushes 2 separate persistent Lily bubbles ('Let me connect you...' + 'You'll be now redirected...') then shows deposit-confirm panel with ONLY Yes/No buttons — the old grey copy boxes are gone (data-testid deposit-copy* = 0). Clicking No returns to 4-option state, bubbles remain in log. Clicking Yes appends 'Great — connecting you to a human agent now.' bubble and hands off to chat phase. (3) Step 2B View Promotion Page: promo-view-page-passive panel appears with clickable blue underlined <a href='https://m.md88top.com/ms-MY/promotions' target='_blank'>, both bubbles ('Fantastic! All of our latest promotions...' + 'just let me know') persist. (4) Step 3 Detail (monthly_188_spins): SINGLE Lily bubble with intro 'To check the promotion, you can follow these steps:', 6 numbered steps, closing paragraph (contains 'fourteen days'), Related Articles header, promo name. Newlines preserved (verified chr(10) in bubble text). After ~0.9s, second followup bubble 'Would you like to claim this promo or view others?' appears. Panel shows ONLY promo-claim-now-btn + promo-view-others-btn — no promo-related-article-* rendered in panel. (5) Step 5 Claim: promo-claim-passive panel renders, first bubble 'Absolutely, let me guide you', second bubble 'Here's how to claim...' with newlines, step 6, and '14 days'. No 4-btn fallback in claim state. (6) All 3 promotions verified: monthly_188_spins/welcome_lucky_288 (contains '30')/welcome_100_100 (contains '25' wagering). (7) Customer echo: typing 'help me claim' → immediate lily-msg-local_cust_* bubble appended to log. (8) Regression: lang-toggle absent; sound-toggle, lily-tts-toggle, refresh-restart-btn, chat-close-btn all present. Restart clears log to 0 (then greeting re-arrives). Close+reopen restores 5 previous bubbles (session resume via /messages fetch). (9) Human chat handoff: after deposit Yes, phase transitions to chat with chat-messages visible.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx is now ~1626 lines (larger than previous iteration). Strongly consider splitting into sub-modules: PromoPanels.jsx, DepositConfirmPanel.jsx, LilyChatLog.jsx, and useLilyMessages() hook. Maintainability risk is growing.",
+    "TTS play warnings 'The play() request was interrupted by a new load request' still recur when sayLily fires two bubbles within <1s (deposit two-line greet, detail followup after 900ms). Non-blocking but noisy in console. Consider awaiting cancelSpeak() (or a small queue) before starting the next utterance.",
+    "Transient benign warning: 'WebSocket connection ... failed: WebSocket is closed before the connection is established' appears when restart is clicked mid-connection. Consider guarding WS teardown to suppress. Non-blocking.",
+    "sayLily() generates local ids like local_lily_* client-side; if a server later delivers the same content via /messages fetch on reopen, there is no dedupe key — the resume path could double-render. Currently reopen showed 5 unique bubbles so no dupes observed in our test flow, but worth adding a client_msg_id or content-hash dedupe."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (out of scope)", "frontend": "100%"},
+  "test_credentials": "N/A — anonymous widget flow",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Option keys are query_recharge / query_withdrawal / view_promotions / query_ticket (NOT deposit_status). Testids: lily-option-<key>, lily-chat-log, lily-msg-<id> (id may be server uuid, local_lily_<n>, or local_cust_<n>), deposit-confirm + deposit-confirm-yes/no (no more grey deposit-copy boxes), promo-view-page-passive, promo-detail-<promo_id>, promo-claim-now-btn, promo-view-others-btn, promo-claim-passive. Promotion IDs: monthly_188_spins, welcome_lucky_288, welcome_100_100. lily-subtitle is REMOVED — do not assert. detailClosingParagraph for monthly_188_spins uses the word 'fourteen' (not '14'); the claim-instructions bubble uses '14 days'. Widget bootstrap creates a fresh anon session and pushes greeting via /api/lily/open — clear localStorage before opening to reset.",
+  "rca of the issue": "N/A — no bugs found."
+}
