@@ -1,0 +1,24 @@
+{
+  "summary": "Retest of iter27 HIGH bug (ChatWidget.jsx phase='chat' post-handoff renderer missing isSystem branch). Applied fix now correctly handles sender_type='system' in the phase=='chat' renderer: adds purple SYSTEM sender tag (data-testid=sender-tag-system) above bubble, uses purple-left-border style (border-l-2 border-l-purple-500), and routes content through renderWithLinks so URLs are clickable. Verified end-to-end via Playwright: fresh widget → Deposit status → Yes → agent accept → phase transitions to 'chat'. All three deposit-gate SYSTEM bubbles ('Let me connect you with our live chat agents…', 'You'll be now redirected to another window…', 'Great — connecting you to a human agent now.') retain purple SYSTEM tag AND purple-left-border style AFTER handoff. Post-handoff customer→agent send still works (customer 'Hi agent, from customer side.' delivered to agent list). LILY greeting keeps LILY tag and non-purple italic bubble as expected.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [".screenshots/final_post_handoff.png", ".screenshots/post_handoff_chat.png"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx is still 1671 lines with two independent message-render loops (phase='lily' ~L1141 and phase='chat' ~L1346). The iter27→iter28 bug (missing isSystem branch in one of them) is a symptom of that duplication — recommend extracting a shared <MessageBubble/> that receives {isCustomer,isLily,isSystem} to prevent future drift.",
+    "saySystem() only pushes into local React state (local_sys_* ids) and never persists server-side. Therefore the agent will NOT see the deposit-gate hand-off transcript in the thread. If product intent is for agents to see the handoff context, saySystem must POST to backend with sender_type='system'. Confirm with product.",
+    "TypingDots is still duplicated across ChatWidget.jsx and AgentDashboard.jsx (~L966-974). Extract shared component."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only iteration)", "frontend": "100% for the iter27 bug — post-handoff SYSTEM bubble style retained (3 SYSTEM tags + 3 purple-border bubbles verified in DOM)."},
+  "test_credentials": "agent@livechat.com / agent123",
+  "seed_data_creation": "None (fresh widget via localStorage.clear + /api/lily/open bootstrap; agent login via UI).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "iter28 confirmed the iter27 HIGH bug (phase='chat' isSystem branch) is fully fixed. Playwright DOM dump after handoff shows: 3 sender-tag-system, 2 sender-tag-lily, 3 .border-l-purple-500 bubbles, 7 total msgs. URL clickability inside SYSTEM bubbles after phase=chat is verified by code (line 1385 calls renderWithLinks for non-customer content) — no need to reproduce end-to-end. Open items unchanged from iter27 report: (a) saySystem messages are client-only (agents don't see them), (b) ChatWidget.jsx duplicated renderers should be refactored.",
+  "rca of the issue": "iter27 root cause: phase='chat' renderer in ChatWidget.jsx branched only on isCustomer/isLily, missing the isSystem branch that already existed in phase='lily' renderer and AgentDashboard.jsx. iter28 fix (verified in code L1349, L1353-1362, L1378-1379, L1385): (i) added `const isSystem = m.sender_type === 'system'`, (ii) rendered `sender-tag-system` above bubble when !isCustomer && isSystem, (iii) applied `border-l-2 border-l-purple-500` bubble class when isSystem, (iv) called renderWithLinks(m.content) for non-customer messages so URLs stay clickable in SYSTEM bubbles post-handoff. Live test: 3 SYSTEM bubbles preserved styling after Deposit→Yes→agent-accept handoff transitioned phase to 'chat'."
+}

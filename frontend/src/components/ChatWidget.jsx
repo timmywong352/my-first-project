@@ -1346,9 +1346,20 @@ export default function ChatWidget() {
                 {messages.map((m) => {
                   const isCustomer = m.sender_type === "customer";
                   const isLily = m.sender_type === "lily";
+                  const isSystem = m.sender_type === "system";
                   return (
                     <div key={m.id} className={`flex ${isCustomer ? "justify-end" : "justify-start"}`}>
                       <div className="max-w-[85%] space-y-1.5" data-testid={`msg-${m.id}`}>
+                        {!isCustomer && (isLily || isSystem) && (
+                          <div
+                            className={`text-[10px] font-semibold uppercase tracking-wider px-1 ${
+                              isSystem ? "text-purple-400" : "text-emerald-400"
+                            }`}
+                            data-testid={`sender-tag-${isSystem ? "system" : "lily"}`}
+                          >
+                            {isSystem ? "System" : "Lily"}
+                          </div>
+                        )}
                         {(m.attachments || []).map((att, i) => (
                           <div key={i} className={isCustomer ? "flex justify-end" : ""}>
                             <AttachmentBubble
@@ -1364,13 +1375,14 @@ export default function ChatWidget() {
                             className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm whitespace-pre-wrap break-words ${
                               isCustomer
                                 ? "text-white rounded-tr-sm bg-blue-500"
-                                : isLily
-                                  ? "bg-slate-800 text-slate-100 rounded-tl-sm border border-slate-700 italic"
-                                  : "bg-slate-800 text-slate-100 rounded-tl-sm border border-slate-700"
+                                : isSystem
+                                  ? "bg-slate-900/70 text-slate-200 rounded-tl-sm border border-slate-700 border-l-2 border-l-purple-500"
+                                  : isLily
+                                    ? "bg-slate-800 text-slate-100 rounded-tl-sm border border-slate-700 italic"
+                                    : "bg-slate-800 text-slate-100 rounded-tl-sm border border-slate-700"
                             }`}
                           >
-                            {isLily && <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wide mr-1.5">Lily</span>}
-                            {m.content}
+                            {isCustomer ? m.content : renderWithLinks(m.content)}
                             {m.edited && <span className="text-[10px] opacity-70 ml-1.5 italic">(edited)</span>}
                           </div>
                         )}
