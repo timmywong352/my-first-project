@@ -58,6 +58,24 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
+- **2026-02-15**: **3 UX/copy changes for MD88 branding** (iter23, 100% PASS).
+  (1) Step 2B "View Promotion Page" now speaks _"Fantastic! All of our latest
+  promotions can be found here: https://m.md88top.com/ms-MY/promotions"_ then
+  _"If you have any questions, just let me know!"_. `PROMOTIONS_PAGE_URL`
+  switched from `en-MY` → `ms-MY`.
+  (2) Language switcher (Globe icon) **hidden** in widget header — widget is
+  forced to English. Translation dictionaries in `/lib/i18n.js` and
+  `/lib/promotions.js` are intentionally kept as source-of-truth for future
+  re-enablement (nothing deleted).
+  (3) Promotion Detail (Step 3) + Claim Instructions (Step 5) rewritten to a
+  conversational paragraph template. Detail panel now shows: intro line →
+  numbered `howToClaim` steps → per-promotion `detailClosingParagraph` →
+  "Related Articles:" header with a self-referencing clickable promo-title
+  link → follow-up "Would you like to claim this promo or view others?" →
+  Claim/View-Others buttons. Step 5 speaks two Lily bubbles: "Absolutely,
+  let me guide you" then a per-promotion instruction paragraph +
+  `claimClosingParagraph`. Removed old `terms` array and How-to-claim / Terms
+  section headers from the detail panel.
 - **2026-02-09**: **"Start over" header button** (iter22, 9/9 acceptance criteria PASS). New `RotateCcw` icon button in the customer widget header (between language switcher and sound-toggle) that resets the widget UI to the Lily frontdesk (fresh anonymous session + 4-option greeting). In Lily/deposit/promo phases it resets immediately; in active `chat`/`queued` phases it shows an AlertDialog confirmation first to avoid accidentally dropping a live agent chat. Fully localized in EN/BM/中文 (button tooltip + confirm title/body/buttons). Backend session data intentionally untouched — old server sessions are orphaned by design.
 - **2026-02-09**: **Promotions flow (self-contained state machine)** (iter21) Clicking the Promotions quick-option now opens a client-side state machine (Choose method → Pick a Promo dropdown OR View Promotion Page → Detail card with numbered How-to-claim + Terms → Claim now instructions OR View others). Post-detail typing is routed through a keyword matcher (`ok/thanks` → acknowledge; `claim for me` / `check my bonus` → Yes/No handoff confirm; `problem/issue/not working` → instant handoff) with a fallback to the default handoff carrying promo context (`Promotions: <title> — <text>`). 3 hardcoded promotions (2 placeholder, 1 verified spec content). Fully self-contained: NO changes to `/api/lily/handoff`, `compose_reply`, emotion detection, or memory. Testing agent caught + fixed a critical TDZ crash mid-flight (`promoT` declared before `lang` state). Widget close+reopen properly resets promo state to the 4-option frontdesk.
 - **2026-02-09**: **Deposit-status two-step confirm gate** (iter19) Tapping the "Deposit status" (`query_recharge`) quick-option now shows a two-line Lily confirmation ("Let me connect you…" + "You'll be now redirected…") with **Yes, proceed** / **No, cancel** buttons before firing the handoff. The 3 other quick-options (withdrawal, promotions, ticket) still hand off immediately — behavior unchanged. Cancel returns to the frontdesk with **zero network calls**; Yes fires `POST /api/lily/handoff` exactly once. Fully localized in EN/BM/中文 via a new `DEPOSIT_CONFIRM_I18N` dict in `lily_service.py` and a `deposit_confirm(lang)` helper exposed on `GET /api/lily/status`. Lily's LLM logic (compose_reply, memory, emotion) is untouched per user scope.
