@@ -1,0 +1,23 @@
+{
+  "summary": "Frontend-only testing of the new 'Refresh / Start Over' header button on ChatWidget. All 9 acceptance criteria pass: button presence & position (between lang-toggle and sound-toggle), correct data-testid, RotateCcw icon, English/Chinese/Malay tooltip localization, immediate reset in lily phase (no dialog, no session-close API call), deposit-confirm & promo-flow reset without dialog, active-chat AlertDialog with correct Stay here / Yes, start over buttons, Cancel preserves chat, Confirm YES resets to Lily frontdesk with a NEW anonymous session_id, all other header buttons (lang, sound, tts, close) still function. No console errors — only benign WS reconnect warning and a TTS play-interrupted warning during rapid resets.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx is >1500 lines — consider splitting Lily stage, promo flow, chat view, and dialogs into sub-modules for maintainability (pre-existing, not from this change).",
+    "restartToFrontdesk simply wraps endChat(). endChat() removes SESSION_KEY and calls bootstrap() — the 'Frontend-only reset — backend session data untouched' spec is honored, but the old session on the server is orphaned; this is intentional per requirements.",
+    "Pre-existing eslint react-hooks/exhaustive-deps warnings on lang deps (lines ~396, 469) — not introduced by this change, explicitly called out to ignore in the review request."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "Anonymous customer via POST /api/chat/session/anonymous with client_id prefix 'iter22_'.",
+  "seed_data_creation": "None — anonymous sessions created via widget bootstrap during testing.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Restart button testids: refresh-restart-btn (header), restart-confirm-dialog / restart-confirm-cancel / restart-confirm-confirm (AlertDialog, shown only when phase='chat' or 'queued'). i18n keys: restart, restart_confirm_title, restart_confirm_body, restart_confirm_yes, restart_confirm_no in en/zh/ms — all verified. Header button order verified: lang-toggle → refresh-restart-btn → sound-toggle → lily-tts-toggle → chat-close-btn (close-chat-btn only when phase='chat')."
+}

@@ -11,7 +11,7 @@ import { speak, cancelSpeak, primeTTS } from "@/lib/tts";
 import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
   Loader2, FileText, Image as ImageIcon, Star, Clock, UserCog, Volume2, VolumeX,
-  Sparkles, XCircle, Plus, Camera, Trash2, ChevronUp, Bell, BellOff, Globe,
+  Sparkles, XCircle, Plus, Camera, Trash2, ChevronUp, Bell, BellOff, Globe, RotateCcw,
 } from "lucide-react";
 import {
   Popover,
@@ -312,6 +312,7 @@ export default function ChatWidget() {
   const [avatarClickPulse, setAvatarClickPulse] = useState(0);
   const lastGreetingRef = useRef("");
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+  const [restartConfirmOpen, setRestartConfirmOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [lang, setLang] = useState(getInitialLang);
   const [soundOn, setSoundOn] = useState(() => {
@@ -860,6 +861,22 @@ export default function ChatWidget() {
     bootstrap();
   };
 
+  // Header "Start over" button: resets local UI state back to the Lily
+  // frontdesk. In an active agent chat we prompt first — otherwise reset
+  // immediately. Backend session/chat data is untouched.
+  const restartToFrontdesk = () => {
+    setRestartConfirmOpen(false);
+    endChat();
+  };
+
+  const onRestartClick = () => {
+    if (phase === "chat" || phase === "queued") {
+      setRestartConfirmOpen(true);
+    } else {
+      restartToFrontdesk();
+    }
+  };
+
   return (
     <>
       {/* Launcher */}
@@ -948,6 +965,16 @@ export default function ChatWidget() {
                   ))}
                 </PopoverContent>
               </Popover>
+              {/* Restart / Start-over — resets local UI to the Lily frontdesk */}
+              <button
+                onClick={onRestartClick}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                title={t("restart")}
+                aria-label={t("restart")}
+                data-testid="refresh-restart-btn"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
               {/* Sound (message ping) toggle */}
               <button
                 onClick={() => setSoundOn((v) => {
@@ -1468,6 +1495,38 @@ export default function ChatWidget() {
               data-testid="close-confirm-confirm"
             >
               {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : t("close_confirm_yes")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restart / Start-over confirmation (only shown when in active chat) */}
+      <AlertDialog open={restartConfirmOpen} onOpenChange={setRestartConfirmOpen}>
+        <AlertDialogContent
+          className="bg-slate-900 border-slate-700 text-slate-100 z-[60] rounded-2xl"
+          data-testid="restart-confirm-dialog"
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">
+              {t("restart_confirm_title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              {t("restart_confirm_body")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700 hover:text-white"
+              data-testid="restart-confirm-cancel"
+            >
+              {t("restart_confirm_no")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={restartToFrontdesk}
+              className="bg-blue-500 text-white hover:bg-blue-600 focus-visible:ring-blue-500"
+              data-testid="restart-confirm-confirm"
+            >
+              {t("restart_confirm_yes")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

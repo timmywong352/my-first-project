@@ -35,6 +35,11 @@ const STRINGS = {
     voice_on: "Voice on",
     voice_off: "Voice muted",
     language: "Language",
+    restart: "Start over",
+    restart_confirm_title: "Leave this chat and start over?",
+    restart_confirm_body: "You'll leave the current conversation with our team. Your session history stays in our records but you'll return to the welcome screen.",
+    restart_confirm_yes: "Yes, start over",
+    restart_confirm_no: "Stay here",
   },
   ms: {
     header_title: "Lily · Sokongan",
@@ -62,6 +67,11 @@ const STRINGS = {
     voice_on: "Suara dihidupkan",
     voice_off: "Suara disenyapkan",
     language: "Bahasa",
+    restart: "Mula semula",
+    restart_confirm_title: "Tinggalkan sembang ini dan mula semula?",
+    restart_confirm_body: "Anda akan meninggalkan perbualan semasa dengan pasukan kami. Sejarah sesi disimpan dalam rekod kami tetapi anda akan kembali ke skrin alu-aluan.",
+    restart_confirm_yes: "Ya, mula semula",
+    restart_confirm_no: "Kekal di sini",
   },
   zh: {
     header_title: "Lily · 客服",
@@ -89,6 +99,11 @@ const STRINGS = {
     voice_on: "语音开启",
     voice_off: "语音关闭",
     language: "语言",
+    restart: "重新开始",
+    restart_confirm_title: "离开当前对话并重新开始？",
+    restart_confirm_body: "您将离开与客服的当前对话。会话记录会保存在系统中，但会返回到欢迎界面。",
+    restart_confirm_yes: "确定重新开始",
+    restart_confirm_no: "留在此处",
   },
 };
 
