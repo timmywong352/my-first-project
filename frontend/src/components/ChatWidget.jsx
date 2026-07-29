@@ -29,6 +29,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { SUPPORTED_LANGS, getInitialLang, saveLang, tFactory } from "@/lib/i18n";
+import {
+  PROMOTIONS,
+  findPromotion,
+  matchPromoKeyword,
+  promoStrings,
+  PROMOTIONS_PAGE_URL,
+} from "@/lib/promotions";
 
 const SOUND_KEY = "pulse_sound_on";
 
@@ -101,6 +108,161 @@ function AttachmentBubble({ att, sessionId, sessionToken, isCustomerSide }) {
   );
 }
 
+// ---------- Promotions flow sub-components (self-contained) ----------
+function PromoChooseMethod({ t, onPick }) {
+  return (
+    <div
+      className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-2"
+      data-testid="promo-choose-method"
+    >
+      <div className="rounded-2xl bg-slate-800/60 border border-slate-700 px-3 py-2 text-[13px] text-slate-100 leading-snug">
+        {t.stepChooseTitle}
+      </div>
+      <div className="grid grid-cols-1 gap-2 pt-1">
+        <button
+          onClick={() => onPick("pick")}
+          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+          data-testid="promo-pick-btn"
+        >
+          {t.pickPromoBtn}
+        </button>
+        <button
+          onClick={() => onPick("page")}
+          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 text-slate-100 transition-colors"
+          data-testid="promo-view-page-btn"
+        >
+          {t.viewPageBtn}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PromoPickPromoPanel({ t, promotions, value, onChange, error, onSend, onCancel }) {
+  return (
+    <div
+      className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-2"
+      data-testid="promo-pick-panel"
+    >
+      <div className="rounded-2xl bg-slate-800/60 border border-slate-700 px-3 py-2 text-[13px] text-slate-100 leading-snug">
+        {t.pickPromoIntro}
+      </div>
+      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 pt-1">
+        {t.dropdownLabel} <span className="text-red-400">*</span>
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full h-10 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-sm px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        data-testid="promo-dropdown"
+      >
+        <option value="" disabled>{t.dropdownPlaceholder}</option>
+        {promotions.map((p) => (
+          <option key={p.id} value={p.id}>{p.title}</option>
+        ))}
+      </select>
+      {error && (
+        <div className="text-[11px] text-red-400" data-testid="promo-dropdown-error">{error}</div>
+      )}
+      <button
+        onClick={onSend}
+        className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+        data-testid="promo-send-btn"
+      >
+        {t.sendBtn}
+      </button>
+      <button
+        onClick={onCancel}
+        className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
+        data-testid="promo-nevermind-btn"
+      >
+        {t.neverMindBtn}
+      </button>
+    </div>
+  );
+}
+
+function PromoDetailPanel({ t, promo, onClaim, onViewOthers }) {
+  if (!promo) return null;
+  return (
+    <div
+      className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-3 max-h-[380px] overflow-y-auto"
+      data-testid={`promo-detail-${promo.id}`}
+    >
+      <div className="rounded-2xl bg-gradient-to-br from-blue-600/30 to-blue-500/10 border border-blue-500/40 p-3">
+        <div className="text-sm font-extrabold text-white leading-snug">{promo.detailTitle}</div>
+      </div>
+
+      <div>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+          {t.howToClaimHeader}
+        </div>
+        <ol className="list-decimal list-inside text-[12px] text-slate-200 space-y-1 pl-1">
+          {promo.howToClaim.map((step, i) => (
+            <li key={i} className="leading-snug">{step}</li>
+          ))}
+        </ol>
+      </div>
+
+      <div>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+          {t.termsHeader}
+        </div>
+        <ul className="list-disc list-inside text-[12px] text-slate-300 space-y-0.5 pl-1">
+          {promo.terms.map((term, i) => (
+            <li key={i} className="leading-snug">{term}</li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 pt-1">
+        <button
+          onClick={onClaim}
+          className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+          data-testid="promo-claim-now-btn"
+        >
+          {t.claimNowBtn}
+        </button>
+        <button
+          onClick={onViewOthers}
+          className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
+          data-testid="promo-view-others-btn"
+        >
+          {t.viewOthersBtn}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PromoHandoffConfirm({ t, onYes, onNo, loading }) {
+  return (
+    <div
+      className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-2"
+      data-testid="promo-handoff-confirm"
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={onYes}
+          disabled={loading}
+          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50"
+          data-testid="promo-handoff-yes"
+        >
+          {t.confirmHandoffYes}
+        </button>
+        <button
+          onClick={onNo}
+          disabled={loading}
+          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 text-slate-100 transition-colors disabled:opacity-50"
+          data-testid="promo-handoff-no"
+        >
+          {t.confirmHandoffNo}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
   // phase: connecting | lily | queued | chat | closed
@@ -132,6 +294,20 @@ export default function ChatWidget() {
   });
   // Which quick-option is currently awaiting Yes/No confirm ({} when idle).
   const [pendingConfirm, setPendingConfirm] = useState(null);
+
+  // ---------- Promotions flow (self-contained, non-LLM) ----------
+  // promoStep: null | "choose_method" | "pick_promo" | "detail" |
+  //            "claim_instructions" | "confirm_handoff"
+  const [promoStep, setPromoStep] = useState(null);
+  const [selectedPromoId, setSelectedPromoId] = useState("");
+  const [promoDropdownError, setPromoDropdownError] = useState("");
+  // Once the customer engages with a specific promotion, we remember which
+  // one so subsequent typed messages route through the keyword matcher and
+  // hand-offs carry the context.
+  const [activePromoId, setActivePromoId] = useState(null);
+  // A one-off Yes/No prompt driven by keyword matches ("Would you like me
+  // to connect you to an agent?" flows).
+  const [promoHandoffPrompt, setPromoHandoffPrompt] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [avatarClickPulse, setAvatarClickPulse] = useState(0);
   const lastGreetingRef = useRef("");
@@ -143,6 +319,7 @@ export default function ChatWidget() {
     return v === null ? true : v === "1";
   });
   const t = tFactory(lang);
+  const promoT = promoStrings(lang);
   const lastMsgIdRef = useRef(null);
 
   const messagesEndRef = useRef(null);
@@ -437,11 +614,15 @@ export default function ChatWidget() {
 
   const chooseOption = async (opt) => {
     if (!session || lilyLoading || phase !== "lily") return;
-    // Deposit status has a two-step confirmation gate. All other quick
-    // options still hand off immediately (unchanged behavior).
     if (opt.key === "query_recharge") {
       setPendingConfirm(opt);
       speakLily(`${depositConfirmCopy.line1} ${depositConfirmCopy.line2}`);
+      return;
+    }
+    if (opt.key === "view_promotions") {
+      // Enter the promotions state machine — no handoff yet.
+      setPromoStep("choose_method");
+      speakLily(promoT.stepChooseTitle);
       return;
     }
     setLilyLoading(true);
@@ -451,6 +632,77 @@ export default function ChatWidget() {
     } finally {
       setLilyLoading(false);
     }
+  };
+
+  // ---------- Promotions flow handlers ----------
+  const promoPickMethod = (method) => {
+    if (method === "pick") {
+      setPromoStep("pick_promo");
+      setPromoDropdownError("");
+      speakLily(promoT.pickPromoIntro);
+    } else {
+      // "View Promotion Page" branch — post two Lily bubbles, then reset.
+      setPromoStep("view_page");
+      speakLily(promoT.viewPageMsg);
+      setTimeout(() => {
+        speakLily(promoT.viewPageFollowup);
+        setPromoStep("choose_method");
+      }, 1000);
+    }
+  };
+
+  const promoConfirmPick = () => {
+    if (!selectedPromoId) {
+      setPromoDropdownError(promoT.dropdownRequired);
+      return;
+    }
+    const p = findPromotion(selectedPromoId);
+    if (!p) return;
+    setActivePromoId(p.id);
+    setPromoStep("detail");
+    setPromoDropdownError("");
+    cancelSpeak();
+    setLilySpeaking(false);
+  };
+
+  const promoNeverMind = () => {
+    setSelectedPromoId("");
+    setPromoDropdownError("");
+    setPromoStep("choose_method");
+    speakLily(promoT.stepChooseTitle);
+  };
+
+  const promoClaim = () => {
+    const p = findPromotion(activePromoId);
+    if (!p) return;
+    setPromoStep("claim_instructions");
+    speakLily(promoT.claimIntro(p.title));
+  };
+
+  const promoViewOthers = () => {
+    setSelectedPromoId("");
+    setActivePromoId(null);
+    setPromoStep("choose_method");
+    speakLily(promoT.stepChooseTitle);
+  };
+
+  const promoConfirmHandoffYes = async () => {
+    const prompt = promoHandoffPrompt;
+    setPromoHandoffPrompt(null);
+    const p = findPromotion(activePromoId);
+    const ctx = p ? `Promotions: ${p.title}` : "Promotions inquiry";
+    setLilyLoading(true);
+    speakLily("Great — connecting you to a human agent now.");
+    try {
+      await handoffToHuman(ctx);
+    } finally {
+      setLilyLoading(false);
+    }
+  };
+
+  const promoConfirmHandoffNo = () => {
+    setPromoHandoffPrompt(null);
+    speakLily("No problem — is there anything else I can help you with today?");
   };
 
   const confirmDepositProceed = async () => {
@@ -479,15 +731,42 @@ export default function ChatWidget() {
     if (!text.trim() && pendingAttachments.length === 0) return;
 
     if (phase === "lily") {
-      // In Lily mode: any typed text immediately triggers hand-off.
       const userText = text.trim();
       setText("");
       setPendingAttachments([]);
       flushTyping("");
+
+      // Promotions flow: while the customer is inside an active promo
+      // conversation, route their text through the keyword matcher instead
+      // of the default immediate-handoff. Falls back to handoff on no match.
+      if (activePromoId) {
+        const match = matchPromoKeyword(userText);
+        if (match?.action === "acknowledge") {
+          speakLily(match.reply);
+          return;
+        }
+        if (match?.action === "confirm_handoff") {
+          setPromoHandoffPrompt({ reply: match.reply });
+          speakLily(match.reply);
+          return;
+        }
+        if (match?.action === "instant_handoff") {
+          setLilyLoading(true);
+          speakLily(match.reply);
+          const p = findPromotion(activePromoId);
+          const ctx = p ? `Promotions: ${p.title} — ${userText}` : `Promotions inquiry — ${userText}`;
+          try { await handoffToHuman(ctx); } finally { setLilyLoading(false); }
+          return;
+        }
+        // No keyword hit → default behavior: hand off (carry promo context).
+      }
+
       setLilyLoading(true);
       speakLily("Great — connecting you to a human agent now.");
       try {
-        await handoffToHuman(userText);
+        const p = activePromoId ? findPromotion(activePromoId) : null;
+        const ctx = p ? `Promotions: ${p.title} — ${userText}` : userText;
+        await handoffToHuman(ctx);
       } finally {
         setLilyLoading(false);
       }
@@ -569,6 +848,13 @@ export default function ChatWidget() {
     setCsatRating(0);
     setCsatSubmitted(false);
     setLilySubtitle("");
+    // Reset promotions flow state so a fresh session starts on the frontdesk.
+    setPromoStep(null);
+    setSelectedPromoId("");
+    setPromoDropdownError("");
+    setActivePromoId(null);
+    setPromoHandoffPrompt(null);
+    setPendingConfirm(null);
     bootedRef.current = false;
     // Re-bootstrap: create a new anonymous session immediately.
     bootstrap();
@@ -791,6 +1077,32 @@ export default function ChatWidget() {
                     </button>
                   </div>
                 </div>
+              ) : promoStep === "choose_method" ? (
+                <PromoChooseMethod t={promoT} onPick={promoPickMethod} />
+              ) : promoStep === "pick_promo" ? (
+                <PromoPickPromoPanel
+                  t={promoT}
+                  promotions={PROMOTIONS}
+                  value={selectedPromoId}
+                  onChange={(v) => { setSelectedPromoId(v); setPromoDropdownError(""); }}
+                  error={promoDropdownError}
+                  onSend={promoConfirmPick}
+                  onCancel={promoNeverMind}
+                />
+              ) : promoStep === "detail" ? (
+                <PromoDetailPanel
+                  t={promoT}
+                  promo={findPromotion(activePromoId)}
+                  onClaim={promoClaim}
+                  onViewOthers={promoViewOthers}
+                />
+              ) : promoHandoffPrompt ? (
+                <PromoHandoffConfirm
+                  t={promoT}
+                  onYes={promoConfirmHandoffYes}
+                  onNo={promoConfirmHandoffNo}
+                  loading={lilyLoading}
+                />
               ) : (
                 /* 4 fixed option buttons */
                 <div className="px-3 py-2 grid grid-cols-2 gap-2 bg-slate-900/70 backdrop-blur border-t border-slate-800" data-testid="lily-options">
