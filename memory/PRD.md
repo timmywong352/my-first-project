@@ -58,6 +58,12 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
+- **2026-02-15**: **Closed-chat clear X button on Agent Dashboard** (iter26, 100% PASS after fixing 2 regressions found in iter25). Fixes the "greyed-out closed chats stay in Active list forever until refresh" bug.
+  - `useAgentSessions`: added `removeSession(id)` helper; `loadSessions` for the Active tab now filters out `status==='closed'` (and 'pending' as before) so page refresh keeps Active clean.
+  - `AgentDashboard.closeSession`: no longer auto-filters the closed session out — it only patches `status='closed'` locally so the row stays visible (greyed with opacity-70 + Closed badge). `refreshLoad()` decrements the agent's active count.
+  - `AgentDashboard.dismissClosedSession(sid)`: new handler wired to an X icon rendered at top-right of each closed row in Active view (`data-testid="clear-closed-<sid>"`). Clicking X calls `sess.removeSession(sid)` and clears `selectedId`/`messages` if that session was selected. Uses `<span role="button">` with `e.stopPropagation()` so the row-select click doesn't fire. Keyboard Enter/Space also dismiss.
+  - `AgentDashboard.handleWs('session_closed')`: removed the `sess.loadSessions()` re-fetch — that was undoing `removeSession()` on WS churn. Now only `patchSession` + `refreshLoad`.
+  - X button is only rendered when `s.status === 'closed' && !isArchivedView` — Archived tab is unaffected.
 - **2026-02-15**: **BK8-style persistent chat-log redesign for Lily phase** (iter24, 100% PASS, all 9 acceptance criteria). Fixes the "messages disappear after a while" UX bug — Lily's utterances now stack as persistent chat bubbles instead of a single subtitle box that gets overwritten. Key changes:
   - New `sayLily()` helper pushes client-side Lily text into the persistent `messages` array (as `local_lily_*` ids) + fires TTS. All promo/deposit/transition handlers switched from `speakLily` → `sayLily`.
   - New `pushLocalCustomer()` echoes the user's Lily-phase input as a blue right-aligned bubble immediately.
