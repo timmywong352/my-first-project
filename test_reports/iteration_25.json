@@ -1,0 +1,47 @@
+{
+  "summary": "Frontend regression testing of the 'greyed-closed-row + X clear button' bug fix on the Agent Dashboard. The new UX works as designed for a single close: (a) row stays in Active with opacity-70 grey + Closed badge, (b) X clear button (data-testid=clear-closed-<sid>) is rendered ONLY when status==='closed' && !isArchivedView, (c) clicking Close Chat correctly patches status locally without removing the row, (d) the closed row is browsable from the Archive tab, (e) X is absent in the Archived view. HOWEVER two integration problems surface end-to-end and both violate the acceptance criteria for spec bullet 3(d) 'After a full page refresh, the closed session is NOT in Active — only in Archive.'",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/chat/sessions (no status_filter)",
+        "issue": "Returns ALL non-lily sessions including status='closed' ones (query is {status:{$ne:'lily'}}). The frontend uses this exact call for the Active tab (useAgentSessions.loadSessions with empty statusFilter), so on page refresh the Active sidebar is flooded with every historically-closed session, each rendering an X clear button. Spec explicitly requires: 'After a full page refresh, the closed session is NOT in Active — only in Archive.' Observed in test: sidebar contained 100+ closed rows on first load, every one with clear-closed-<sid>.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Agent close → WS session_closed → sidebar re-fetch",
+        "issue": "AgentDashboard.handleWs on `session_closed` calls sess.loadSessions() (in addition to patchSession). Because the backend returns closed sessions in the default list, loadSessions immediately RE-ADDS the just-closed session and every other historically-closed session back into the Active list, effectively fighting removeSession/dismissClosedSession. In the test, after clicking X on a closed row, the row was still present in the sidebar 1.5s later (row-removed-after-X-click = FALSE), while the main panel DID correctly return to the empty 'Select a conversation' state. Recommended fix: either (1) drop the `sess.loadSessions()` call from the session_closed WS branch — patchSession already updates status to 'closed'; or (2) change useAgentSessions.loadSessions to pass an explicit status_filter for the Active tab (e.g., status in [open, pending]) and dedupe the closed row that the current UI is intentionally holding on to; or (3) tighten the backend GET /api/chat/sessions default to exclude 'closed' when no filter is passed.",
+        "affected_selectors": ["session-item-<sid>", "clear-closed-<sid>"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix Active sidebar showing all historical closed sessions on page refresh (backend GET /chat/sessions default query OR frontend loadSessions status filter). Currently spec bullet 3(d) fails.",
+    "Remove the `sess.loadSessions()` re-fetch from the `session_closed` WS handler in AgentDashboard.jsx (line ~355). patchSession({status:'closed'}) is sufficient and does not clobber the client-side dismissedSession state. As-is, clicking X on a just-closed row is racey and gets undone by the re-fetch.",
+    "(Optional) Verify customer-initiated close testids on ChatWidget. Test could not find close-confirm-confirm after clicking chat-close-btn — please confirm the confirm-dialog testid still matches spec (`close-confirm-confirm`)."
+  ],
+  "critical_code_review_comments": [
+    "AgentDashboard.jsx line ~355: `sess.loadSessions()` inside the `session_closed` WS branch is the root cause of the row-not-dismissing regression. The optimistic patchSession already covers UI state.",
+    "useAgentSessions.loadSessions defaults to no status filter for the Active tab, causing all closed sessions to leak into Active. Consider passing status_filter=open,pending explicitly (backend would need to accept comma list) OR filter client-side to `s.status !== 'closed' || <recently-closed sentinel>`.",
+    "AgentDashboard.jsx is now ~1160 lines. Splitting the sidebar row (with X clear) into a <SessionListItem /> component would improve maintainability, especially since the click handlers, keyboard handlers, unread badge, emotion badge, etc. all live inline.",
+    "The X clear button uses a `<span role='button'>` — good for a11y — but it is placed OUTSIDE the underlying <button> (via absolute-positioned sibling). Verified stopPropagation works and row is not selected on X click. Keyboard Enter/Space handlers are also present. LGTM."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (out of scope)",
+    "frontend": "~75% — core UX works, but page-refresh + WS-race regressions violate 2 of 8 acceptance points"
+  },
+  "test_credentials": "agent@livechat.com / agent123",
+  "seed_data_creation": "3 anonymous widget sessions created via /widget → Deposit status → Yes (auto-handoff). Old test artefacts already present in DB (100+ closed sessions from prior iterations) surfaced the regression.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Testids: session-item-<sid>, clear-closed-<sid>, close-session-btn, chat-closed-badge. Verified: (1) close-session-btn keeps row visible with opacity-70 + X ✓, (2) chat-closed-badge Lock indicator on main panel ✓, (3) X in Archived view absent ✓, (4) Archive tab shows the closed session ✓, (5) X handler uses stopPropagation and does NOT select the row ✓, (6) main panel returns to empty state when X clicked on selected closed row ✓. Failing / needs re-verify: X-click-removes-row is racey because handleWs session_closed calls sess.loadSessions() and backend GET /chat/sessions returns all closed sessions in the default (Active) fetch. Full page refresh does NOT filter closed out of Active — every historical closed session persists as a greyed row with X. Widget close testid check for `close-confirm-confirm` failed to appear in test — may need explicit dialog-open wait, or testid drift.",
+  "rca of the issue": "Root cause: The agent-side close path is triple-handled: (1) closeSession optimistically patches status='closed' locally; (2) POST /chat/sessions/:id/close hits backend; (3) backend broadcasts WS `session_closed`; (4) handleWs on that event does BOTH patchSession(status='closed') AND sess.loadSessions(). Step 4's loadSessions re-fetches GET /chat/sessions which — because no status_filter is passed for Active tab — returns EVERY closed session in the DB, replacing the local sessions[] state and undoing any prior removeSession(). The X clear button therefore appears to 'not work' whenever there is a WS churn (own session_closed on click, or another agent/customer's session_closed). Reproduction: (a) login as agent, (b) trigger any close, (c) click X on the greyed row → row briefly disappears then reappears (or never disappears if the WS event lands within the render frame). Mitigation: drop `sess.loadSessions()` from the session_closed WS branch — patchSession alone is enough. Additionally, either backend or frontend should filter out status='closed' from the Active-tab fetch so page refreshes obey spec 3(d)."
+}

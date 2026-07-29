@@ -62,6 +62,14 @@ export function useAgentSessions() {
     setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, ...patch } : s)));
   }, []);
 
+  // Remove a session from the local list (used when the agent manually
+  // clears a closed chat from the Active view). Purely client-side — the
+  // session record itself remains in the database and is still browsable
+  // from the Archive tab.
+  const removeSession = useCallback((sessionId) => {
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+  }, []);
+
   const filtered = sessions.filter((s) =>
     !search
       ? true
@@ -79,5 +87,6 @@ export function useAgentSessions() {
     applyMessage,
     prependSession,
     patchSession,
+    removeSession,
   };
 }

@@ -500,17 +500,25 @@ export default function AgentDashboard() {
   const closeSession = () => {
     if (!selectedId) return;
     const sid = selectedId;
-    // Optimistic UI: remove from active list, deselect, decrement load,
-    // stamp status locally — do this BEFORE the network call so the agent
-    // sees the chat vanish instantly.
+    // Optimistic UI: stamp status="closed" locally so the row turns grey
+    // immediately. We DO NOT remove it from the active list here — per spec
+    // the greyed-out row stays visible until the agent clicks the X clear
+    // button on it. `refreshLoad` decrements the agent's active count.
     sess.patchSession(sid, { status: "closed" });
-    sess.setSessions((prev) => (Array.isArray(prev) ? prev.filter((x) => x.id !== sid) : prev));
-    setSelectedId(null);
-    setMessages([]);
     refreshLoad();
     // Fire the API call in the background. WS `session_closed` broadcast will
     // finalise everything for other clients.
     api.post(`/chat/sessions/${sid}/close`).catch(() => { /* silent */ });
+  };
+
+  // Manually clear a closed chat from the Active list. Purely client-side —
+  // the session remains in the DB and is browsable from the Archive tab.
+  const dismissClosedSession = (sid) => {
+    sess.removeSession(sid);
+    if (selectedId === sid) {
+      setSelectedId(null);
+      setMessages([]);
+    }
   };
 
   const openHistory = async () => {
@@ -671,12 +679,22 @@ export default function AgentDashboard() {
               {isArchivedView ? "No archived chats match." : "No chats yet."}
             </div>
           )}
-          {listSource.map((s) => (
-            <button key={s.id} onClick={() => setSelectedId(s.id)} data-testid={`session-item-${s.id}`}
-              className={`w-full text-left p-3 border-b border-slate-50 dark:border-slate-800 transition-colors ${
-                selectedId === s.id ? "bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-50 dark:hover:bg-blue-950/40" :
-                `hover:bg-slate-50 dark:hover:bg-slate-800/50 ${isArchivedView ? "bg-slate-50/40 dark:bg-slate-900/40" : ""}`
-              }`}>
+          {listSource.map((s) => {
+            const isClosedInActive = s.status === "closed" && !isArchivedView;
+            return (
+            <div
+              key={s.id}
+              className={`relative border-b border-slate-50 dark:border-slate-800 transition-colors ${
+                selectedId === s.id ? "bg-blue-50 dark:bg-blue-950/40" :
+                `hover:bg-slate-50 dark:hover:bg-slate-800/50 ${isArchivedView || isClosedInActive ? "bg-slate-50/40 dark:bg-slate-900/40" : ""}`
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedId(s.id)}
+                data-testid={`session-item-${s.id}`}
+                className={`w-full text-left p-3 ${isClosedInActive ? "opacity-70" : ""}`}
+              >
               <div className="flex items-start gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 relative ${isArchivedView ? "bg-slate-400 dark:bg-slate-600" : "bg-gradient-to-br from-blue-400 to-blue-600"}`}>
                   {isArchivedView ? <Archive className="w-4 h-4" /> : (s.customer_name?.[0]?.toUpperCase() || "?")}
@@ -718,7 +736,29 @@ export default function AgentDashboard() {
                 </div>
               </div>
             </button>
-          ))}
+            {isClosedInActive && (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Clear closed chat from list"
+                title="Clear closed chat from list"
+                data-testid={`clear-closed-${s.id}`}
+                onClick={(e) => { e.stopPropagation(); dismissClosedSession(s.id); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dismissClosedSession(s.id);
+                  }
+                }}
+                className="absolute top-2 right-2 w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer transition-colors"
+              >
+                <X className="w-3.5 h-3.5" strokeWidth={2.5} />
+              </span>
+            )}
+            </div>
+          );
+          })}
         </div>
 
         <div className="p-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 flex items-center gap-1.5">
