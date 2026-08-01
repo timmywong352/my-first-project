@@ -12,6 +12,7 @@ import {
   MessageCircle, X, Send, Paperclip, Smile, Check, CheckCheck,
   Loader2, FileText, Image as ImageIcon, Star, Clock, UserCog, Volume2, VolumeX,
   Sparkles, XCircle, Plus, Camera, Trash2, ChevronUp, Bell, BellOff, RotateCcw,
+  ArrowLeft, Gift,
 } from "lucide-react";
 import {
   Popover,
@@ -36,7 +37,7 @@ import {
   promoStrings,
   PROMOTIONS_PAGE_URL,
 } from "@/lib/promotions";
-import { matchKnowledgeHub, formatExclusionLine } from "@/lib/knowledgeHub";
+import { matchKnowledgeHub, formatExclusionLine, getPromotionDisplayData, GENERAL_TERMS } from "@/lib/knowledgeHub";
 
 const SOUND_KEY = "pulse_sound_on";
 
@@ -238,6 +239,142 @@ function PromoDetailPanel({ t, promo, onClaim, onViewOthers }) {
       >
         {t.viewOthersBtn}
       </button>
+    </div>
+  );
+}
+
+// Rich visual modal for the promotion detail — replaces the old text-bubble
+// Step 3. Fills the widget body while it's open. All copy is derived from
+// PROMOTIONS_KB via getPromotionDisplayData so it stays in sync with the
+// single-source-of-truth data module.
+const PROMO_MODAL_THEME = {
+  welcome_lucky_288: { gradient: "from-purple-600 via-fuchsia-500 to-pink-500", accent: "text-pink-300", icon: Gift },
+  monthly_188_spins: { gradient: "from-amber-500 via-orange-500 to-red-500", accent: "text-amber-300", icon: Sparkles },
+  welcome_100_100: { gradient: "from-emerald-500 via-teal-500 to-cyan-500", accent: "text-emerald-300", icon: Star },
+};
+
+function PromoRichModal({ displayData, generalTerms, onBack, onClaim }) {
+  if (!displayData) return null;
+  const theme = PROMO_MODAL_THEME[displayData.id] || {
+    gradient: "from-blue-600 to-indigo-600", accent: "text-blue-300", icon: Gift,
+  };
+  const Icon = theme.icon;
+  return (
+    <div
+      className="absolute inset-0 z-30 bg-slate-950 flex flex-col overflow-hidden"
+      data-testid={`promo-rich-modal-${displayData.id}`}
+    >
+      {/* Banner header */}
+      <div className={`relative bg-gradient-to-br ${theme.gradient} px-4 pt-3 pb-5 shrink-0`}>
+        <button
+          type="button"
+          onClick={onBack}
+          data-testid="promo-modal-back-btn"
+          className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-black/25 hover:bg-black/40 text-white text-[11px] font-semibold transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back
+        </button>
+        <div className="pt-6 flex items-start gap-3">
+          <div className="shrink-0 w-11 h-11 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+            <Icon className="w-6 h-6 text-white" strokeWidth={2} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-white font-extrabold text-base leading-tight" data-testid="promo-modal-title">
+              {displayData.title}
+            </h2>
+            <p className="text-white/90 text-[11px] mt-1 leading-snug">{displayData.bonus_description}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tags row */}
+      <div className="flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-slate-800 shrink-0 bg-slate-900/60">
+        <PromoTag label="Min deposit" value={displayData.min_deposit_display} />
+        <PromoTag label="Turnover" value={displayData.turnover_description} />
+        <PromoTag label="Validity" value={displayData.bonus_validity} />
+        <PromoTag label="Claim" value={displayData.claim_limit_display} />
+      </div>
+
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <PromoModalSection title="HOW TO APPLY" testid="promo-modal-how-to-apply">
+          <ol className="list-decimal list-inside text-[12px] text-slate-200 space-y-1.5 leading-snug">
+            {displayData.how_to_apply.map((s, i) => (
+              <li key={i}>{renderWithLinks(s)}</li>
+            ))}
+          </ol>
+        </PromoModalSection>
+
+        <PromoModalSection title="DETAILS" testid="promo-modal-details">
+          <div className="rounded-lg border border-slate-800 divide-y divide-slate-800 text-[12px]">
+            <ModalDataRow label="Applicable games" value={displayData.applicable_games.join(", ") || "—"} />
+            <ModalDataRow label="Credit timing" value={displayData.credit_timing || "—"} />
+            <ModalDataRow label="Bonus type" value={displayData.bonus_description} />
+          </div>
+        </PromoModalSection>
+
+        <PromoModalSection title="TERMS & CONDITIONS" testid="promo-modal-terms">
+          <ol className="list-decimal list-inside text-[11px] text-slate-400 space-y-1 leading-snug">
+            {(generalTerms || []).map((t, i) => (<li key={i}>{t}</li>))}
+          </ol>
+          {displayData.exclusion_line && (
+            <div
+              className="mt-2 text-[12px] text-red-400 font-medium"
+              data-testid="promo-modal-exclusion-line"
+            >
+              {displayData.exclusion_line}
+            </div>
+          )}
+        </PromoModalSection>
+      </div>
+
+      {/* Footer buttons */}
+      <div className="border-t border-slate-800 p-3 grid grid-cols-2 gap-2 shrink-0 bg-slate-900/60">
+        <button
+          type="button"
+          onClick={onBack}
+          data-testid="promo-modal-back-footer-btn"
+          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={onClaim}
+          data-testid="promo-modal-claim-now-btn"
+          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+        >
+          Claim Now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PromoTag({ label, value }) {
+  return (
+    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800/70 border border-slate-700 text-[10px]">
+      <span className="text-slate-500 uppercase tracking-wider font-semibold">{label}</span>
+      <span className="text-slate-100 font-semibold">{value}</span>
+    </div>
+  );
+}
+
+function PromoModalSection({ title, children, testid }) {
+  return (
+    <div data-testid={testid}>
+      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function ModalDataRow({ label, value }) {
+  return (
+    <div className="flex gap-3 px-3 py-2">
+      <div className="w-1/3 text-slate-500 text-[11px] uppercase tracking-wider font-semibold">{label}</div>
+      <div className="flex-1 text-slate-200 text-[12px] leading-snug break-words">{value}</div>
     </div>
   );
 }
@@ -719,29 +856,22 @@ export default function ChatWidget() {
     const p = findPromotion(selectedPromoId);
     if (!p) return;
     setActivePromoId(p.id);
-    setPromoStep("detail");
+    // Skip the text-bubble Step 3 entirely — open the rich visual modal
+    // directly as the primary experience. Data (title, min_deposit,
+    // turnover, exclusion line, HOW TO APPLY steps) is derived at render
+    // time from PROMOTIONS_KB via getPromotionDisplayData.
+    setPromoStep("rich_modal");
     setPromoDropdownError("");
-    // Post the full detail as ONE persistent Lily bubble (BK8-style):
-    // intro line + numbered steps + closing paragraph + auto-generated
-    // exclusion line + related articles. The follow-up question fires as
-    // a second bubble after a short beat.
-    const exclusionLine = formatExclusionLine(p);
-    const detailText = [
-      promoT.detailIntro,
-      ...p.howToClaim.map((s, i) => `${i + 1}. ${s}`),
-      "",
-      p.detailClosingParagraph,
-      ...(exclusionLine ? ["", exclusionLine] : []),
-      "",
-      promoT.relatedArticlesHeader,
-      `1. ${p.title}`,
-    ].join("\n");
-    saySystem(detailText);
-    setTimeout(() => {
-      cancelSpeak();
-      setLilySpeaking(false);
-      saySystem(promoT.detailFollowup);
-    }, 900);
+  };
+
+  // Modal "Back" button — closes the modal and returns the customer to
+  // Step 1.5 (choose_method) so they can pick a different promo or switch
+  // to "View Promotion Page". No handoff, no chat clutter.
+  const promoModalBack = () => {
+    setActivePromoId(null);
+    setSelectedPromoId("");
+    setPromoDropdownError("");
+    setPromoStep("choose_method");
   };
 
   // "Related Articles" list item is no longer a rendered UI element (the
@@ -1112,7 +1242,16 @@ export default function ChatWidget() {
               scrollable message bubbles. Client-side utterances (promo copy,
               deposit gate, transitions) accumulate in `messages` via sayLily. */}
           {phase === "lily" && session && (
-            <div className="flex-1 flex flex-col overflow-hidden bg-slate-900" data-testid="lily-stage">
+            <div className="relative flex-1 flex flex-col overflow-hidden bg-slate-900" data-testid="lily-stage">
+              {/* Rich promo modal overlays the entire Lily stage when active */}
+              {promoStep === "rich_modal" && activePromoId && (
+                <PromoRichModal
+                  displayData={getPromotionDisplayData(activePromoId)}
+                  generalTerms={GENERAL_TERMS}
+                  onBack={promoModalBack}
+                  onClaim={promoClaim}
+                />
+              )}
               {/* Compact avatar + status strip */}
               <div className="px-4 pt-4 pb-2 flex items-center gap-3 border-b border-slate-800/60">
                 <div className="shrink-0">
@@ -1276,6 +1415,14 @@ export default function ChatWidget() {
                 <div
                   className="px-3 py-2 bg-slate-900/70 backdrop-blur border-t border-slate-800"
                   data-testid="promo-claim-passive"
+                />
+              ) : promoStep === "rich_modal" ? (
+                // Rich modal is currently overlaying the entire Lily stage
+                // — no bottom panel needed. Keep a small spacer so the
+                // input still sits at the bottom of the widget.
+                <div
+                  className="px-3 py-2 bg-slate-900/70 backdrop-blur border-t border-slate-800"
+                  data-testid="promo-rich-modal-passive"
                 />
               ) : (
                 /* 4 fixed option buttons */

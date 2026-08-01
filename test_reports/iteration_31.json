@@ -1,0 +1,22 @@
+{
+  "summary": "Frontend-only verification of the new rich Promotion modal flow in ChatWidget. Exercised end-to-end via Playwright at the public preview URL. All 3 promos (welcome_lucky_288, monthly_188_spins, welcome_100_100) open the modal directly on Send with NO text-bubble Step 3 pushed to the chat log. Modal content (min deposit, turnover multiplier, validity, claim limit, exclusion list, credit timing) is data-driven from PROMOTIONS_KB via getPromotionDisplayData and matches expected values for every promo. Back button (both header and footer variants) closes modal and returns to Step 1.5 choose_method with prior chat messages preserved. Claim Now closes modal, renders promo-claim-passive, and fires the Step 5 two-bubble sequence ('Absolutely, let me guide you' + 'Here's how to claim your <title>: ...' with numbered how_to_apply steps + closing paragraph). All 10 GENERAL_TERMS render inside promo-modal-terms. Regressions verified: View Promotion Page branch still emits the 2 SYSTEM bubbles with clickable URL; Knowledge Hub free-text ('RM 100 on 288% welcome bonus') still intercepts and returns the calculation reply; widget re-open after X (chat-close-btn) resets the promo state (modal not persisted). No frontend or backend issues found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx is ~1500+ lines — consider extracting the Promotions sub-tree (state machine + sub-components + modal) into its own module for maintainability. Not a bug, but the file is beyond the 700-line comfort threshold.",
+    "promoStep === 'rich_modal' is handled twice: (a) as an absolute overlay in the lily-stage AND (b) as a passive spacer panel in the bottom-panel ladder. Works fine but the double branch is easy to miss when adding future promo steps."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100%"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 10 acceptance criteria in the review request were exercised in Playwright: (1) modal opens directly with 0 Step-3 text bubbles, (2)+(8) data-driven content matches PROMOTIONS_KB for all 3 promos, (3) modal structure has title/how-to-apply/details/terms/exclusion/back(x2)/claim testids, (4) both Back variants return to choose_method, (5) Claim fires promo-claim-passive + 2 system bubbles, (6) view_page + KB free-text regressions pass, (9) X-close resets modal state, (10) prior chat bubbles preserved after modal Back. Key gotcha for future testers: saySystem uses a 500ms setTimeout — always wait >=1500ms after triggering the 2-bubble claim sequence before asserting on message contents (I initially waited only 2s and missed the second bubble in one run).",
+  "rca of the issue": "n/a — no issues found."
+}

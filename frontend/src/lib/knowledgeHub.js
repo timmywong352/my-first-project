@@ -248,7 +248,7 @@ function generatedClaimClosingParagraph(promo) {
     return `Your bonus is valid for ${promo.bonus_validity || "7 days from issuance"} unless stated otherwise, and the wagering requirement is ${promo.turnover_multiplier}× on (deposit + bonus). If you have any questions about the terms or run into any issues, just let me know.`;
   }
   if (promo.bonus_type === "free_spins") {
-    return `Your free spins are ${promo.credit_timing}. If you have any questions about the terms or run into any issues, just let me know.`;
+    return `Your free spins are credited ${promo.credit_timing}. If you have any questions about the terms or run into any issues, just let me know.`;
   }
   if (promo.bonus_type === "percent_plus_free_spins") {
     const spins = promo.free_spin_tiers?.[0]?.spins ?? 0;
