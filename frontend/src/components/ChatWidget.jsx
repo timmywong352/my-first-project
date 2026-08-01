@@ -36,6 +36,7 @@ import {
   promoStrings,
   PROMOTIONS_PAGE_URL,
 } from "@/lib/promotions";
+import { matchKnowledgeHub, formatExclusionLine } from "@/lib/knowledgeHub";
 
 const SOUND_KEY = "pulse_sound_on";
 
@@ -721,13 +722,16 @@ export default function ChatWidget() {
     setPromoStep("detail");
     setPromoDropdownError("");
     // Post the full detail as ONE persistent Lily bubble (BK8-style):
-    // intro line + numbered steps + closing paragraph + related articles.
-    // The follow-up question fires as a second bubble after a short beat.
+    // intro line + numbered steps + closing paragraph + auto-generated
+    // exclusion line + related articles. The follow-up question fires as
+    // a second bubble after a short beat.
+    const exclusionLine = formatExclusionLine(p);
     const detailText = [
       promoT.detailIntro,
       ...p.howToClaim.map((s, i) => `${i + 1}. ${s}`),
       "",
       p.detailClosingParagraph,
+      ...(exclusionLine ? ["", exclusionLine] : []),
       "",
       promoT.relatedArticlesHeader,
       `1. ${p.title}`,
@@ -847,6 +851,17 @@ export default function ChatWidget() {
           return;
         }
         // No keyword hit → default behavior: hand off (carry promo context).
+      } else {
+        // Knowledge Hub: try to answer promo questions before falling
+        // through to immediate handoff. Only runs when the customer is
+        // NOT already inside the guided Promotions flow (activePromoId
+        // gates that). Quick-option button flows (Deposit/Withdrawal/
+        // Ticket) hit their own branches earlier so they're untouched.
+        const kb = matchKnowledgeHub(userText);
+        if (kb) {
+          saySystem(kb.reply);
+          return;
+        }
       }
 
       setLilyLoading(true);

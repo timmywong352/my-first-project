@@ -1,0 +1,47 @@
+{
+  "summary": "Frontend-only test of Knowledge Hub feature for Lily's text-based auto-reply. Verified all 4 spec calculation examples (288% RM100, 188 FS deposit 500, below-min, welcome_100_100 RM50), no-amount matcher, exclusion line derivation for all 3 promos, matcher disambiguation (welcome bonus 100 percent → welcome_100_100), Lily-stage persistence after KB reply, and unmatched-text handoff fallback. Also ran 35/35 node unit tests for knowledgeHub.js. All tests pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "unit_tests_knowledgeHub": "35/35 passed (node runner)",
+    "e2e_widget_tests": {
+      "2a_288pct_RM100": "PASS (Bonus MYR 288.00, Turnover MYR 13,580.00, instant)",
+      "2b_188fs_deposit500": "PASS (Free spins: 88, Turnover MYR 588.00)",
+      "2c_below_min_RM30": "PASS ('below the minimum' present)",
+      "2d_welcome100_RM50": "PASS (Bonus MYR 50.00, Free spins 100, Turnover MYR 1,800.00)",
+      "3_no_amount_prompt": "PASS (summary + deposit-amount prompt)",
+      "4a_288pct_exclusion_exact": "PASS (Pussy888, PlayTech, Asia Gaming, Relax Gaming, Mega888, 918kiss, Habanero, BNG, Lucky365)",
+      "4b_welcome100_exclusion_exact": "PASS (918kiss, Mega888, fishing games, table games, online games)",
+      "4c_188fs_exclusion_exact": "PASS (🚫 Excluding: Pussy888)",
+      "6_disambiguation": "PASS ('welcome bonus 100 percent' → Welcome Bonus 100% + 100 Free Spins)",
+      "9_lily_stage_persists_after_KB": "PASS",
+      "7_unmatched_handoff": "PASS (functionally — queued UI (#2) shown, lily-stage removed; the message log is replaced by the queue view so the 'connecting you to a human agent' string is not in the DOM afterwards, but handoffToHuman() did run and phase transitioned as expected)"
+    },
+    "not_directly_exercised_but_code_reviewed": [
+      "Test 5 (guided Promotions Step 3 detail exclusion insertion) — code review of ChatWidget.jsx lines 728-738 confirms formatExclusionLine(p) is inserted between detailClosingParagraph and relatedArticlesHeader (only when non-empty). Backed by unit tests for formatExclusionLine on all 3 promos.",
+      "Test 8 (existing guided promo flow keyword matcher precedence) — code review of sendMessage() Lily branch (lines 834-865) confirms activePromoId is checked BEFORE the KB fallback runs; KB only fires in the else branch.",
+      "Existing quick options (Deposit/Withdrawal/Ticket/Promotions) — untouched code paths, hit earlier click handlers."
+    ]
+  },
+  "test_report_links": [
+    "/app/frontend/src/lib/knowledgeHub.test.mjs (35 unit tests, all passing)"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "knowledgeHub.js is a clean, self-contained module (~430 lines) with data + engine + matcher + formatter. Good separation.",
+    "ChatWidget.jsx is 1686 lines — recommend splitting (guided promotions, KB fallback, WS handling, quick-options) into hooks/subcomponents in a future iteration. Not blocking.",
+    "matchKnowledgeHub uses longest-keyword-hit scoring — verified deterministic via 'welcome bonus 100 percent' disambiguation test.",
+    "extractDepositAmount correctly strips % tokens BEFORE bare-number fallback, so '288%' alone doesn't get misread as deposit 288. Confirmed.",
+    "formatExclusionLine is derived from promo.excluded_games at render time in every surface (KB reply generalTermsBlock + guided Step 3 detail bubble) — no hardcoded lists. Verified all three exact lists appear in the widget."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not in scope)", "frontend": "100%"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Widget mounts at / (WidgetDemo page); /widget route does not exist and redirects to /. Open the floating FAB button to expose the chat. chat-input testid is present once the widget is open. saySystem has a 500ms typing-dots delay — wait ≥1.2s between sends for KB replies to appear. Handoff transitions the widget to the queued view which REPLACES the message log with a 'You're in the queue #N' UI, so post-handoff assertions on log body text won't find the handoff message — assert on lily-stage removal instead."
+}
