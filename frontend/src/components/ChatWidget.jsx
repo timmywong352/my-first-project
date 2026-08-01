@@ -37,7 +37,7 @@ import {
   promoStrings,
   PROMOTIONS_PAGE_URL,
 } from "@/lib/promotions";
-import { matchKnowledgeHub, formatExclusionLine, getPromotionDisplayData, GENERAL_TERMS } from "@/lib/knowledgeHub";
+import { matchKnowledgeHub, formatExclusionLine, getPromotionDisplayData, GENERAL_TERMS, answerCalculationForPromo, findPromoById } from "@/lib/knowledgeHub";
 
 const SOUND_KEY = "pulse_sound_on";
 
@@ -909,7 +909,12 @@ export default function ChatWidget() {
     const prompt = promoHandoffPrompt;
     setPromoHandoffPrompt(null);
     const p = findPromotion(activePromoId);
-    const ctx = p ? `Promotions: ${p.title}` : "Promotions inquiry";
+    // Preserve the customer's original question in the handoff payload so
+    // the human agent sees exactly what triggered the handoff, not just
+    // the promo title.
+    const userText = prompt?.context;
+    const base = p ? `Promotions: ${p.title}` : "Promotions inquiry";
+    const ctx = userText ? `${base} — ${userText}` : base;
     setLilyLoading(true);
     saySystem("Great — connecting you to a human agent now.");
     try {
@@ -959,28 +964,55 @@ export default function ChatWidget() {
       if (userText) pushLocalCustomer(userText);
 
       // Promotions flow: while the customer is inside an active promo
-      // conversation, route their text through the keyword matcher instead
-      // of the default immediate-handoff. Falls back to handoff on no match.
+      // conversation, route their text through this three-priority ladder
+      // so we NEVER trigger an instant/silent handoff — every handoff
+      // requires an explicit Yes on a confirm prompt.
+      //   (1) Calculation reply for the ACTIVE promo (amount + calc keyword)
+      //   (2) Existing Step 6 keyword groups (acknowledge / confirm_handoff /
+      //       [former] instant_handoff — now also a confirm_handoff)
+      //   (3) No match → Yes/No confirm before handoff
       if (activePromoId) {
+        // Look up the RAW PROMOTIONS_KB entry (not the derived display
+        // shape from findPromotion) — the calculation engine needs
+        // bonus_percent / max_bonus / turnover_multiplier / free_spin_tiers
+        // which live on the KB entry, not on the UI display object.
+        const activePromo = findPromoById(activePromoId);
+
+        // (1) Calc question against the active promo
+        const calc = answerCalculationForPromo(activePromo, userText);
+        if (calc) {
+          saySystem(calc.reply);
+          return;
+        }
+
+        // (2) Existing keyword groups
         const match = matchPromoKeyword(userText);
         if (match?.action === "acknowledge") {
           saySystem(match.reply);
           return;
         }
         if (match?.action === "confirm_handoff") {
-          setPromoHandoffPrompt({ reply: match.reply });
+          setPromoHandoffPrompt({ reply: match.reply, context: userText });
           saySystem(match.reply);
           return;
         }
         if (match?.action === "instant_handoff") {
-          setLilyLoading(true);
-          saySystem(match.reply);
-          const p = findPromotion(activePromoId);
-          const ctx = p ? `Promotions: ${p.title} — ${userText}` : `Promotions inquiry — ${userText}`;
-          try { await handoffToHuman(ctx); } finally { setLilyLoading(false); }
+          // Former instant-handoff triggers ("problem"/"issue"/"not working")
+          // now require an explicit Yes/No confirmation too — friendlier
+          // phrasing preserved.
+          const friendlierReply =
+            "I'm sorry to hear that. Would you like me to connect you to a live agent who can help?";
+          setPromoHandoffPrompt({ reply: friendlierReply, context: userText });
+          saySystem(friendlierReply);
           return;
         }
-        // No keyword hit → default behavior: hand off (carry promo context).
+
+        // (3) No match → Yes/No confirm instead of an instant/silent handoff
+        const fallbackReply =
+          "I'm not sure how to answer that. Would you like me to connect you to a live agent who can help?";
+        setPromoHandoffPrompt({ reply: fallbackReply, context: userText });
+        saySystem(fallbackReply);
+        return;
       } else {
         // Knowledge Hub: try to answer promo questions before falling
         // through to immediate handoff. Only runs when the customer is

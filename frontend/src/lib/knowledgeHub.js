@@ -529,3 +529,39 @@ export function matchKnowledgeHub(text) {
     reply: formatKnowledgeHubReply(best, amount, outcome),
   };
 }
+
+// Calc keywords used to gate active-promo calculation replies. We require
+// BOTH an amount AND a calc-intent keyword so a customer typing a bare
+// number ("50") without context doesn't accidentally trigger a full calc
+// reply mid-conversation.
+const CALC_INTENT_KEYWORDS = [
+  "turnover", "bonus", "how much", "how many", "eligible", "eligibility",
+  "calculate", "calculation", "spins", "spin", "wagering", "rollover",
+  "get", "receive", "if i deposit", "deposit ", "with rm", "with myr",
+];
+
+/**
+ * Answer a calculation question against a SPECIFIC (already-selected)
+ * promotion — used by the active-promo Step 6 matcher so the customer
+ * stays on-topic without needing to re-mention the promo by name.
+ *
+ * Returns null unless BOTH:
+ *   - a deposit amount is extracted from the text, AND
+ *   - the text contains a calc-intent keyword.
+ * Otherwise the caller can fall through to keyword-group / handoff logic.
+ */
+export function answerCalculationForPromo(promo, text) {
+  if (!promo || !text) return null;
+  const amount = extractDepositAmount(text);
+  if (amount == null) return null;
+  const low = String(text).toLowerCase();
+  const isCalcQuery = CALC_INTENT_KEYWORDS.some((k) => low.includes(k));
+  if (!isCalcQuery) return null;
+  const outcome = calculatePromoOutcome(promo, amount);
+  return {
+    promo,
+    amount,
+    outcome,
+    reply: formatKnowledgeHubReply(promo, amount, outcome),
+  };
+}

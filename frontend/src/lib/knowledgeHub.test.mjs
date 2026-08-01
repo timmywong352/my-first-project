@@ -230,6 +230,47 @@ async function main() {
     p.turnover_multiplier = original;
   }
 
+  console.log("\nActive-promo calculation matcher (answerCalculationForPromo)");
+  const { answerCalculationForPromo } = mod;
+  {
+    // Bug fixture from the review request
+    const r = answerCalculationForPromo(p288, "if i deposit rm50 how many turnover i need to complete?");
+    assertTrue("calc question with amount → non-null reply", r != null);
+    assertEq("turnover_required = 6790", r?.outcome?.turnover_required, 6790);
+    assertTrue("reply mentions MYR 6,790.00", /MYR 6,790\.00/.test(r?.reply || ""));
+  }
+  {
+    // Amount without calc-intent keyword → null (avoid false positives)
+    const r = answerCalculationForPromo(p288, "50");
+    assertEq("bare number without calc intent → null", r, null);
+  }
+  {
+    // Calc intent without amount → null
+    const r = answerCalculationForPromo(p288, "what's the turnover?");
+    assertEq("calc keyword without amount → null", r, null);
+  }
+  {
+    // Non-calc chatter → null
+    const r = answerCalculationForPromo(p288, "hello there");
+    assertEq("chatter → null", r, null);
+  }
+  {
+    // Below-min deposit → calc still runs, returns eligible:false
+    const r = answerCalculationForPromo(p288, "if i deposit rm30 how much turnover?");
+    assertTrue("below-min → reply mentions below minimum",
+      /below the minimum/i.test(r?.reply || ""));
+  }
+  {
+    // 188 free spins active-promo calc
+    const r = answerCalculationForPromo(p188fs, "how many free spins with deposit 500?");
+    assertEq("188fs @ 500 → 88 spins", r?.outcome?.spins, 88);
+  }
+  {
+    // Null promo (safety)
+    const r = answerCalculationForPromo(null, "deposit 50 turnover");
+    assertEq("null promo → null", r, null);
+  }
+
   console.log(`\n=== ${results.pass} passed, ${results.fail} failed ===`);
   process.exit(results.fail === 0 ? 0 : 1);
 }

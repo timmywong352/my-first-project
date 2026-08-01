@@ -1,0 +1,25 @@
+{
+  "summary": "E2E verification of iter33 bug fix — unified Knowledge Hub calc matching within active-promo flow + confirm-before-handoff for ALL free-typed text. Exercised the full 3-priority ladder in ChatWidget.sendMessage (active-promo branch) via Playwright against the live preview URL, plus verified handoff-context preservation via the agent dashboard. Result: 100% pass (18/18 UI assertions + agent-dashboard context check).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ChatWidget.jsx is now 1864 lines — still well above the 700-line comfort threshold. Recommend extracting the Promotions state machine + sub-components (PromoHandoffConfirm, PromoRichModal, PromoChooseMethodPanel, PromoPickPromoPanel, PromoDetailPanel) into /components/promo/*.jsx. Not a bug.",
+    "answerCalculationForPromo requires BOTH amount AND a calc-intent keyword. The CALC_INTENT_KEYWORDS list is intentionally broad; the substring check 'get' will match inside common words like 'target' or 'together' — probably fine since it also requires an extractable amount, but worth noting for future test data.",
+    "extractDepositAmount falls back to any bare number >=10 which is fine for the current gating logic (calc intent still required), but 'do you have any tips for slot games?' (no digits) correctly returns null. Good.",
+    "The Knowledge-Hub-standalone branch (activePromoId==null) still auto-replies without any confirm — consistent with iter29 spec, but note: it also NEVER triggers handoff for free text when there's no KB match — it silently falls through to the always-handoff line 1030 saySystem('Great — connecting you to a human agent now.') + handoffToHuman. Not part of this iter's bug fix scope but flagging for context: outside the promo flow, free text still triggers instant handoff. Confirm this is desired product behavior."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only bug fix, no backend changes)", "frontend": "100%"},
+  "test_credentials": "agent@livechat.com / agent123 (used for dashboard handoff-context verification)",
+  "seed_data_creation": "none — used a unique free-text token 'TESTQ_alpha_unique_9182' inside the fallback confirm→yes flow to verify the customer's original text is preserved on the handoff payload visible in the agent dashboard.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 9 review-request checkpoints verified with data-testid selectors (chat-launcher, promo-choose-method, promo-pick-btn, promo-dropdown, promo-send-btn, promo-modal-claim-now-btn, chat-input, promo-handoff-confirm, promo-handoff-yes, promo-handoff-no, session-item-*). Passed assertions: (1) 288% + rm50 → MYR 6,790.00 calc + widget stays in lily-stage + no confirm panel. (2) 'i have a problem' → sorry msg + confirm panel with both Yes/No buttons. (3) 'do you have any tips…' → 'not sure how to answer' + confirm panel. (4) 'thanks' → 'anything else' + no confirm. (5) 'can you claim for me' → 'unable to claim' + confirm. (6) Yes on confirm → widget transitions to queued (#2) + agent dashboard session summary contains 'Promotions: 288% Welcome Bonus — TESTQ_alpha_unique_9182'. (7) Standalone KB (no active promo, 'RM 100 on 288% welcome bonus') still returns full calc reply. (8) Guardrails: bare '50' + 'what is the turnover?' both fall to fallback confirm (NOT calc). Also verified 188 Free Spin Unlimited rm500 → 88 spins + turnover 588; Welcome 100%+100FS rm50 → bonus MYR 50.00 + turnover 1,800. No regressions found; ChatWidget file size and duplicated 'rich_modal' branch (noted iter31) remain unchanged and out of scope for this iter.",
+  "rca of the issue": "Fixed correctly by main agent: (a) active-promo branch of sendMessage now first calls answerCalculationForPromo(findPromoById(activePromoId), userText) — using the RAW KB entry (not the derived display shape) so bonus_percent/turnover_multiplier/free_spin_tiers are available. This returns a full calc reply for 'if i deposit rm50 how many turnover…' → MYR 6,790.00. (b) The former action:'instant_handoff' keyword group ('problem/issue/not working') now sets promoHandoffPrompt with a friendlier prompt instead of directly firing handoffToHuman. (c) No-match fallback also sets promoHandoffPrompt with 'I'm not sure how to answer that…' instead of silent instant handoff. (d) promoConfirmHandoffYes reads prompt.context (the customer's original text) so the handoff payload is 'Promotions: <title> — <original text>'. All four fix legs verified E2E."
+}
