@@ -208,6 +208,42 @@ async function main() {
     assertEq("vague mention has NO outcome (route to Step 1.5)", m?.outcome, null);
   }
 
+  console.log("\nConsistency — matchKnowledgeHub deposit-intent gate");
+  {
+    // "tell me about 188" → matches 188fs, does NOT run calc with 188 as amount
+    const m = matchKnowledgeHub("tell me about 188");
+    assertEq("'tell me about 188' → 188fs match", m?.promo?.id, "monthly_188_spins");
+    assertEq("'tell me about 188' → amount is null (no explicit intent)", m?.amount, null);
+    assertEq("'tell me about 188' → outcome is null", m?.outcome, null);
+  }
+  {
+    // "tell me about 288" → matches 288%, same non-calc behavior
+    const m = matchKnowledgeHub("tell me about 288");
+    assertEq("'tell me about 288' → 288% match", m?.promo?.id, "welcome_lucky_288");
+    assertEq("'tell me about 288' → amount is null", m?.amount, null);
+    assertEq("'tell me about 288' → outcome is null", m?.outcome, null);
+  }
+  {
+    // "if i deposit 188 how many spins" — deposit-context present → calc runs
+    const m = matchKnowledgeHub("if i deposit 188 how many spins");
+    assertEq("'deposit 188 spins' → 188fs match", m?.promo?.id, "monthly_188_spins");
+    assertEq("'deposit 188 spins' → amount=188", m?.amount, 188);
+    // 188 doesn't match a tier exactly — nearest at-or-below = 50 → 10 spins
+    assertTrue("'deposit 188 spins' → outcome present", m?.outcome != null);
+  }
+  {
+    // "rm188 turnover?" — currency prefix present → calc runs
+    const m = matchKnowledgeHub("rm188 turnover?");
+    assertEq("'rm188 turnover?' → 188fs match", m?.promo?.id, "monthly_188_spins");
+    assertEq("'rm188 turnover?' → amount=188", m?.amount, 188);
+    assertTrue("'rm188 turnover?' → outcome present", m?.outcome != null);
+  }
+  {
+    // answerCalculationForPromo also gated
+    const r = mod.answerCalculationForPromo(p288, "tell me about 288");
+    assertEq("answerCalculationForPromo without explicit intent → null", r, null);
+  }
+
   console.log("\nSingle-source-of-truth: getPromotionDisplayData reflects PROMOTIONS_KB");
   {
     const d = getPromotionDisplayData("welcome_lucky_288");

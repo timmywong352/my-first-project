@@ -390,6 +390,20 @@ function round2(n) {
 // Amount extraction — currency / context / bare number
 // ============================================================
 
+// Explicit deposit-intent detection — used by both `matchKnowledgeHub`
+// (standalone) and the active-promo VAGUE-MENTION GUARD in ChatWidget.
+// A bare number alone (e.g. "188" in "tell me about 188") does NOT
+// qualify as deposit intent — the customer is probably referencing a
+// promo by number.
+const CURRENCY_PREFIX_RE = /(?:rm|myr|\$)\s*\d/i;
+const DEPOSIT_CONTEXT_RE = /(?:deposit|topup|top[-\s]?up|dep)\s+(?:of\s+|about\s+)?\d/i;
+
+export function hasExplicitDepositIntent(text) {
+  if (!text) return false;
+  const s = String(text);
+  return CURRENCY_PREFIX_RE.test(s) || DEPOSIT_CONTEXT_RE.test(s);
+}
+
 export function extractDepositAmount(text) {
   if (!text) return null;
   // Strip percentage tokens first ("288%", "100%") so a promo name mention
@@ -526,7 +540,11 @@ export function matchKnowledgeHub(text) {
     }
   }
   if (!best) return null;
-  const amount = extractDepositAmount(text);
+  // Only treat a number in the message as a deposit amount if the
+  // customer expressed explicit deposit intent (currency prefix like
+  // "RM 50" or a "deposit 50" phrase). Otherwise "tell me about 188"
+  // would be misread as "deposit 188" and trigger an unwanted calc.
+  const amount = hasExplicitDepositIntent(text) ? extractDepositAmount(text) : null;
   const outcome = amount != null ? calculatePromoOutcome(best, amount) : null;
   return {
     promo: best,
@@ -558,6 +576,10 @@ const CALC_INTENT_KEYWORDS = [
  */
 export function answerCalculationForPromo(promo, text) {
   if (!promo || !text) return null;
+  // Same explicit-intent gate as matchKnowledgeHub — bare numbers are
+  // NOT treated as deposit amounts unless the customer used a currency
+  // prefix or a deposit-context word.
+  if (!hasExplicitDepositIntent(text)) return null;
   const amount = extractDepositAmount(text);
   if (amount == null) return null;
   const low = String(text).toLowerCase();

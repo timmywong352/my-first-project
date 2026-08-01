@@ -58,6 +58,11 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
+- **2026-02-17**: **Consistency fix — deposit-intent gate on standalone matcher** (iter35, 88/88 unit tests pass). Extends the active-promo VAGUE-MENTION GUARD's deposit-intent detection to `matchKnowledgeHub` and `answerCalculationForPromo` for full consistency.
+  - New shared helper `hasExplicitDepositIntent(text)`: returns true iff text has currency-prefix (`/(?:rm|myr|\$)\s*\d/i`) OR deposit-context (`/(?:deposit|topup|top[-\s]?up|dep)\s+(?:of\s+|about\s+)?\d/i`).
+  - `matchKnowledgeHub` now only extracts `amount` when explicit deposit intent is present. Otherwise `amount=null`, `outcome=null` — the caller (ChatWidget) treats it as a vague promo mention and routes to Step 1.5.
+  - `answerCalculationForPromo` gets the same gate — bare numbers no longer trigger active-promo calculations.
+  - Verified: `"tell me about 188"` → matches 188fs, no calc misread; `"if i deposit 188 how many spins"` → still runs calc (deposit context); `"rm188 turnover?"` → still runs calc (currency prefix).
 - **2026-02-17**: **KB 3-bug live fixes** (iter34, 75/75 unit tests + E2E verified).
   - **Bug 1**: `calculatePromoOutcome` below-min return now includes `deposit: dep` so the reply echoes the exact amount ("MYR 30 below the minimum of MYR 50") instead of the previous "MYR 0.00". Amount extractor `extractDepositAmount` unchanged — was already correct for "rm30", "RM 30", "MYR50" (verified via added test cases).
   - **Bug 2**: `formatKnowledgeHubReply` now emits a CONCISE calc reply (bonus + turnover + credit_timing + "Want to see the full terms?" offer). Full GENERAL_TERMS + exclusion line stripped from calc replies. General-summary (no-amount) reply still includes full T&Cs for browsing.
