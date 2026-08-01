@@ -58,6 +58,11 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
+- **2026-02-17**: **Unified active-promo KB calc + confirm-before-handoff** (iter33, 100% PASS: 59/59 unit tests + 18/18 E2E + agent-dashboard context verified). Fixes the bug where "if i deposit rm50 how many turnover i need to complete?" inside the 288% flow got a silent instant handoff instead of the correct 6,790 calculation.
+  - `knowledgeHub.js`: new `answerCalculationForPromo(promo, text)` requires BOTH an extracted amount AND a calc-intent keyword (turnover/bonus/how much/eligible/spins/wagering/rollover/get/receive/if i deposit/deposit /with rm/with myr) before returning a calc reply; else returns null.
+  - `ChatWidget.sendMessage` active-promo branch now uses a 3-priority ladder: (1) `answerCalculationForPromo(findPromoById(activePromoId), text)` — passes the RAW KB entry (not the derived display shape) so bonus_percent/turnover_multiplier/free_spin_tiers are all present; (2) existing `matchPromoKeyword` — but the former `instant_handoff` action ("problem/issue/not working") now sets `promoHandoffPrompt` with a friendlier "I'm sorry to hear that. Would you like me to connect you to a live agent who can help?" confirm; (3) no-match fallback ALSO sets `promoHandoffPrompt` with "I'm not sure how to answer that…" — NO more instant/silent handoffs from active-promo free text.
+  - `promoConfirmHandoffYes` now reads `prompt.context` (the customer's original text) so the handoff payload is `Promotions: <title> — <original text>` — full context preserved for the agent.
+  - Standalone Knowledge Hub (activePromoId=null) matcher unchanged — still auto-replies for matched promo questions.
 - **2026-02-17**: **Widget enlargement + typography bump** (iter32, self-tested via 4 state screenshots). Sizing/typography pass only — no color, spacing-logic, or feature-behavior changes.
   - Widget container: `w-[380px] h-[640px] max-h-[88vh]` → `w-[calc(100vw-32px)] sm:w-[420px] h-[700px] max-h-[90vh]` (responsive fallback for mobile).
   - Font sizes bumped one step widget-wide (in order to avoid double-conversion): `text-sm` → `text-base`, `text-xs` → `text-sm`, `text-[9px]|[10px]|[11px]` → `text-xs`, `text-[12px]|[13px]` → `text-sm`.
