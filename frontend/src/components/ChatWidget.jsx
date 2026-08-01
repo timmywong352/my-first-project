@@ -978,6 +978,23 @@ export default function ChatWidget() {
         // which live on the KB entry, not on the UI display object.
         const activePromo = findPromoById(activePromoId);
 
+        // (0) VAGUE-MENTION GUARD: If the text mentions any promo's
+        // keyword AND lacks an EXPLICIT deposit context (currency prefix
+        // like "RM 50" or a "deposit 50" phrase), route to Step 1.5. This
+        // prevents "I want to know 188 free spins" from being mis-read as
+        // "deposit 188 in the active 288% flow" (bare-number extraction).
+        const kbMention = matchKnowledgeHub(userText);
+        const hasCurrencyPrefix = /(?:rm|myr|\$)\s*\d/i.test(userText);
+        const hasDepositContext = /(?:deposit|topup|top[-\s]?up|dep)\s+(?:of\s+|about\s+)?\d/i.test(userText);
+        if (kbMention && kbMention.promo && !hasCurrencyPrefix && !hasDepositContext) {
+          setActivePromoId(null);
+          setSelectedPromoId("");
+          setPromoDropdownError("");
+          setPromoStep("choose_method");
+          saySystem(promoT.stepChooseTitle);
+          return;
+        }
+
         // (1) Calc question against the active promo
         const calc = answerCalculationForPromo(activePromo, userText);
         if (calc) {
@@ -1007,7 +1024,7 @@ export default function ChatWidget() {
           return;
         }
 
-        // (3) No match → Yes/No confirm instead of an instant/silent handoff
+        // (3) Genuinely unmatched → Yes/No confirm before handoff.
         const fallbackReply =
           "I'm not sure how to answer that. Would you like me to connect you to a live agent who can help?";
         setPromoHandoffPrompt({ reply: fallbackReply, context: userText });
@@ -1020,8 +1037,17 @@ export default function ChatWidget() {
         // gates that). Quick-option button flows (Deposit/Withdrawal/
         // Ticket) hit their own branches earlier so they're untouched.
         const kb = matchKnowledgeHub(userText);
-        if (kb) {
-          saySystem(kb.reply);
+        if (kb && kb.promo) {
+          if (kb.outcome) {
+            // Amount present → answer the calculation directly.
+            saySystem(kb.reply);
+          } else {
+            // Vague promo mention (name only, no calc intent) — guide the
+            // customer into the guided Promotions flow at Step 1.5 rather
+            // than dumping a wall of T&C text or throwing them to an agent.
+            setPromoStep("choose_method");
+            saySystem(promoT.stepChooseTitle);
+          }
           return;
         }
       }

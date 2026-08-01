@@ -305,7 +305,9 @@ export function calculatePromoOutcome(promo, depositAmount) {
     return { eligible: false, reason: "invalid deposit amount" };
   }
   if (dep < promo.min_deposit) {
-    return { eligible: false, reason: "below minimum deposit", min_deposit: promo.min_deposit };
+    // Include `deposit` so the reply formatter can echo the exact amount
+    // the customer entered ("MYR 30") rather than defaulting to MYR 0.00.
+    return { eligible: false, reason: "below minimum deposit", min_deposit: promo.min_deposit, deposit: dep };
   }
 
   if (promo.bonus_type === "percent") {
@@ -474,15 +476,19 @@ function generalTermsBlock(promo) {
 
 /**
  * Compose the full knowledge-hub reply for a matched promotion.
- *   - amount+outcome present → calculation reply + terms
+ *   - amount+outcome present → CONCISE calculation reply (numbers only,
+ *     no full T&Cs dump — the customer asked a specific math question,
+ *     so we answer it directly and offer to expand on the terms).
  *   - no amount              → general summary + prompt for an amount
+ *                              + full T&Cs (customer is browsing).
  */
 export function formatKnowledgeHubReply(promo, amount, outcome) {
   const blocks = [];
   if (amount != null && outcome) {
+    // Concise calculation reply — no T&Cs, no exclusion line. Just the math.
     blocks.push(calcResultLines(promo, outcome).join("\n"));
     blocks.push("");
-    blocks.push(generalTermsBlock(promo).join("\n"));
+    blocks.push("Want to see the full terms for this promotion? Just ask, or say \"details\" to open the promo card.");
   } else {
     blocks.push(promoSummaryLines(promo).join("\n"));
     blocks.push("");

@@ -161,6 +161,53 @@ async function main() {
   assertEq("bare '50' → 50", extractDepositAmount("welcome bonus 50"), 50);
   assertEq("bare '5' → null (too small)", extractDepositAmount("welcome bonus 5"), null);
 
+  console.log("\nBug 1 fixtures — no-space currency prefix & mixed content");
+  assertEq("'rm30' → 30", extractDepositAmount("rm30"), 30);
+  assertEq("'RM 30' → 30", extractDepositAmount("RM 30"), 30);
+  assertEq("'if i deposit rm30 how much turnover' → 30",
+    extractDepositAmount("if i deposit rm30 how much turnover"), 30);
+  assertEq("'MYR50' → 50", extractDepositAmount("MYR50"), 50);
+  assertEq("'if i deposit 500 what about 288%' → 500",
+    extractDepositAmount("if i deposit 500 what about 288%"), 500);
+
+  console.log("\nBug 1 — below-min calc echoes correct deposit (not MYR 0.00)");
+  {
+    const r = calculatePromoOutcome(p288, 30);
+    assertEq("below-min result includes deposit=30", r.deposit, 30);
+    const reply = mod.formatKnowledgeHubReply(p288, 30, r);
+    assertTrue("reply mentions 'MYR 30' (not 'MYR 0.00')",
+      /MYR 30(?:\.00)?/.test(reply) && !/MYR 0\.00/.test(reply));
+  }
+
+  console.log("\nBug 2 — successful calc reply is concise (NO full T&Cs)");
+  {
+    const reply = mod.formatKnowledgeHubReply(p288, 100, calculatePromoOutcome(p288, 100));
+    assertTrue("calc reply mentions bonus amount", /Bonus amount: MYR 288/.test(reply));
+    assertTrue("calc reply mentions turnover required", /Turnover required: MYR 13,580/.test(reply));
+    assertTrue("calc reply does NOT dump GENERAL_TERMS #1",
+      !/only available for 1 MD88 member per account/.test(reply));
+    assertTrue("calc reply does NOT include exclusion line",
+      !/🚫 Excluding/.test(reply));
+    assertTrue("calc reply offers to see full terms",
+      /Want to see the full terms/i.test(reply));
+  }
+
+  console.log("\nBug 2 — general summary (no amount) still includes T&Cs for browsing");
+  {
+    const reply = mod.formatKnowledgeHubReply(p288, null, null);
+    assertTrue("general summary still lists GENERAL_TERMS",
+      /only available for 1 MD88 member per account/.test(reply));
+    assertTrue("general summary still shows exclusion line",
+      /🚫 Excluding/.test(reply));
+  }
+
+  console.log("\nBug 3 — vague promo mention returns match with no outcome");
+  {
+    const m = matchKnowledgeHub("I want to know 288%");
+    assertTrue("vague 288% mention matches promo", m?.promo?.id === "welcome_lucky_288");
+    assertEq("vague mention has NO outcome (route to Step 1.5)", m?.outcome, null);
+  }
+
   console.log("\nSingle-source-of-truth: getPromotionDisplayData reflects PROMOTIONS_KB");
   {
     const d = getPromotionDisplayData("welcome_lucky_288");
