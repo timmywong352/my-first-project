@@ -40,7 +40,7 @@ async function main() {
   const {
     PROMOTIONS_KB, GENERAL_TERMS, findPromoById,
     calculatePromoOutcome, extractDepositAmount, matchKnowledgeHub,
-    formatExclusionLine,
+    formatExclusionLine, getPromotionDisplayData,
   } = mod;
 
   const p288 = findPromoById("welcome_lucky_288");
@@ -160,6 +160,75 @@ async function main() {
   assertEq("'288%' → null (stripped)", extractDepositAmount("what is 288% about?"), null);
   assertEq("bare '50' → 50", extractDepositAmount("welcome bonus 50"), 50);
   assertEq("bare '5' → null (too small)", extractDepositAmount("welcome bonus 5"), null);
+
+  console.log("\nSingle-source-of-truth: getPromotionDisplayData reflects PROMOTIONS_KB");
+  {
+    const d = getPromotionDisplayData("welcome_lucky_288");
+    assertTrue("display data present", d && d.id === "welcome_lucky_288");
+    assertEq("min_deposit passes through", d.min_deposit, 50);
+    assertTrue("how_to_apply substitutes {{min_deposit}}",
+      d.how_to_apply.some((s) => s.includes("MYR 50")));
+    assertTrue("how_to_apply substitutes {{bonus_percent}}",
+      d.how_to_apply.some((s) => s.includes("288%")));
+    assertTrue("detail_closing mentions 35× wagering",
+      /35× wagering requirement on \(deposit \+ bonus\)/.test(d.detail_closing_paragraph));
+    assertTrue("claim_closing mentions 35× turnover",
+      /35× on \(deposit \+ bonus\)/.test(d.claim_closing_paragraph));
+    assertTrue("exclusion_line derived from excluded_games",
+      d.exclusion_line.startsWith("🚫 Excluding: Pussy888"));
+  }
+
+  console.log("\nSingle-source-of-truth: mutating PROMOTIONS_KB flows to all surfaces");
+  {
+    // Mutate min_deposit for 288% Welcome
+    const p = findPromoById("welcome_lucky_288");
+    const originalMin = p.min_deposit;
+    p.min_deposit = 999;
+
+    // (a) Rich display data reflects the change
+    const d = getPromotionDisplayData("welcome_lucky_288");
+    assertEq("(a) display.min_deposit reflects mutation", d.min_deposit, 999);
+    assertTrue("(a) how_to_apply step 2 shows MYR 999",
+      d.how_to_apply[1].includes("MYR 999"));
+
+    // (b) Step 5 claim instructions template pulls from KB via promotions.js
+    const promoMod = await import("./promotions.js");
+    const claimText = promoMod.PROMO_UI_I18N.en.claimIntro2({ id: "welcome_lucky_288" });
+    assertTrue("(b) Step 5 claim text mentions MYR 999",
+      claimText.includes("MYR 999"));
+
+    // (c) Knowledge Hub free-text reply reflects the change
+    const kb = matchKnowledgeHub("Tell me about the 288% welcome bonus");
+    assertTrue("(c) KB summary reply mentions MYR 999",
+      /MYR 999/.test(kb.reply));
+
+    // Restore
+    p.min_deposit = originalMin;
+
+    // Verify restoration
+    const d2 = getPromotionDisplayData("welcome_lucky_288");
+    assertEq("min_deposit restored", d2.min_deposit, originalMin);
+  }
+
+  console.log("\nSingle-source-of-truth: mutating turnover_multiplier flows through");
+  {
+    const p = findPromoById("welcome_lucky_288");
+    const original = p.turnover_multiplier;
+    p.turnover_multiplier = 99;
+
+    const d = getPromotionDisplayData("welcome_lucky_288");
+    assertTrue("detail_closing shows 99× wagering",
+      /99× wagering requirement on \(deposit \+ bonus\)/.test(d.detail_closing_paragraph));
+    assertTrue("turnover_description shows 99×",
+      /99× \(deposit \+ bonus\)/.test(d.turnover_description));
+
+    // KB calculation reflects the change
+    const kb = matchKnowledgeHub("welcome bonus with RM 100");
+    assertTrue("KB reply turnover_required = (100+288)*99 = 38412",
+      /MYR 38,412\.00/.test(kb.reply));
+
+    p.turnover_multiplier = original;
+  }
 
   console.log(`\n=== ${results.pass} passed, ${results.fail} failed ===`);
   process.exit(results.fail === 0 ? 0 : 1);

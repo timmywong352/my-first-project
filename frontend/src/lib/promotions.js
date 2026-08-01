@@ -1,62 +1,40 @@
 // Promotions catalogue + keyword follow-up matcher for the customer widget.
-// This flow is deliberately self-contained and does NOT touch Lily's LLM
-// pipeline (compose_reply / emotion / memory). It's a simple state machine
-// with hardcoded copy that we can swap for a CMS/backend feed later.
+//
+// SINGLE SOURCE OF TRUTH: all promotion data (title, min_deposit, bonus %,
+// max_bonus, turnover multiplier, applicable/excluded games, credit timing,
+// how-to-apply steps) lives in /lib/knowledgeHub.js's PROMOTIONS_KB. This
+// module derives the shape historically used by ChatWidget's guided
+// Promotions flow from that single source via getPromotionDisplayData().
+//
+// If you find yourself hand-typing promo copy in this file, STOP — add the
+// field to PROMOTIONS_KB instead so every UI surface stays in sync.
 
-export const PROMOTIONS = [
-  // PLACEHOLDER copy — swap when real MD88 marketing content arrives.
-  {
-    id: "welcome_lucky_288",
-    title: "288% Welcome Lucky Bonus!",
-    detailTitle: "Claim your 288% Welcome Lucky Bonus",
-    howToClaim: [
-      "Register an account with MD88 if you're not a member yet. https://m.md88top.com/en-MY/sign-up",
-      "Make a qualifying first deposit of MYR 30 or more.",
-      "Go to the Promotions page and select this bonus.",
-      "Read the T&C, click 'Claim' and follow the on-screen instructions.",
-      "Your 288% bonus will be credited automatically after your deposit clears.",
-    ],
-    detailClosingParagraph:
-      "Remember that this bonus is valid for 30 days unless stated otherwise, carries a 20x wagering requirement on the bonus and deposit, and there are specific terms and conditions that apply to this promotion.",
-    claimClosingParagraph:
-      "Your bonus is valid for 30 days unless stated otherwise, and the wagering requirement is 20x on the bonus plus deposit. If you have any questions about the terms or run into any issues, just let me know.",
-  },
-  // ── Verified content from the customer spec ──
-  {
-    id: "monthly_188_spins",
-    title: "Monthly Exclusive 188 Free Spins",
-    detailTitle: "Claim 188 Slots Free Spins",
-    howToClaim: [
-      "Register an account with MD88 if you're not a member yet. https://m.md88top.com/en-MY/sign-up",
-      "Transfer a minimum first-time deposit of MYR 50 to Pragmatic Play slots provider wallet.",
-      "Go to the [Transfer] page and select \"Transfer\".",
-      "Enter the amount from \"Main Wallet\" to [Pragmatic Play] slots provider wallet.",
-      "Select the promo code [CLAIM SLOTS FREE SPINS].",
-      "Free spins will be credited by 4:00 PM (GMT+8) within the next working day.",
-    ],
-    detailClosingParagraph:
-      "Remember that free spins are valid for fourteen days unless stated otherwise, and there are specific terms and conditions that apply to this promotion.",
-    claimClosingParagraph:
-      "Your free spins are valid for 14 days unless stated otherwise. If you have any questions about the terms or run into any issues, just let me know.",
-  },
-  // PLACEHOLDER copy — swap when real MD88 marketing content arrives.
-  {
-    id: "welcome_100_100",
-    title: "WELCOME BONUS 100% + 100 FREE SPINS!",
-    detailTitle: "Claim 100% Welcome Bonus + 100 Free Spins",
-    howToClaim: [
-      "Register an account with MD88 if you're not a member yet. https://m.md88top.com/en-MY/sign-up",
-      "Make your first deposit of MYR 50 or more.",
-      "Go to the Promotions page and select this bonus.",
-      "Enter the promo code [WELCOME100] if prompted.",
-      "Your 100% bonus + 100 Free Spins will be credited within 24 hours.",
-    ],
-    detailClosingParagraph:
-      "Remember that this bonus is for new members only with a minimum deposit of MYR 50, carries a 25x wagering requirement on the bonus amount, and there are specific terms and conditions that apply.",
-    claimClosingParagraph:
-      "Your 100 Free Spins are valid on selected slot titles and the wagering requirement is 25x on the bonus. If you have any questions about the terms or run into any issues, just let me know.",
-  },
-];
+import {
+  PROMOTIONS_KB,
+  getPromotionDisplayData,
+} from "./knowledgeHub.js";
+
+// Derive the runtime PROMOTIONS list from PROMOTIONS_KB. Each entry keeps
+// the legacy shape (id, title, howToClaim, detailClosingParagraph,
+// claimClosingParagraph) so existing consumers don't need to change, but
+// every string is now computed from the KB data (no hand-typed numbers).
+export const PROMOTIONS = PROMOTIONS_KB.map((kb) => {
+  const d = getPromotionDisplayData(kb);
+  return {
+    id: d.id,
+    title: d.title,
+    detailTitle: `Claim your ${d.title}`,
+    // template-substituted from PROMOTIONS_KB.how_to_apply_steps
+    howToClaim: d.how_to_apply,
+    // auto-generated from structured fields
+    detailClosingParagraph: d.detail_closing_paragraph,
+    claimClosingParagraph: d.claim_closing_paragraph,
+    // Passing through KB fields for consumers that want the raw data
+    // (e.g. ChatWidget's promoConfirmPick reads excluded_games).
+    excluded_games: d.excluded_games,
+    exclusion_line: d.exclusion_line,
+  };
+});
 
 export const PROMOTIONS_PAGE_URL = "https://m.md88top.com/ms-MY/promotions";
 
@@ -107,8 +85,9 @@ export function matchPromoKeyword(text) {
   return null;
 }
 
-// Localized static copy for the promotions flow itself. Kept intentionally
-// short — the meaty text lives in PROMOTIONS above.
+// Localized static copy for the promotions flow chrome itself (buttons,
+// dropdown labels, intro strings). The per-promo copy lives in
+// PROMOTIONS_KB and is fetched via getPromotionDisplayData.
 export const PROMO_UI_I18N = {
   en: {
     stepChooseTitle: "Let's start by choosing how you want to search our promotions by",
@@ -130,12 +109,15 @@ export const PROMO_UI_I18N = {
     claimNowBtn: "Claim now",
     viewOthersBtn: "View other promotions",
     // ── Claim Instructions (Step 5) — two-bubble sequence ──
+    // claimIntro2 now sources from getPromotionDisplayData so numbers stay
+    // in sync with PROMOTIONS_KB.
     claimIntro1: "Absolutely, let me guide you",
     claimIntro2: (promo) => {
-      const steps = promo.howToClaim
+      const d = getPromotionDisplayData(promo.id) || {};
+      const steps = (d.how_to_apply || [])
         .map((s, i) => `${i + 1}. ${s}`)
         .join("\n");
-      return `Here's how to claim your ${promo.title}:\n${steps}\n\n${promo.claimClosingParagraph}`;
+      return `Here's how to claim your ${d.title}:\n${steps}\n\n${d.claim_closing_paragraph}`;
     },
     confirmHandoffYes: "Yes, connect me",
     confirmHandoffNo: "No, thanks",

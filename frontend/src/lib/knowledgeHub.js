@@ -37,25 +37,23 @@ export const PROMOTIONS_KB = [
     spin_value: null,
     turnover_multiplier: 35,
     claim_limit: "once",
+    bonus_validity: "7 days from issuance",
     applicable_games: ["All Webslot games"],
     excluded_games: [
       "Pussy888", "PlayTech", "Asia Gaming", "Relax Gaming", "Mega888",
       "918kiss", "Habanero", "BNG", "Lucky365",
     ],
     credit_timing: "instant",
-    // UI-facing per-promo copy (fed into the Step 3 detail bubble + Step 5
-    // claim bubble by promotions.js — kept next to the data it describes).
-    howToClaim: [
+    // Template placeholders substituted from structured fields at render
+    // time — {{min_deposit}}, {{bonus_percent}}, {{max_bonus}}, {{spins}},
+    // {{turnover_multiplier}}, {{spin_value}}. See substituteTemplate().
+    how_to_apply_steps: [
       "Register an account with MD88 if you're not a member yet. https://m.md88top.com/en-MY/sign-up",
-      "Make a qualifying first deposit of MYR 50 or more.",
+      "Make a qualifying first deposit of MYR {{min_deposit}} or more.",
       "Go to the Promotions page and select this bonus.",
       "Read the T&C, click 'Claim' and follow the on-screen instructions.",
-      "Your 288% bonus will be credited automatically after your deposit clears.",
+      "Your {{bonus_percent}}% bonus will be credited automatically after your deposit clears.",
     ],
-    detailClosingParagraph:
-      "Remember that this bonus is valid for 7 days from issuance unless stated otherwise, carries a 35x wagering requirement on the bonus + deposit combined, and can be claimed once per member. Specific terms and conditions apply to this promotion.",
-    claimClosingParagraph:
-      "Your bonus is valid for 7 days unless stated otherwise, and the wagering requirement is 35x on the bonus + deposit combined. If you have any questions about the terms or run into any issues, just let me know.",
   },
   {
     id: "monthly_188_spins",
@@ -78,6 +76,7 @@ export const PROMOTIONS_KB = [
     spin_value: 1.00,
     turnover_multiplier: 1,
     claim_limit: "monthly",
+    bonus_validity: "24 hours from submission",
     applicable_games: [
       "MD88 Starlight Princess", "Gates of Olympus 1000", "Gate of Olympus",
       "Sweet Bonanza", "Sweet Bonanza 1000", "Wisdom of Athena",
@@ -85,18 +84,14 @@ export const PROMOTIONS_KB = [
     ],
     excluded_games: ["Pussy888"],
     credit_timing: "within 5 minutes, valid 24 hours from submission",
-    howToClaim: [
+    how_to_apply_steps: [
       "Register an account with MD88 if you're not a member yet. https://m.md88top.com/en-MY/sign-up",
-      "Transfer a minimum first-time deposit of MYR 50 to Pragmatic Play slots provider wallet.",
+      "Transfer a minimum first-time deposit of MYR {{min_deposit}} to Pragmatic Play slots provider wallet.",
       "Go to the [Transfer] page and select \"Transfer\".",
       "Enter the amount from \"Main Wallet\" to [Pragmatic Play] slots provider wallet.",
       "Select the promo code [CLAIM SLOTS FREE SPINS].",
       "Free spins will be credited within 5 minutes and are valid for 24 hours from submission.",
     ],
-    detailClosingParagraph:
-      "Remember that free spins are credited within 5 minutes of submission and valid for 24 hours. This promotion can be claimed monthly, and there are specific terms and conditions that apply.",
-    claimClosingParagraph:
-      "Your free spins are credited within 5 minutes and valid for 24 hours from submission. If you have any questions about the terms or run into any issues, just let me know.",
   },
   {
     id: "welcome_100_100",
@@ -115,6 +110,7 @@ export const PROMOTIONS_KB = [
     spin_value: 0.20,
     turnover_multiplier: 15,
     claim_limit: "once",
+    bonus_validity: "7 days from issuance",
     applicable_games: [
       "MD88 Starlight Princess", "Starlight Princess 1000",
       "Gates of Olympus 1000", "Gates of Olympus Super Scatter",
@@ -130,17 +126,13 @@ export const PROMOTIONS_KB = [
     ],
     credit_timing:
       "100% bonus instant; 100 free spins credited next day 01:00 AM (GMT+8)",
-    howToClaim: [
+    how_to_apply_steps: [
       "Register an account with MD88 if you're not a member yet. https://m.md88top.com/en-MY/sign-up",
-      "Make your first deposit of MYR 50 or more.",
+      "Make your first deposit of MYR {{min_deposit}} or more.",
       "Go to the Promotions page and select this bonus.",
       "Enter the promo code [WELCOME100] if prompted.",
-      "Your 100% bonus is credited instantly; the 100 free spins are credited next day at 01:00 AM (GMT+8).",
+      "Your {{bonus_percent}}% bonus is credited instantly; the {{spins}} free spins are credited next day at 01:00 AM (GMT+8).",
     ],
-    detailClosingParagraph:
-      "Remember that this bonus is for new members only with a minimum deposit of MYR 50. The 100% bonus is capped at MYR 500 and carries a 15x wagering requirement on the bonus + deposit + free-spin value combined. Free spins are credited next day at 01:00 AM (GMT+8).",
-    claimClosingParagraph:
-      "Your 100 free spins are worth MYR 0.20 each and the wagering requirement is 15x on the bonus + deposit + free-spin value combined. If you have any questions about the terms or run into any issues, just let me know.",
   },
 ];
 
@@ -181,6 +173,118 @@ export function findPromoById(id) {
 export function formatExclusionLine(promo) {
   if (!promo || !Array.isArray(promo.excluded_games) || promo.excluded_games.length === 0) return "";
   return `🚫 Excluding: ${promo.excluded_games.join(", ")}`;
+}
+
+// ============================================================
+// getPromotionDisplayData — single formatter used by every UI surface
+// ============================================================
+//
+// Reads a promotion from PROMOTIONS_KB and returns a unified display
+// payload used by (a) the Step 3 detail chat bubble, (b) Step 5 claim
+// instructions, (c) any Knowledge Hub free-text reply. Any string that
+// mentions a number is ALWAYS derived from the structured fields — never
+// hand-typed — so changing (say) min_deposit for a promo automatically
+// updates every UI surface.
+
+function substituteTemplate(str, promo) {
+  if (!str) return "";
+  const spins = promo.free_spin_tiers?.[0]?.spins ?? 0;
+  return String(str)
+    .replace(/\{\{min_deposit\}\}/g, promo.min_deposit ?? "")
+    .replace(/\{\{bonus_percent\}\}/g, promo.bonus_percent ?? "")
+    .replace(/\{\{max_bonus\}\}/g, promo.max_bonus ?? "")
+    .replace(/\{\{turnover_multiplier\}\}/g, promo.turnover_multiplier ?? "")
+    .replace(/\{\{spin_value\}\}/g, promo.spin_value != null ? promo.spin_value.toFixed(2) : "")
+    .replace(/\{\{spins\}\}/g, spins);
+}
+
+function claimLimitDisplay(promo) {
+  if (promo.claim_limit === "once") return "once per member";
+  if (promo.claim_limit === "monthly") return "monthly";
+  return String(promo.claim_limit || "");
+}
+
+function bonusDescription(promo) {
+  if (promo.bonus_type === "percent") {
+    return `${promo.bonus_percent}% match on your deposit, up to MYR ${promo.max_bonus.toLocaleString("en-MY")}`;
+  }
+  if (promo.bonus_type === "free_spins") {
+    const ladder = promo.free_spin_tiers
+      .map((t) => `MYR ${t.deposit} → ${t.spins} spins`)
+      .join(" · ");
+    return `Free spins ladder: ${ladder} (each spin worth MYR ${promo.spin_value.toFixed(2)})`;
+  }
+  if (promo.bonus_type === "percent_plus_free_spins") {
+    const spins = promo.free_spin_tiers?.[0]?.spins ?? 0;
+    return `${promo.bonus_percent}% match up to MYR ${promo.max_bonus.toLocaleString("en-MY")} + ${spins} free spins @ MYR ${promo.spin_value.toFixed(2)} each`;
+  }
+  return "";
+}
+
+function turnoverDescription(promo) {
+  const mult = promo.turnover_multiplier;
+  if (promo.bonus_type === "percent") return `${mult}× (deposit + bonus)`;
+  if (promo.bonus_type === "free_spins") return `${mult}× (deposit + free-spin value)`;
+  if (promo.bonus_type === "percent_plus_free_spins") return `${mult}× (deposit + bonus + free-spin value)`;
+  return `${mult}×`;
+}
+
+function generatedDetailClosingParagraph(promo) {
+  if (promo.bonus_type === "percent") {
+    return `Remember that this bonus is valid for ${promo.bonus_validity || "7 days from issuance"} unless stated otherwise, carries a ${promo.turnover_multiplier}× wagering requirement on (deposit + bonus), and can be claimed ${claimLimitDisplay(promo)}. Specific terms and conditions apply to this promotion.`;
+  }
+  if (promo.bonus_type === "free_spins") {
+    return `Remember that free spins are credited ${promo.credit_timing}. This promotion can be claimed ${claimLimitDisplay(promo)}, and there are specific terms and conditions that apply.`;
+  }
+  if (promo.bonus_type === "percent_plus_free_spins") {
+    const spins = promo.free_spin_tiers?.[0]?.spins ?? 0;
+    return `Remember that this bonus requires a minimum deposit of MYR ${promo.min_deposit}. The ${promo.bonus_percent}% bonus is capped at MYR ${promo.max_bonus.toLocaleString("en-MY")}, ${spins} free spins are worth MYR ${promo.spin_value.toFixed(2)} each, and the wagering requirement is ${promo.turnover_multiplier}× on (deposit + bonus + free-spin value). ${promo.credit_timing}.`;
+  }
+  return "";
+}
+
+function generatedClaimClosingParagraph(promo) {
+  if (promo.bonus_type === "percent") {
+    return `Your bonus is valid for ${promo.bonus_validity || "7 days from issuance"} unless stated otherwise, and the wagering requirement is ${promo.turnover_multiplier}× on (deposit + bonus). If you have any questions about the terms or run into any issues, just let me know.`;
+  }
+  if (promo.bonus_type === "free_spins") {
+    return `Your free spins are ${promo.credit_timing}. If you have any questions about the terms or run into any issues, just let me know.`;
+  }
+  if (promo.bonus_type === "percent_plus_free_spins") {
+    const spins = promo.free_spin_tiers?.[0]?.spins ?? 0;
+    return `Your ${spins} free spins are worth MYR ${promo.spin_value.toFixed(2)} each and the wagering requirement is ${promo.turnover_multiplier}× on (deposit + bonus + free-spin value). If you have any questions about the terms or run into any issues, just let me know.`;
+  }
+  return "";
+}
+
+/**
+ * Returns the unified display payload for a promotion. Every downstream
+ * UI surface (Step 3 detail bubble, Step 5 claim bubble, KB text replies)
+ * MUST read from this — never from separately-typed copy.
+ */
+export function getPromotionDisplayData(promoIdOrPromo) {
+  const promo = typeof promoIdOrPromo === "string"
+    ? findPromoById(promoIdOrPromo)
+    : promoIdOrPromo;
+  if (!promo) return null;
+  return {
+    id: promo.id,
+    title: promo.title,
+    min_deposit: promo.min_deposit,
+    min_deposit_display: `MYR ${promo.min_deposit}`,
+    bonus_type: promo.bonus_type,
+    bonus_description: bonusDescription(promo),
+    turnover_description: turnoverDescription(promo),
+    bonus_validity: promo.bonus_validity || "7 days from issuance",
+    claim_limit_display: claimLimitDisplay(promo),
+    applicable_games: promo.applicable_games || [],
+    excluded_games: promo.excluded_games || [],
+    exclusion_line: formatExclusionLine(promo),
+    credit_timing: promo.credit_timing || "",
+    how_to_apply: (promo.how_to_apply_steps || []).map((s) => substituteTemplate(s, promo)),
+    detail_closing_paragraph: generatedDetailClosingParagraph(promo),
+    claim_closing_paragraph: generatedClaimClosingParagraph(promo),
+  };
 }
 
 // ============================================================
