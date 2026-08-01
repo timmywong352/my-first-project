@@ -80,7 +80,7 @@ function TypingDots({ label }) {
         <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "200ms", animationDuration: "1s" }} />
         <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "400ms", animationDuration: "1s" }} />
       </div>
-      {label && <span className="text-xs text-slate-500">{label} is typing…</span>}
+      {label && <span className="text-sm text-slate-500">{label} is typing…</span>}
     </div>
   );
 }
@@ -131,7 +131,7 @@ function AttachmentBubble({ att, sessionId, sessionToken, isCustomerSide }) {
       href={url}
       target="_blank"
       rel="noreferrer"
-      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs border ${
+      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm border ${
         isCustomerSide ? "bg-white/10 border-white/20 text-white" : "bg-white border-slate-200 text-slate-700"
       }`}
     >
@@ -148,20 +148,20 @@ function PromoChooseMethod({ t, onPick }) {
       className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-2"
       data-testid="promo-choose-method"
     >
-      <div className="rounded-2xl bg-slate-800/60 border border-slate-700 px-3 py-2 text-[13px] text-slate-100 leading-snug">
+      <div className="rounded-2xl bg-slate-800/60 border border-slate-700 px-3 py-2 text-sm text-slate-100 leading-snug">
         {t.stepChooseTitle}
       </div>
       <div className="grid grid-cols-1 gap-2 pt-1">
         <button
           onClick={() => onPick("pick")}
-          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+          className="text-sm font-semibold rounded-2xl px-3 py-3 bg-blue-500 hover:bg-blue-600 text-white transition-colors"
           data-testid="promo-pick-btn"
         >
           {t.pickPromoBtn}
         </button>
         <button
           onClick={() => onPick("page")}
-          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 text-slate-100 transition-colors"
+          className="text-sm font-semibold rounded-2xl px-3 py-3 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 text-slate-100 transition-colors"
           data-testid="promo-view-page-btn"
         >
           {t.viewPageBtn}
@@ -177,16 +177,16 @@ function PromoPickPromoPanel({ t, promotions, value, onChange, error, onSend, on
       className="px-3 py-3 bg-slate-900/70 backdrop-blur border-t border-slate-800 space-y-2"
       data-testid="promo-pick-panel"
     >
-      <div className="rounded-2xl bg-slate-800/60 border border-slate-700 px-3 py-2 text-[13px] text-slate-100 leading-snug">
+      <div className="rounded-2xl bg-slate-800/60 border border-slate-700 px-3 py-2 text-sm text-slate-100 leading-snug">
         {t.pickPromoIntro}
       </div>
-      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 pt-1">
+      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 pt-1">
         {t.dropdownLabel} <span className="text-red-400">*</span>
       </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-10 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-sm px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full h-10 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-base px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
         data-testid="promo-dropdown"
       >
         <option value="" disabled>{t.dropdownPlaceholder}</option>
@@ -195,18 +195,18 @@ function PromoPickPromoPanel({ t, promotions, value, onChange, error, onSend, on
         ))}
       </select>
       {error && (
-        <div className="text-[11px] text-red-400" data-testid="promo-dropdown-error">{error}</div>
+        <div className="text-xs text-red-400" data-testid="promo-dropdown-error">{error}</div>
       )}
       <button
         onClick={onSend}
-        className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+        className="w-full text-sm font-semibold rounded-2xl px-3 py-3 bg-blue-500 hover:bg-blue-600 text-white transition-colors"
         data-testid="promo-send-btn"
       >
         {t.sendBtn}
       </button>
       <button
         onClick={onCancel}
-        className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
+        className="w-full text-sm font-semibold rounded-2xl px-3 py-2 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
         data-testid="promo-nevermind-btn"
       >
         {t.neverMindBtn}
@@ -227,14 +227,14 @@ function PromoDetailPanel({ t, promo, onClaim, onViewOthers }) {
     >
       <button
         onClick={onClaim}
-        className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+        className="w-full text-sm font-semibold rounded-2xl px-3 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
         data-testid="promo-claim-now-btn"
       >
         {t.claimNowBtn}
       </button>
       <button
         onClick={onViewOthers}
-        className="w-full text-[13px] font-semibold rounded-2xl px-3 py-2 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
+        className="w-full text-sm font-semibold rounded-2xl px-3 py-2 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
         data-testid="promo-view-others-btn"
       >
         {t.viewOthersBtn}
@@ -270,7 +270,7 @@ function PromoRichModal({ displayData, generalTerms, onBack, onClaim }) {
           type="button"
           onClick={onBack}
           data-testid="promo-modal-back-btn"
-          className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-black/25 hover:bg-black/40 text-white text-[11px] font-semibold transition-colors"
+          className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-black/25 hover:bg-black/40 text-white text-xs font-semibold transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back
@@ -283,13 +283,13 @@ function PromoRichModal({ displayData, generalTerms, onBack, onClaim }) {
             <h2 className="text-white font-extrabold text-base leading-tight" data-testid="promo-modal-title">
               {displayData.title}
             </h2>
-            <p className="text-white/90 text-[11px] mt-1 leading-snug">{displayData.bonus_description}</p>
+            <p className="text-white/90 text-xs mt-1 leading-snug">{displayData.bonus_description}</p>
           </div>
         </div>
       </div>
 
       {/* Tags row */}
-      <div className="flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-slate-800 shrink-0 bg-slate-900/60">
+      <div className="flex flex-wrap gap-1.5 px-4 py-3 border-b border-slate-800 shrink-0 bg-slate-900/60">
         <PromoTag label="Min deposit" value={displayData.min_deposit_display} />
         <PromoTag label="Turnover" value={displayData.turnover_description} />
         <PromoTag label="Validity" value={displayData.bonus_validity} />
@@ -299,7 +299,7 @@ function PromoRichModal({ displayData, generalTerms, onBack, onClaim }) {
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         <PromoModalSection title="HOW TO APPLY" testid="promo-modal-how-to-apply">
-          <ol className="list-decimal list-inside text-[12px] text-slate-200 space-y-1.5 leading-snug">
+          <ol className="list-decimal list-inside text-sm text-slate-200 space-y-1.5 leading-snug">
             {displayData.how_to_apply.map((s, i) => (
               <li key={i}>{renderWithLinks(s)}</li>
             ))}
@@ -307,7 +307,7 @@ function PromoRichModal({ displayData, generalTerms, onBack, onClaim }) {
         </PromoModalSection>
 
         <PromoModalSection title="DETAILS" testid="promo-modal-details">
-          <div className="rounded-lg border border-slate-800 divide-y divide-slate-800 text-[12px]">
+          <div className="rounded-lg border border-slate-800 divide-y divide-slate-800 text-sm">
             <ModalDataRow label="Applicable games" value={displayData.applicable_games.join(", ") || "—"} />
             <ModalDataRow label="Credit timing" value={displayData.credit_timing || "—"} />
             <ModalDataRow label="Bonus type" value={displayData.bonus_description} />
@@ -315,12 +315,12 @@ function PromoRichModal({ displayData, generalTerms, onBack, onClaim }) {
         </PromoModalSection>
 
         <PromoModalSection title="TERMS & CONDITIONS" testid="promo-modal-terms">
-          <ol className="list-decimal list-inside text-[11px] text-slate-400 space-y-1 leading-snug">
+          <ol className="list-decimal list-inside text-xs text-slate-400 space-y-1 leading-snug">
             {(generalTerms || []).map((t, i) => (<li key={i}>{t}</li>))}
           </ol>
           {displayData.exclusion_line && (
             <div
-              className="mt-2 text-[12px] text-red-400 font-medium"
+              className="mt-2 text-sm text-red-400 font-medium"
               data-testid="promo-modal-exclusion-line"
             >
               {displayData.exclusion_line}
@@ -335,7 +335,7 @@ function PromoRichModal({ displayData, generalTerms, onBack, onClaim }) {
           type="button"
           onClick={onBack}
           data-testid="promo-modal-back-footer-btn"
-          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
+          className="text-sm font-semibold rounded-2xl px-3 py-3 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 transition-colors"
         >
           Back
         </button>
@@ -343,7 +343,7 @@ function PromoRichModal({ displayData, generalTerms, onBack, onClaim }) {
           type="button"
           onClick={onClaim}
           data-testid="promo-modal-claim-now-btn"
-          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+          className="text-sm font-semibold rounded-2xl px-3 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
         >
           Claim Now
         </button>
@@ -354,7 +354,7 @@ function PromoRichModal({ displayData, generalTerms, onBack, onClaim }) {
 
 function PromoTag({ label, value }) {
   return (
-    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800/70 border border-slate-700 text-[10px]">
+    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800/70 border border-slate-700 text-xs">
       <span className="text-slate-500 uppercase tracking-wider font-semibold">{label}</span>
       <span className="text-slate-100 font-semibold">{value}</span>
     </div>
@@ -364,7 +364,7 @@ function PromoTag({ label, value }) {
 function PromoModalSection({ title, children, testid }) {
   return (
     <div data-testid={testid}>
-      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">{title}</div>
+      <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">{title}</div>
       {children}
     </div>
   );
@@ -373,8 +373,8 @@ function PromoModalSection({ title, children, testid }) {
 function ModalDataRow({ label, value }) {
   return (
     <div className="flex gap-3 px-3 py-2">
-      <div className="w-1/3 text-slate-500 text-[11px] uppercase tracking-wider font-semibold">{label}</div>
-      <div className="flex-1 text-slate-200 text-[12px] leading-snug break-words">{value}</div>
+      <div className="w-1/3 text-slate-500 text-xs uppercase tracking-wider font-semibold">{label}</div>
+      <div className="flex-1 text-slate-200 text-sm leading-snug break-words">{value}</div>
     </div>
   );
 }
@@ -389,7 +389,7 @@ function PromoHandoffConfirm({ t, onYes, onNo, loading }) {
         <button
           onClick={onYes}
           disabled={loading}
-          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50"
+          className="text-sm font-semibold rounded-2xl px-3 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50"
           data-testid="promo-handoff-yes"
         >
           {t.confirmHandoffYes}
@@ -397,7 +397,7 @@ function PromoHandoffConfirm({ t, onYes, onNo, loading }) {
         <button
           onClick={onNo}
           disabled={loading}
-          className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 text-slate-100 transition-colors disabled:opacity-50"
+          className="text-sm font-semibold rounded-2xl px-3 py-3 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 text-slate-100 transition-colors disabled:opacity-50"
           data-testid="promo-handoff-no"
         >
           {t.confirmHandoffNo}
@@ -1131,7 +1131,7 @@ export default function ChatWidget() {
       {open && (
         <div
           data-testid="chat-widget"
-          className="fixed bottom-24 right-6 z-50 w-[380px] h-[640px] max-h-[88vh] bg-slate-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-slate-800"
+          className="fixed bottom-24 right-6 z-50 w-[calc(100vw-32px)] sm:w-[420px] h-[700px] max-h-[90vh] bg-slate-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-slate-800"
           style={{ animation: "widget-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
         >
           {/* Header — always Lily branded */}
@@ -1144,8 +1144,8 @@ export default function ChatWidget() {
                 <Sparkles className="w-4 h-4" />
               </div>
               <div>
-                <div className="font-bold text-sm leading-tight">{t("header_title")}</div>
-                <div className="text-[10px] opacity-90 flex items-center gap-1.5">
+                <div className="font-bold text-base leading-tight">{t("header_title")}</div>
+                <div className="text-xs opacity-90 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                   {phase === "closed"
                     ? "Chat ended"
@@ -1231,9 +1231,9 @@ export default function ChatWidget() {
           {phase === "connecting" && (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-slate-900" data-testid="connecting-view">
               <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-              <div className="text-sm text-slate-400">Waking Lily up…</div>
+              <div className="text-base text-slate-400">Waking Lily up…</div>
               {errorMsg && (
-                <div className="text-xs text-red-400 max-w-[280px] text-center px-4" data-testid="widget-error">{errorMsg}</div>
+                <div className="text-sm text-red-400 max-w-[280px] text-center px-4" data-testid="widget-error">{errorMsg}</div>
               )}
             </div>
           )}
@@ -1265,8 +1265,8 @@ export default function ChatWidget() {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold text-slate-100 leading-tight">Lily</div>
-                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                  <div className="text-base font-bold text-slate-100 leading-tight">Lily</div>
+                  <div className="text-xs text-slate-400 flex items-center gap-1.5">
                     {lilyLoading ? (
                       <>
                         <Loader2 className="w-3 h-3 animate-spin" />
@@ -1305,7 +1305,7 @@ export default function ChatWidget() {
                         {/* Sender tag above bubble (only for automated senders) */}
                         {!isCustomer && (
                           <div
-                            className={`text-[10px] font-semibold uppercase tracking-wider mb-1 px-1 ${
+                            className={`text-xs font-semibold uppercase tracking-wider mb-1 px-1 ${
                               isSystem ? "text-purple-400" : "text-emerald-400"
                             }`}
                             data-testid={`sender-tag-${isSystem ? "system" : "lily"}`}
@@ -1314,7 +1314,7 @@ export default function ChatWidget() {
                           </div>
                         )}
                         <div
-                          className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm whitespace-pre-wrap break-words leading-relaxed ${
+                          className={`px-4 py-3 text-base rounded-2xl shadow-sm whitespace-pre-wrap break-words leading-relaxed ${
                             isCustomer
                               ? "text-white rounded-tr-sm bg-blue-500"
                               : isSystem
@@ -1331,10 +1331,10 @@ export default function ChatWidget() {
                 {(isProcessing || lilyLoading) && (
                   <div className="flex justify-start" data-testid="processing-indicator">
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-1 px-1 text-slate-500">
+                      <div className="text-xs font-semibold uppercase tracking-wider mb-1 px-1 text-slate-500">
                         {lilyLoading ? "Lily" : "System"}
                       </div>
-                      <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-slate-800/70 border border-slate-700 text-slate-400 text-xs italic flex items-center gap-2">
+                      <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-slate-800/70 border border-slate-700 text-slate-400 text-sm italic flex items-center gap-2">
                         <TypingDots />
                         <span>{lilyLoading ? "Lily is thinking…" : "System is processing…"}</span>
                       </div>
@@ -1356,7 +1356,7 @@ export default function ChatWidget() {
                     <button
                       onClick={confirmDepositProceed}
                       disabled={lilyLoading}
-                      className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50"
+                      className="text-sm font-semibold rounded-2xl px-3 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50"
                       data-testid="deposit-confirm-yes"
                     >
                       {depositConfirmCopy.yes}
@@ -1364,7 +1364,7 @@ export default function ChatWidget() {
                     <button
                       onClick={cancelDepositConfirm}
                       disabled={lilyLoading}
-                      className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-red-500/40 text-slate-100 transition-colors disabled:opacity-50"
+                      className="text-sm font-semibold rounded-2xl px-3 py-3 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-red-500/40 text-slate-100 transition-colors disabled:opacity-50"
                       data-testid="deposit-confirm-no"
                     >
                       {depositConfirmCopy.no}
@@ -1432,7 +1432,7 @@ export default function ChatWidget() {
                       key={o.key}
                       onClick={() => chooseOption(o)}
                       disabled={lilyLoading}
-                      className="text-[13px] font-semibold rounded-2xl px-3 py-2.5 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 text-slate-100 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                      className="text-sm font-semibold rounded-2xl px-3 py-3 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 text-slate-100 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                       data-testid={`lily-option-${o.key}`}
                     >
                       <span className="text-base">{o.emoji}</span>
@@ -1457,12 +1457,12 @@ export default function ChatWidget() {
                     placeholder="Or type your question here…"
                     rows={1}
                     data-testid="chat-input"
-                    className="flex-1 resize-none min-h-[40px] max-h-24 rounded-xl bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 text-sm focus-visible:ring-blue-500"
+                    className="flex-1 resize-none min-h-[44px] max-h-24 rounded-xl bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 text-base focus-visible:ring-blue-500"
                   />
                   <Button
                     onClick={sendMessage}
                     size="icon"
-                    className="rounded-xl h-10 w-10 shrink-0 text-white bg-blue-500 hover:bg-blue-600"
+                    className="rounded-xl h-11 w-11 shrink-0 text-white bg-blue-500 hover:bg-blue-600"
                     data-testid="chat-send-btn"
                   >
                     <Send className="w-4 h-4" />
@@ -1479,8 +1479,8 @@ export default function ChatWidget() {
               <div className="mt-4 text-4xl font-extrabold text-slate-100 tracking-tight" data-testid="queue-position">
                 #{queuePosition ?? "—"}
               </div>
-              <div className="text-sm font-semibold text-slate-300 mt-1">You&apos;re in the queue</div>
-              <div className="text-xs text-slate-500 max-w-[280px] mt-2 mb-4">
+              <div className="text-base font-semibold text-slate-300 mt-1">You&apos;re in the queue</div>
+              <div className="text-sm text-slate-500 max-w-[280px] mt-2 mb-4">
                 All our agents are helping other customers. We&apos;ll connect you as soon as one is free.
               </div>
               <Clock className="w-4 h-4 text-slate-600 mb-3" />
@@ -1493,9 +1493,9 @@ export default function ChatWidget() {
               <LilyAvatar mode="2d" speaking={false} emotion="friendly" size={90} />
               <div className="mt-4 flex items-center gap-2 text-slate-100">
                 <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-                <span className="text-sm font-semibold">Connecting you to the next available agent…</span>
+                <span className="text-base font-semibold">Connecting you to the next available agent…</span>
               </div>
-              <div className="text-xs text-slate-500 max-w-[280px] mt-3">
+              <div className="text-sm text-slate-500 max-w-[280px] mt-3">
                 Hang tight — one of our agents is picking up your chat right now.
               </div>
             </div>
@@ -1514,7 +1514,7 @@ export default function ChatWidget() {
                       <div className="max-w-[85%] space-y-1.5" data-testid={`msg-${m.id}`}>
                         {!isCustomer && (isLily || isSystem) && (
                           <div
-                            className={`text-[10px] font-semibold uppercase tracking-wider px-1 ${
+                            className={`text-xs font-semibold uppercase tracking-wider px-1 ${
                               isSystem ? "text-purple-400" : "text-emerald-400"
                             }`}
                             data-testid={`sender-tag-${isSystem ? "system" : "lily"}`}
@@ -1534,7 +1534,7 @@ export default function ChatWidget() {
                         ))}
                         {m.content && (
                           <div
-                            className={`px-4 py-2.5 text-sm rounded-2xl shadow-sm whitespace-pre-wrap break-words ${
+                            className={`px-4 py-3 text-base rounded-2xl shadow-sm whitespace-pre-wrap break-words ${
                               isCustomer
                                 ? "text-white rounded-tr-sm bg-blue-500"
                                 : isSystem
@@ -1545,11 +1545,11 @@ export default function ChatWidget() {
                             }`}
                           >
                             {isCustomer ? m.content : renderWithLinks(m.content)}
-                            {m.edited && <span className="text-[10px] opacity-70 ml-1.5 italic">(edited)</span>}
+                            {m.edited && <span className="text-xs opacity-70 ml-1.5 italic">(edited)</span>}
                           </div>
                         )}
                         {isCustomer && (
-                          <div className="flex justify-end items-center gap-1 text-[10px] text-slate-500 pr-1">
+                          <div className="flex justify-end items-center gap-1 text-xs text-slate-500 pr-1">
                             {m.status === "read"
                               ? <CheckCheck className="w-3 h-3 text-blue-400" />
                               : <Check className="w-3 h-3" />}
@@ -1563,8 +1563,8 @@ export default function ChatWidget() {
                 {agentTyping && <TypingDots label="Agent" />}
                 {agentPreview && (
                   <div className="flex justify-start" data-testid="agent-typing-preview">
-                    <div className="max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm bg-slate-800/60 text-slate-400 italic border border-dashed border-slate-700">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 not-italic mr-1.5">Agent is typing:</span>
+                    <div className="max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-3 text-base bg-slate-800/60 text-slate-400 italic border border-dashed border-slate-700">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500 not-italic mr-1.5">Agent is typing:</span>
                       {agentPreview}
                     </div>
                   </div>
@@ -1575,7 +1575,7 @@ export default function ChatWidget() {
               {pendingAttachments.length > 0 && (
                 <div className="px-3 py-3 border-t border-slate-800 bg-slate-800/50 space-y-2" data-testid="attach-tray">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
                       <div className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
                         <Check className="w-2.5 h-2.5" />
                       </div>
@@ -1583,7 +1583,7 @@ export default function ChatWidget() {
                     </div>
                     <button
                       onClick={() => setPendingAttachments([])}
-                      className="text-[11px] text-slate-500 hover:text-slate-300"
+                      className="text-xs text-slate-500 hover:text-slate-300"
                       data-testid="attach-clear-all"
                     >
                       Clear
@@ -1605,7 +1605,7 @@ export default function ChatWidget() {
                           ) : (
                             <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-1 px-2 text-center">
                               <FileText className="w-6 h-6" />
-                              <span className="text-[9px] truncate max-w-full leading-tight">{a.filename}</span>
+                              <span className="text-xs truncate max-w-full leading-tight">{a.filename}</span>
                             </div>
                           )}
                           <button
@@ -1632,7 +1632,7 @@ export default function ChatWidget() {
                   </div>
                   <Button
                     onClick={sendMessage}
-                    className="w-full h-10 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm shadow-lg shadow-blue-500/20"
+                    className="w-full h-10 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base shadow-lg shadow-blue-500/20"
                     data-testid="attach-send-btn"
                   >
                     Send {pendingAttachments.length > 1 ? "files" : "file"}
@@ -1666,7 +1666,7 @@ export default function ChatWidget() {
                             fileInputRef.current.click();
                           }
                         }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-slate-700/70 text-sm text-slate-100 text-left"
+                        className="w-full flex items-center gap-2.5 px-3 py-3 rounded-lg hover:bg-slate-700/70 text-base text-slate-100 text-left"
                         data-testid="attach-send-file"
                       >
                         <FileText className="w-4 h-4 text-blue-400" />
@@ -1679,7 +1679,7 @@ export default function ChatWidget() {
                             fileInputRef.current.click();
                           }
                         }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-slate-700/70 text-sm text-slate-100 text-left"
+                        className="w-full flex items-center gap-2.5 px-3 py-3 rounded-lg hover:bg-slate-700/70 text-base text-slate-100 text-left"
                         data-testid="attach-add-screenshot"
                       >
                         <Camera className="w-4 h-4 text-blue-400" />
@@ -1709,12 +1709,12 @@ export default function ChatWidget() {
                     placeholder={t("input_placeholder")}
                     rows={1}
                     data-testid="chat-input"
-                    className="flex-1 resize-none min-h-[40px] rounded-xl bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 text-sm focus-visible:ring-blue-500 leading-relaxed"
+                    className="flex-1 resize-none min-h-[44px] rounded-xl bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 text-base focus-visible:ring-blue-500 leading-relaxed"
                   />
                   <Button
                     onClick={sendMessage}
                     size="icon"
-                    className="rounded-xl h-10 w-10 shrink-0 text-white bg-blue-500 hover:bg-blue-600"
+                    className="rounded-xl h-11 w-11 shrink-0 text-white bg-blue-500 hover:bg-blue-600"
                     data-testid="chat-send-btn"
                   >
                     <Send className="w-4 h-4" />
@@ -1726,13 +1726,13 @@ export default function ChatWidget() {
 
           {phase === "closed" && (
             <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center bg-slate-900" data-testid="chat-closed-view">
-              <div className="w-full mb-4 px-4 py-3 rounded-xl bg-slate-800 text-slate-200 text-sm border border-slate-700 shadow-sm" data-testid="chat-closed-banner">
+              <div className="w-full mb-4 px-4 py-3 rounded-xl bg-slate-800 text-slate-200 text-base border border-slate-700 shadow-sm" data-testid="chat-closed-banner">
                 {closedNotice || "This chat has ended. Thanks for chatting with us!"}
               </div>
               {!csatSubmitted ? (
                 <>
                   <h3 className="text-xl font-extrabold text-slate-100 mb-2">Rate your experience</h3>
-                  <p className="text-sm text-slate-400 mb-6">How was your chat with Lily and our team?</p>
+                  <p className="text-base text-slate-400 mb-6">How was your chat with Lily and our team?</p>
                   <div className="flex gap-2 mb-8">
                     {[1, 2, 3, 4, 5].map((r) => (
                       <button
@@ -1752,7 +1752,7 @@ export default function ChatWidget() {
                     <CheckCheck className="w-8 h-8 text-emerald-400" />
                   </div>
                   <h3 className="text-xl font-extrabold text-slate-100 mb-2">Thanks for your feedback!</h3>
-                  <p className="text-sm text-slate-400 mb-6">See you next time.</p>
+                  <p className="text-base text-slate-400 mb-6">See you next time.</p>
                 </>
               )}
               <Button onClick={endChat} variant="outline" data-testid="start-new-chat-btn" className="border-blue-500/60 text-blue-300 hover:bg-blue-500/10 hover:text-blue-200 bg-transparent">

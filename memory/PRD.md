@@ -58,6 +58,12 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
+- **2026-02-17**: **Widget enlargement + typography bump** (iter32, self-tested via 4 state screenshots). Sizing/typography pass only — no color, spacing-logic, or feature-behavior changes.
+  - Widget container: `w-[380px] h-[640px] max-h-[88vh]` → `w-[calc(100vw-32px)] sm:w-[420px] h-[700px] max-h-[90vh]` (responsive fallback for mobile).
+  - Font sizes bumped one step widget-wide (in order to avoid double-conversion): `text-sm` → `text-base`, `text-xs` → `text-sm`, `text-[9px]|[10px]|[11px]` → `text-xs`, `text-[12px]|[13px]` → `text-sm`.
+  - Proportional padding bumps: message bubble `py-2.5` → `py-3`, send button `h-10 w-10` → `h-11 w-11`, textarea `min-h-[40px]` → `min-h-[44px]`.
+  - PromoRichModal scales automatically (uses widget-wide font utilities).
+  - Verified via 4-state screenshot pass: launcher FAB, Lily frontdesk (greeting + 4 quick options + compact avatar strip), Promo Rich Modal top, Promo Rich Modal scrolled to terms. Widget bounding box confirmed at 420×700. Text now clearly readable; no clipping, no layout breaks.
 - **2026-02-17**: **Rich promo modal replaces text-bubble Step 3** (iter31, 100% PASS, 10/10 acceptance criteria). Customer picks a promo from Step 2 dropdown → Send → **rich visual modal opens directly** (banner gradient + icon + title, MIN DEPOSIT/TURNOVER/VALIDITY/CLAIM chips, HOW TO APPLY numbered steps, DETAILS data table, 10 GENERAL_TERMS + 🚫 exclusion line, Back + Claim Now footer buttons). No intermediate text bubble.
   - New `PromoRichModal` component in ChatWidget renders as `absolute inset-0 z-30` overlay over the Lily stage. Themed gradients per promo id (purple/pink for 288%, amber/orange for 188fs, emerald/cyan for 100%+100FS).
   - All modal content is derived from `PROMOTIONS_KB` via `getPromotionDisplayData` — zero hand-typed numbers, exclusion lists, or step wording. Same single-source-of-truth pattern as iter30.
