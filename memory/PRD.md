@@ -58,6 +58,14 @@ digital human "Lily"**.
 ```
 
 ## What's Been Implemented
+- **2026-02-16**: **Knowledge Hub for Lily's text-based auto-reply (promotions)** (iter29, 100% PASS, 35/35 unit tests + 11/11 E2E). Replaces "any free text = immediate handoff" with "check knowledge hub first, handoff only if no match". Deterministic keyword+math — NO LLM.
+  - `/app/frontend/src/lib/knowledgeHub.js`: source-of-truth `PROMOTIONS_KB` for the 3 MD88 promos with keywords, min_deposit, bonus math, applicable/excluded games, credit_timing. `GENERAL_TERMS` (10 items). `FAQS/POLICIES` empty stubs for the follow-up task.
+  - `calculatePromoOutcome(promo, deposit)` engine with 3 branches (percent / free_spins / percent_plus_free_spins), min-deposit gating, cap at `max_bonus`, and nearest-at-or-below tier fallback for spin ladders.
+  - `matchKnowledgeHub(text)` uses **longest-keyword-hit scoring** for deterministic disambiguation. `extractDepositAmount()` strips `\d+%` first so promo-name mentions don't misread as amounts.
+  - `formatExclusionLine(promo)` derives `🚫 Excluding: X, Y, Z` from `excluded_games` at render time — used in KB replies AND guided Step 3 detail bubble; NO hardcoded exclusion strings anywhere.
+  - `formatKnowledgeHubReply()` composes SYSTEM bubble: calc breakdown + GENERAL_TERMS + exclusion line, OR general summary + prompt for amount.
+  - `knowledgeHub.test.mjs`: 35 Node-runnable unit tests (4 spec examples + edge cases + matcher + amount extraction) — all passing.
+  - `ChatWidget.sendMessage` Lily branch now calls `matchKnowledgeHub` before falling back to handoff (only when NOT inside `activePromoId` guided flow — quick options and guided Promotions untouched).
 - **2026-02-15**: **Lily-only greeting + SYSTEM messages + 3-dot typing indicator** (iter27→iter28, 100% PASS after fixing the phase='chat' renderer bug). Semantic + visual refactor of Lily's chat log:
   - `sayLily` → `saySystem`: now pushes `sender_type='system'` (never speaks TTS). Client-side utterances (promo copy, deposit gate, transitions, keyword replies, "Great — connecting…") all become SYSTEM messages. The greeting bubble remains as the ONLY Lily message.
   - New `isProcessing` state — set to `true` for 500ms before every `saySystem` push, so a WhatsApp-style 3-dot animated indicator ("System is processing…" or "Lily is thinking…" during real async) appears immediately after clicks, then disappears when the bubble arrives.
