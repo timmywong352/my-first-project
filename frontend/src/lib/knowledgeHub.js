@@ -157,7 +157,111 @@ export const GENERAL_TERMS = [
 // FAQS + POLICIES — placeholder for the follow-up task
 // ============================================================
 
-export const FAQS = [];
+// ============================================================
+// FAQS — informational (no calculation)
+// ============================================================
+// Matched via keyword scoring in matchKnowledgeHub. Each entry returns
+// its `answer` string directly when matched.
+
+export const FAQS = [
+  {
+    id: "daily_rebate",
+    keywords: ["rebate", "daily rebate", "918kiss rebate", "rebate not counted", "why is my rebate low"],
+    answer:
+      "Rebate is credited automatically before 3:00 AM the next day. You're eligible if your daily turnover exceeds RM200. The rebate amount depends on your turnover, game type, and VIP level. Please note: Pussy888, Mega888, 918Kiss, and all Blackjack 21 games are not eligible for rebate.",
+  },
+  {
+    id: "weekly_rescue_bonus",
+    keywords: ["rescue bonus", "weekly rescue", "net loss bonus", "monday bonus", "weekly loss claim"],
+    answer:
+      "If your weekly net loss reaches RM1,000 or more, you can claim the Weekly Rescue Bonus by visiting the Promotion page every Monday and clicking 'Apply.' Applications are only accepted on Mondays — late applications after Monday will not be eligible. Net Loss is calculated as Gross Loss minus Bonus minus Rebate. This bonus is not valid for Poker, Allbet, or Lottery games. The bonus amount depends on your member tier and net loss, up to a maximum of RM6,888.",
+  },
+  {
+    id: "password_reset",
+    keywords: ["forgot password", "reset password", "can't login", "cannot log in", "password"],
+    answer:
+      "You can reset your password here: https://m.md88-safe.com/my/forget. Please follow the instructions on the page. If you still haven't received your reset link, please let us know again.",
+  },
+  {
+    id: "registration",
+    keywords: ["how to register", "sign up", "create account", "new account", "register"],
+    answer:
+      "To register, visit https://m.md88-safe.com/en-MY/sign-up, click Register, set your username and password, enter your real name (must match your bank account), and fill in your phone number, email, and date of birth. After registering, you can claim your welcome bonus!",
+  },
+  {
+    id: "referral_program",
+    keywords: ["referral", "invite friends", "commission", "refer a friend", "referral bonus"],
+    answer:
+      "Invite friends to register and play, and earn referral commission daily! Log in to your MD88 account, go to the Referral page to copy your referral link, and invite friends through it. You'll earn 0.3% commission on slot games and 0.2% on live/sports betting, up to a daily maximum of MYR 500, with a 1x turnover requirement. Bonuses are automatically credited to your Bonus Wallet daily and can be transferred via My Account > Referral > Transfer to Cash. Not applicable to 4D lottery, poker, 918Kiss, Mega888, or Pussy888.",
+  },
+  {
+    id: "silver_upgrade_requirement",
+    keywords: ["upgrade to silver", "how to become silver", "silver member requirement", "vip requirement", "how to upgrade vip", "become vip"],
+    answer:
+      "Each member needs to make a minimum deposit of RM150,000 within a month to be eligible to upgrade to Silver member.",
+  },
+  {
+    id: "birthday_bonus_info",
+    // Info-only match; the CLAIM intent has its own matcher below and
+    // takes precedence in ChatWidget's sendMessage.
+    keywords: [
+      "birthday bonus", "birthday promo", "birthday promotion",
+      "what is birthday bonus", "birthday reward",
+    ],
+    answer:
+      "🎂 Our VIP Birthday Bonus offers RM288 up to RM1,288, exclusively for our Silver, Gold, and Platinum members! To be eligible, you need to have made at least 10 deposits of RM30 or more across the 3 months prior to your birthday month, plus submit your IC photo and a selfie with your IC. Ready to claim? Just say \"claim my birthday bonus\" and I'll walk you through it.",
+  },
+];
+
+export function matchFAQ(text) {
+  if (!text || String(text).trim().length < 2) return null;
+  const low = String(text).toLowerCase();
+  let best = null;
+  let bestScore = 0;
+  for (const faq of FAQS) {
+    let score = 0;
+    for (const kw of faq.keywords) {
+      if (kw && low.includes(kw.toLowerCase())) {
+        if (kw.length > score) score = kw.length;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = faq;
+    }
+  }
+  if (!best) return null;
+  return { faq: best, reply: best.answer };
+}
+
+// ============================================================
+// Birthday Bonus — claim-intent detection + claim instructions
+// ============================================================
+
+const BIRTHDAY_CLAIM_KEYWORDS = [
+  "claim birthday", "claim my birthday", "want to claim birthday",
+  "want to claim my birthday", "how do i claim birthday", "how to claim birthday",
+  "how to claim my birthday", "claim the birthday bonus",
+];
+
+/** Returns "claim" for claim-intent, or null. General info questions fall
+ *  through to the birthday_bonus_info FAQ entry via matchFAQ. */
+export function matchBirthdayClaimIntent(text) {
+  if (!text) return null;
+  const low = String(text).toLowerCase();
+  return BIRTHDAY_CLAIM_KEYWORDS.some((k) => low.includes(k)) ? "claim" : null;
+}
+
+export const BIRTHDAY_CLAIM_INSTRUCTIONS =
+  "Great! Here's how to claim your VIP Birthday Bonus:\n" +
+  "1. Ensure you've made at least 10 deposits of RM30 or more across the 3 months before your birthday month.\n" +
+  "2. Submit a clear photo of your IC (front side) via the Promotion page.\n" +
+  "3. Submit a selfie of yourself holding your IC (both must be clearly visible).\n\n" +
+  "Once your documents are verified, your bonus (RM288 up to RM1,288 depending on your tier and deposit history) will be credited within 24 hours. If you have any questions, just let me know!";
+
+export const BIRTHDAY_INELIGIBLE_BRONZE =
+  "After checking, the VIP Birthday bonus is eligible only for Silver members. Since you are currently a Bronze member, you are not eligible for the VIP bonus at this time. If you have any other questions or need further assistance, feel free to ask!";
+
 export const POLICIES = [];
 
 // ============================================================

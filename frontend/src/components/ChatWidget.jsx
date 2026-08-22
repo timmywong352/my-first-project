@@ -37,7 +37,12 @@ import {
   promoStrings,
   PROMOTIONS_PAGE_URL,
 } from "@/lib/promotions";
-import { matchKnowledgeHub, formatExclusionLine, getPromotionDisplayData, GENERAL_TERMS, answerCalculationForPromo, findPromoById } from "@/lib/knowledgeHub";
+import {
+  matchKnowledgeHub, formatExclusionLine, getPromotionDisplayData, GENERAL_TERMS,
+  answerCalculationForPromo, findPromoById, matchFAQ, matchBirthdayClaimIntent,
+  BIRTHDAY_CLAIM_INSTRUCTIONS, BIRTHDAY_INELIGIBLE_BRONZE,
+} from "@/lib/knowledgeHub";
+import { checkMemberTier, isTierEligibleForBirthdayBonus } from "@/lib/memberTierCheck";
 
 const SOUND_KEY = "pulse_sound_on";
 
@@ -437,6 +442,9 @@ export default function ChatWidget() {
   });
   // Which quick-option is currently awaiting Yes/No confirm ({} when idle).
   const [pendingConfirm, setPendingConfirm] = useState(null);
+  // Birthday Bonus tier-check flow: when set, the customer's next
+  // message is treated as their username for the mock tier lookup.
+  const [awaitingBirthdayUsername, setAwaitingBirthdayUsername] = useState(false);
 
   // ---------- Promotions flow (self-contained, non-LLM) ----------
   // promoStep: null | "choose_method" | "pick_promo" | "detail" |
@@ -962,6 +970,38 @@ export default function ChatWidget() {
 
       // Show the customer's own message immediately as a bubble in the log.
       if (userText) pushLocalCustomer(userText);
+
+      // ── Birthday Bonus tier-check flow ────────────────────────────
+      // If we asked for a username in the previous turn, this reply is
+      // treated as the username. Runs BEFORE all other matchers.
+      if (awaitingBirthdayUsername) {
+        setAwaitingBirthdayUsername(false);
+        const { tier } = checkMemberTier(userText);
+        if (isTierEligibleForBirthdayBonus(tier)) {
+          saySystem(BIRTHDAY_CLAIM_INSTRUCTIONS);
+        } else {
+          saySystem(BIRTHDAY_INELIGIBLE_BRONZE);
+        }
+        return;
+      }
+
+      // Birthday-claim intent triggers the username request. This must
+      // be checked BEFORE the FAQ matcher so "claim my birthday bonus"
+      // routes to the tier flow rather than the info FAQ.
+      if (matchBirthdayClaimIntent(userText) === "claim") {
+        setAwaitingBirthdayUsername(true);
+        saySystem("Sure! Could you share your username so I can check your eligibility for the Birthday Bonus?");
+        return;
+      }
+
+      // FAQ matcher — returns informational answers (no calc). Runs both
+      // inside and outside active-promo flow so common questions (rebate,
+      // password reset, registration, referral, VIP tier) always work.
+      const faqHit = matchFAQ(userText);
+      if (faqHit) {
+        saySystem(faqHit.reply);
+        return;
+      }
 
       // Promotions flow: while the customer is inside an active promo
       // conversation, route their text through this three-priority ladder

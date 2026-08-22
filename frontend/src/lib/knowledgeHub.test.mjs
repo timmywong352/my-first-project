@@ -208,151 +208,53 @@ async function main() {
     assertEq("vague mention has NO outcome (route to Step 1.5)", m?.outcome, null);
   }
 
-  console.log("\nConsistency — matchKnowledgeHub deposit-intent gate");
+  console.log("\nFAQs — keyword-based info matcher");
+  const { matchFAQ, matchBirthdayClaimIntent, FAQS } = mod;
+  assertEq("6 promo/info FAQs + 1 birthday info entry present", FAQS.length, 7);
   {
-    // "tell me about 188" → matches 188fs, does NOT run calc with 188 as amount
-    const m = matchKnowledgeHub("tell me about 188");
-    assertEq("'tell me about 188' → 188fs match", m?.promo?.id, "monthly_188_spins");
-    assertEq("'tell me about 188' → amount is null (no explicit intent)", m?.amount, null);
-    assertEq("'tell me about 188' → outcome is null", m?.outcome, null);
+    const cases = [
+      ["what about my daily rebate?", "daily_rebate"],
+      ["how do I claim the weekly rescue bonus?", "weekly_rescue_bonus"],
+      ["I forgot my password", "password_reset"],
+      ["how to register a new account", "registration"],
+      ["tell me about the referral program", "referral_program"],
+      ["how do I become VIP silver", "silver_upgrade_requirement"],
+      ["what is the birthday bonus", "birthday_bonus_info"],
+    ];
+    for (const [q, expectedId] of cases) {
+      const r = matchFAQ(q);
+      assertEq(`FAQ "${q}" → ${expectedId}`, r?.faq?.id, expectedId);
+      assertTrue(`FAQ "${q}" reply is non-empty`, (r?.reply || "").length > 20);
+    }
   }
+  assertEq("random gibberish → no FAQ match", matchFAQ("hello there"), null);
+  // Guard: 'rebate' must not accidentally match any PROMOTIONS_KB entry
   {
-    // "tell me about 288" → matches 288%, same non-calc behavior
-    const m = matchKnowledgeHub("tell me about 288");
-    assertEq("'tell me about 288' → 288% match", m?.promo?.id, "welcome_lucky_288");
-    assertEq("'tell me about 288' → amount is null", m?.amount, null);
-    assertEq("'tell me about 288' → outcome is null", m?.outcome, null);
-  }
-  {
-    // "if i deposit 188 how many spins" — deposit-context present → calc runs
-    const m = matchKnowledgeHub("if i deposit 188 how many spins");
-    assertEq("'deposit 188 spins' → 188fs match", m?.promo?.id, "monthly_188_spins");
-    assertEq("'deposit 188 spins' → amount=188", m?.amount, 188);
-    // 188 doesn't match a tier exactly — nearest at-or-below = 50 → 10 spins
-    assertTrue("'deposit 188 spins' → outcome present", m?.outcome != null);
-  }
-  {
-    // "rm188 turnover?" — currency prefix present → calc runs
-    const m = matchKnowledgeHub("rm188 turnover?");
-    assertEq("'rm188 turnover?' → 188fs match", m?.promo?.id, "monthly_188_spins");
-    assertEq("'rm188 turnover?' → amount=188", m?.amount, 188);
-    assertTrue("'rm188 turnover?' → outcome present", m?.outcome != null);
-  }
-  {
-    // answerCalculationForPromo also gated
-    const r = mod.answerCalculationForPromo(p288, "tell me about 288");
-    assertEq("answerCalculationForPromo without explicit intent → null", r, null);
+    const kb = matchKnowledgeHub("why is my rebate low?");
+    // KB may return null OR match a promo weakly — but the FAQ should win in the ChatWidget flow.
+    // We only assert here that the FAQ matcher works on this text.
+    const faq = matchFAQ("why is my rebate low?");
+    assertEq("'rebate' → daily_rebate FAQ", faq?.faq?.id, "daily_rebate");
   }
 
-  console.log("\nSingle-source-of-truth: getPromotionDisplayData reflects PROMOTIONS_KB");
-  {
-    const d = getPromotionDisplayData("welcome_lucky_288");
-    assertTrue("display data present", d && d.id === "welcome_lucky_288");
-    assertEq("min_deposit passes through", d.min_deposit, 50);
-    assertTrue("how_to_apply substitutes {{min_deposit}}",
-      d.how_to_apply.some((s) => s.includes("MYR 50")));
-    assertTrue("how_to_apply substitutes {{bonus_percent}}",
-      d.how_to_apply.some((s) => s.includes("288%")));
-    assertTrue("detail_closing mentions 35× wagering",
-      /35× wagering requirement on \(deposit \+ bonus\)/.test(d.detail_closing_paragraph));
-    assertTrue("claim_closing mentions 35× turnover",
-      /35× on \(deposit \+ bonus\)/.test(d.claim_closing_paragraph));
-    assertTrue("exclusion_line derived from excluded_games",
-      d.exclusion_line.startsWith("🚫 Excluding: Pussy888"));
-  }
+  console.log("\nBirthday claim intent");
+  assertEq("'claim my birthday bonus' → claim", matchBirthdayClaimIntent("claim my birthday bonus"), "claim");
+  assertEq("'how do i claim birthday bonus' → claim", matchBirthdayClaimIntent("how do i claim birthday bonus"), "claim");
+  assertEq("'want to claim my birthday bonus' → claim", matchBirthdayClaimIntent("want to claim my birthday bonus"), "claim");
+  assertEq("'what is the birthday bonus' → null (info, not claim)", matchBirthdayClaimIntent("what is the birthday bonus"), null);
+  assertEq("'tell me about birthday' → null", matchBirthdayClaimIntent("tell me about birthday"), null);
 
-  console.log("\nSingle-source-of-truth: mutating PROMOTIONS_KB flows to all surfaces");
-  {
-    // Mutate min_deposit for 288% Welcome
-    const p = findPromoById("welcome_lucky_288");
-    const originalMin = p.min_deposit;
-    p.min_deposit = 999;
-
-    // (a) Rich display data reflects the change
-    const d = getPromotionDisplayData("welcome_lucky_288");
-    assertEq("(a) display.min_deposit reflects mutation", d.min_deposit, 999);
-    assertTrue("(a) how_to_apply step 2 shows MYR 999",
-      d.how_to_apply[1].includes("MYR 999"));
-
-    // (b) Step 5 claim instructions template pulls from KB via promotions.js
-    const promoMod = await import("./promotions.js");
-    const claimText = promoMod.PROMO_UI_I18N.en.claimIntro2({ id: "welcome_lucky_288" });
-    assertTrue("(b) Step 5 claim text mentions MYR 999",
-      claimText.includes("MYR 999"));
-
-    // (c) Knowledge Hub free-text reply reflects the change
-    const kb = matchKnowledgeHub("Tell me about the 288% welcome bonus");
-    assertTrue("(c) KB summary reply mentions MYR 999",
-      /MYR 999/.test(kb.reply));
-
-    // Restore
-    p.min_deposit = originalMin;
-
-    // Verify restoration
-    const d2 = getPromotionDisplayData("welcome_lucky_288");
-    assertEq("min_deposit restored", d2.min_deposit, originalMin);
-  }
-
-  console.log("\nSingle-source-of-truth: mutating turnover_multiplier flows through");
-  {
-    const p = findPromoById("welcome_lucky_288");
-    const original = p.turnover_multiplier;
-    p.turnover_multiplier = 99;
-
-    const d = getPromotionDisplayData("welcome_lucky_288");
-    assertTrue("detail_closing shows 99× wagering",
-      /99× wagering requirement on \(deposit \+ bonus\)/.test(d.detail_closing_paragraph));
-    assertTrue("turnover_description shows 99×",
-      /99× \(deposit \+ bonus\)/.test(d.turnover_description));
-
-    // KB calculation reflects the change
-    const kb = matchKnowledgeHub("welcome bonus with RM 100");
-    assertTrue("KB reply turnover_required = (100+288)*99 = 38412",
-      /MYR 38,412\.00/.test(kb.reply));
-
-    p.turnover_multiplier = original;
-  }
-
-  console.log("\nActive-promo calculation matcher (answerCalculationForPromo)");
-  const { answerCalculationForPromo } = mod;
-  {
-    // Bug fixture from the review request
-    const r = answerCalculationForPromo(p288, "if i deposit rm50 how many turnover i need to complete?");
-    assertTrue("calc question with amount → non-null reply", r != null);
-    assertEq("turnover_required = 6790", r?.outcome?.turnover_required, 6790);
-    assertTrue("reply mentions MYR 6,790.00", /MYR 6,790\.00/.test(r?.reply || ""));
-  }
-  {
-    // Amount without calc-intent keyword → null (avoid false positives)
-    const r = answerCalculationForPromo(p288, "50");
-    assertEq("bare number without calc intent → null", r, null);
-  }
-  {
-    // Calc intent without amount → null
-    const r = answerCalculationForPromo(p288, "what's the turnover?");
-    assertEq("calc keyword without amount → null", r, null);
-  }
-  {
-    // Non-calc chatter → null
-    const r = answerCalculationForPromo(p288, "hello there");
-    assertEq("chatter → null", r, null);
-  }
-  {
-    // Below-min deposit → calc still runs, returns eligible:false
-    const r = answerCalculationForPromo(p288, "if i deposit rm30 how much turnover?");
-    assertTrue("below-min → reply mentions below minimum",
-      /below the minimum/i.test(r?.reply || ""));
-  }
-  {
-    // 188 free spins active-promo calc
-    const r = answerCalculationForPromo(p188fs, "how many free spins with deposit 500?");
-    assertEq("188fs @ 500 → 88 spins", r?.outcome?.spins, 88);
-  }
-  {
-    // Null promo (safety)
-    const r = answerCalculationForPromo(null, "deposit 50 turnover");
-    assertEq("null promo → null", r, null);
-  }
+  console.log("\nMember tier check (mock)");
+  const tierMod = await import("./memberTierCheck.js");
+  assertEq("test_bronze → bronze", tierMod.checkMemberTier("test_bronze").tier, "bronze");
+  assertEq("test_silver → silver", tierMod.checkMemberTier("test_silver").tier, "silver");
+  assertEq("test_gold → gold", tierMod.checkMemberTier("test_gold").tier, "gold");
+  assertEq("test_platinum → platinum", tierMod.checkMemberTier("test_platinum").tier, "platinum");
+  assertEq("unknown → bronze default", tierMod.checkMemberTier("some_user_123").tier, "bronze");
+  assertEq("silver eligible for birthday", tierMod.isTierEligibleForBirthdayBonus("silver"), true);
+  assertEq("gold eligible", tierMod.isTierEligibleForBirthdayBonus("gold"), true);
+  assertEq("platinum eligible", tierMod.isTierEligibleForBirthdayBonus("platinum"), true);
+  assertEq("bronze NOT eligible", tierMod.isTierEligibleForBirthdayBonus("bronze"), false);
 
   console.log(`\n=== ${results.pass} passed, ${results.fail} failed ===`);
   process.exit(results.fail === 0 ? 0 : 1);

@@ -36,7 +36,7 @@ export const PROMOTIONS = PROMOTIONS_KB.map((kb) => {
   };
 });
 
-export const PROMOTIONS_PAGE_URL = "https://m.md88top.com/ms-MY/promotions";
+export const PROMOTIONS_PAGE_URL = "https://m.md88-safe.com/en-MY/promotions";
 
 export function findPromotion(id) {
   return PROMOTIONS.find((p) => p.id === id) || null;
