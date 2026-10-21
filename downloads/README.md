@@ -5,7 +5,7 @@ Download `SMART-Reply-0.8.5.zip`, extract it, and use the contained `Smart Reply
 SHA-256:
 
 ```text
-4912530ec21a04de2a5321a234a228b8954dd948e5efab3260cb505c243105e9
+e0cd7926b2d11d0d1815900d7ebacee528d3217e8d58b7d02161fe0e8dbbaba1
 ```
 
 This release adds local English, Malay, and Chinese customer-ready account replies with guarded Copy and Use in LiveChat actions. Nothing sends automatically.
