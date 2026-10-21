@@ -1,0 +1,9 @@
+{
+  "version": "0.8.1",
+  "sha256": "A1EF26B52E50877B5B4B31B9124CB849F067D81185DD5C1DF0E7D4F8F27EFF71",
+  "notes": [
+    "Split the Reply workspace into two clear routes: an immediate approved-knowledge reply for common questions, or an operator handoff for enquiries that need confirmation.",
+    "Add a three-step WeChat handoff: prepare and copy the current enquiry, paste the operator's confirmed answer, then prepare a customer-ready reply in the detected language.",
+    "Keep unfinished operator handoffs in memory when switching between LiveChat conversations. Nothing is stored after the page closes, and customer messages are never sent automatically."
+  ]
+}
