@@ -1,0 +1,9 @@
+{
+  "version": "0.8.3",
+  "sha256": "20EF5804DB66CB8638E2473BFB1F0B0A19E1AC3B3F3A24911D75DA1CD6DC96F4",
+  "notes": [
+    "Add the Withdrawal Turnover report to the one-click username summary and use the Checking Turnover duration start as the latest-deposit time.",
+    "List every provider with turnover above 0.000, including the exact three-decimal amount, and show the newest uniquely confirmed promotion from Checking Turnover Status.",
+    "Compare promotion confirmation with the latest-deposit time while respecting Unfinished and Finish Turnover statuses. Do not infer remaining promotion balance or withdrawal eligibility from timestamps alone."
+  ]
+}
