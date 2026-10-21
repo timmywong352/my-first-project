@@ -1,0 +1,9 @@
+{
+  "version": "0.8.2",
+  "sha256": "C7470E3A1AA032DCC41C6663002AE0DC891830AB7E7D3BBE1447B473774B8825",
+  "notes": [
+    "Add a one-click username summary for the four requested read-only backend pages: current balance, latest deposit with time, latest promotion with time, and latest withdrawal status.",
+    "Open or find the required report tabs automatically, search the exact member using the selected 1, 7, or 30-day period, and keep turnover analysis under Advanced tools.",
+    "Show exact backend status, report coverage warnings, source read times, and a user-controlled Copy operator summary button. Backend data stays local and nothing is sent automatically."
+  ]
+}
