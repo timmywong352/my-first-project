@@ -1,0 +1,9 @@
+{
+  "version": "0.8.4",
+  "sha256": "9FF416919FB44AD01A18DFC5920F5C2FC4A0C7ADAEBEEE3568D4C66148439DAE",
+  "notes": [
+    "Cross-check the Turnover deposit amount/time against the unique latest confirmed successful MYR deposit and clearly show DEPOSIT MATCHED, REPORTS DIFFER — RECHECK, or NOT VERIFIED.",
+    "Add conservative promotion badges for active, carried, finished, conflicting, same-time, and unknown states. Any additional Unfinished row stays visible and blocks a cleared interpretation.",
+    "Before copying, re-read every successful backend report, require the same document and parsed data, verify the same chat/member/tabs, and reject summaries older than five minutes."
+  ]
+}
