@@ -1,0 +1,9 @@
+{
+  "version": "0.8.0",
+  "sha256": "AAEB479A96FC8666E78642F6CF0E61BB01C37B39624A2D036F21DAEA1342EC57",
+  "notes": [
+    "Redesign the support panel around four clear workflows with a recommended conversation assistant, numbered steps, and advanced controls moved behind expandable sections.",
+    "Improve readability, spacing, responsive small-screen layout, status feedback, keyboard focus, tab labels, and draft-review actions without changing reply or backend logic.",
+    "Add an explicit close control and Escape-key behavior. Nothing sends automatically; existing read-only report and draft safeguards remain unchanged."
+  ]
+}
