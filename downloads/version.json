@@ -1,9 +1,9 @@
 {
   "version": "0.8.5",
-  "sha256": "E0CD7926B2D11D0D1815900D7EBACEE528D3217E8D58B7D02161FE0E8DBBABA1",
+  "sha256": "244CC29C7FF1E13EA2C9DC2D5771AA088E8C5DBA70B21E31C1EDFA920545E244",
   "notes": [
     "Add a customer-ready result panel after Account checks with deterministic English, Malay, and Chinese wording for exact withdrawal-limit, Payment closed, Processing, and verified remaining-turnover outcomes.",
     "Add separate waiting and polite-closing replies, optional closing composition, Copy full reply, and guarded Use in LiveChat. The extension only inserts an editable draft; the agent still presses Send.",
-    "Recheck the same chat, member, period, report tabs, document fingerprints, and auto-language conversation input before Copy or Use. Unknown, ambiguous, paginated, negative, or unsupported results stay operator-only."
+    "Recheck the same chat, member, period, report tabs, document fingerprints, and auto-language conversation input before Copy or Use. Older or timezone-unverified withdrawals require the agent to confirm the displayed reference and time; newer pending deposits and unknown, ambiguous, paginated, negative, or unsupported results stay operator-only."
   ]
 }
