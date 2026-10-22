@@ -1,0 +1,9 @@
+{
+  "version": "0.8.6",
+  "sha256": "952C29C8DD0E12C1E358197398EC538E995DBD4CAC0BF7803F932130C4B272A1",
+  "notes": [
+    "Add an opt-in Live Copilot that watches new customer messages, prepares an exact approved reply, and shows a 10/15/20-second cancel countdown with Send now, Cancel, and Emergency stop controls.",
+    "Auto-send is fail-closed: only one reviewed Hub answer, one uniquely matched current knowledge-sheet answer, or the local game-error clarification can send. Account, payment, withdrawal, promotion, ambiguous, historical, placeholder, customer-specific, and AI-written replies remain manual.",
+    "Immediately before sending, recheck the same chat and latest customer event, require an empty unprotected composer and no manual draft/backend activity, revalidate the exact source text, and prevent duplicate sends. Automatic sending requires a LiveChat token with chats--access:rw or administrator chats--all:rw."
+  ]
+}
