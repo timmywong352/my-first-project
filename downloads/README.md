@@ -1,11 +1,11 @@
-# Smart Reply 0.8.8
+# Smart Reply 0.8.9
 
-Download `SMART-Reply-0.8.8.zip`, extract it, and use the contained `Smart Reply` folder as your unpacked browser extension.
+Download `SMART-Reply-0.8.9.zip`, extract it, and use the contained `Smart Reply` folder as your unpacked browser extension.
 
 SHA-256:
 
 ```text
-f657c1a149fa66e79006d9eff84519dbcb8456302fac9208f05f884bd5290c2d
+9bd1e5f16fd819054e0314a316d1f405fda9aca4f1e78547836cdb6e21b56906
 ```
 
-This release searches every locally stored archived conversation for common answers regardless of category. It ranks the old customer question and following agent answer, while customer-specific status and account-result enquiries remain manual. All output stays draft-only.
+This release adds multilingual query expansion when normal matching fails, a local masked queue of unanswered general questions, and explicit reviewed-draft approval into Knowledge Hub memory. Account-specific and unsafe content is blocked from learning, and all output stays draft-only.

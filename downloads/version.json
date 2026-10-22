@@ -1,9 +1,9 @@
 {
-  "version": "0.8.8",
-  "sha256": "F657C1A149FA66E79006D9EFF84519DBCB8456302FAC9208F05F884BD5290C2D",
+  "version": "0.8.9",
+  "sha256": "9BD1E5F16FD819054E0314A316D1F405FDA9ACA4F1E78547836CDB6E21B56906",
   "notes": [
-    "Search every locally stored archived conversation for missing common answers regardless of its Deposit, Promotion, Withdrawal, Technical, or other Knowledge Hub category. Category labels remain organization only.",
-    "Rank an archived result using both the old customer's question and its following agent answer, while excluding masked/private account results, temporary please-wait messages, and operator-escalation replies.",
-    "Replace blanket category blocking with intent-based safeguards: general rebate, withdrawal, deposit, and promotion questions can produce reviewable drafts, while customer-specific status, amount, failure, missing-payment, balance, credential, conflicting, or ambiguous enquiries still require the backend or an operator."
+    "When normal keyword matching finds nothing, use the saved Groq key to generate multilingual English, Malay, and Chinese search terms, then search reviewed knowledge and all local archived conversations again. The expansion creates search terms only, never customer facts or an answer.",
+    "Save masked, non-account-specific questions with no supported answer to a local Learning queue in Settings, including how often each question was seen, so missing knowledge is visible instead of silently failing.",
+    "After checking a safe reusable draft, explicitly approve it into reviewed Knowledge Hub memory for future matching. Approval requires a confirmation tick and blocks customer-specific, secret, status, amount, and unsafe outputs; learning is never automatic and Copilot still never sends."
   ]
 }
