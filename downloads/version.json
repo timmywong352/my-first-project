@@ -1,0 +1,9 @@
+{
+  "version": "0.8.7",
+  "sha256": "A2EB9A92D22F8BD13B528B3D7D265484C4CBADC8903F0A9B9BFA23BD5AD0EAA2",
+  "notes": [
+    "Change Live Copilot to the requested draft-only workflow: it prepares the expected reply directly in the empty LiveChat message box, then the agent checks or edits it and presses Enter manually.",
+    "When turned on, Copilot handles the current latest customer message immediately and then watches for new messages every five seconds. It uses the existing approved-knowledge, language detection, local clarification, and reviewed AI drafting flow.",
+    "Remove the countdown, Send now control, LiveChat send_event call, and write-scope requirement. Existing composer text is never overwritten; account, transaction, promotion, backend, ambiguous, and operator enquiries remain routed for manual checking."
+  ]
+}
