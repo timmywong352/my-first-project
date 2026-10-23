@@ -1,9 +1,9 @@
 {
-  "version": "0.9.3",
-  "sha256": "EC9EBE881761926AC4BEC851F9BF5100C43B7B5A00D3D420818C09F466EF5CD0",
+  "version": "0.9.4",
+  "sha256": "79ED9F30C05D1E770B5D4860C3D8B29D37F30964CADA2EC5E9B5B194E6CAB6E2",
   "notes": [
-    "Make the Smart Reply panel easier to read with 15px main text, 13px labels, controls and supporting text, and clearer heading sizes across Reply, Check, Promos, Withdrawal and Settings.",
-    "Enlarge Quick Check category buttons, result labels, warnings, metadata and reply controls. Result values now use 14px text and the main result status is more prominent.",
-    "Preserve the compact responsive layout: Quick Check fields, categories, actions and result rows continue stacking on narrow screens. This is a presentation-only update; backend checks, per-chat isolation, draft safeguards and manual sending are unchanged."
+    "After a strictly verified Quick Check, prepare a complete customer-ready sentence in the selected or detected language. A matched successful deposit includes its MYR amount and exact backend confirmation time; an explicitly credited promotion includes its code and exact backend confirmation time.",
+    "Prepare the approved withdrawal wording for Payment closed and for a positive remaining turnover such as RM11. A calculated turnover amount requires one current unfinished promotion, matched deposit evidence, no newer pending deposit, no unfinished rebate, and no pagination or conflict.",
+    "Keep uncertain results safe: pending, unknown, missing-time, tied, mismatched, paginated or conflicting records prepare only the waiting/operator route. Every factual sentence is editable, rechecks the same chat and report fingerprints before Copy or Use, fills only an empty composer, and is never sent automatically."
   ]
 }
