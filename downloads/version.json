@@ -1,9 +1,9 @@
 {
-  "version": "0.8.9",
-  "sha256": "9BD1E5F16FD819054E0314A316D1F405FDA9ACA4F1E78547836CDB6E21B56906",
+  "version": "0.9.0",
+  "sha256": "6E0A11F3618683C7393BB1A022E8AA01E78F5B28AC2F7334D757CF918BD739DF",
   "notes": [
-    "When normal keyword matching finds nothing, use the saved Groq key to generate multilingual English, Malay, and Chinese search terms, then search reviewed knowledge and all local archived conversations again. The expansion creates search terms only, never customer facts or an answer.",
-    "Save masked, non-account-specific questions with no supported answer to a local Learning queue in Settings, including how often each question was seen, so missing knowledge is visible instead of silently failing.",
-    "After checking a safe reusable draft, explicitly approve it into reviewed Knowledge Hub memory for future matching. Approval requires a confirmation tick and blocks customer-specific, secret, status, amount, and unsafe outputs; learning is never automatic and Copilot still never sends."
+    "Replace Copilot's full local-archive scan with a compact indexed lookup capped to bounded matching candidates, so archive size no longer determines the work done for every customer message.",
+    "Add Settings > Archive performance to build, pause, and safely resume a one-time index migration beside the existing Knowledge Hub. All raw threads, reviewed knowledge, annotations, and backups remain untouched; no reset is required.",
+    "Index new retrieved or imported threads incrementally, show exact thread and safe-answer progress, and avoid marking questions unanswered while the index is incomplete. Reviewed knowledge still ranks first and Copilot remains draft-only."
   ]
 }
