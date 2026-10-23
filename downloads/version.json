@@ -1,9 +1,9 @@
 {
-  "version": "0.9.0",
-  "sha256": "6E0A11F3618683C7393BB1A022E8AA01E78F5B28AC2F7334D757CF918BD739DF",
+  "version": "0.9.1",
+  "sha256": "6EA10B4B5990C1F33430972B0669D5EC26FA4E98EBB5646BCF2FE40917C90B7F",
   "notes": [
-    "Replace Copilot's full local-archive scan with a compact indexed lookup capped to bounded matching candidates, so archive size no longer determines the work done for every customer message.",
-    "Add Settings > Archive performance to build, pause, and safely resume a one-time index migration beside the existing Knowledge Hub. All raw threads, reviewed knowledge, annotations, and backups remain untouched; no reset is required.",
-    "Index new retrieved or imported threads incrementally, show exact thread and safe-answer progress, and avoid marking questions unanswered while the index is incomplete. Reviewed knowledge still ranks first and Copilot remains draft-only."
+    "Fix simple game-access complaints such as '什么鬼 游戏又不能进？？' being routed to an operator after an uncertain archive or AI result.",
+    "Run the safe local game clarification before Knowledge Hub, archive, or Groq lookup, immediately asking which game failed and requesting the error message or screenshot in the detected language.",
+    "Broaden Chinese, Malay, and English game-access wording, while keeping the response as a clarification only: no cause, account status, or backend result is guessed."
   ]
 }
