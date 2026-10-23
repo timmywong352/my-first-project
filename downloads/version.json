@@ -1,9 +1,9 @@
 {
-  "version": "0.9.1",
-  "sha256": "6EA10B4B5990C1F33430972B0669D5EC26FA4E98EBB5646BCF2FE40917C90B7F",
+  "version": "0.9.2",
+  "sha256": "4641A5E6880D45CC02C8E80B0C93ECACD58728D2AF1E060F109A0F7AA6ED4DA6",
   "notes": [
-    "Fix simple game-access complaints such as '什么鬼 游戏又不能进？？' being routed to an operator after an uncertain archive or AI result.",
-    "Run the safe local game clarification before Knowledge Hub, archive, or Groq lookup, immediately asking which game failed and requesting the error message or screenshot in the detected language.",
-    "Broaden Chinese, Malay, and English game-access wording, while keeping the response as a clarification only: no cause, account status, or backend result is guessed."
+    "Add a simple Quick Check workspace for colleagues: detect the current chat's login username, allow correction, choose Auto/English/Malay/Chinese, select Today or Last 7 days, then run Deposit, Promotion, or Withdrawal only.",
+    "Show the requested read-only fields in one consistent result card. Deposit includes status, amount, request/confirm times and reference; Promotion keeps claim status/remark separate from turnover status, required turnover and recorded bet; Withdrawal includes status, amount, times, reference and remark.",
+    "Keep username, language, period, category, result, confirmation and draft isolated by exact LiveChat chat ID. Late results cannot enter another chat; factual replies are rechecked, only fill an empty composer, and are never sent automatically. Existing detailed account tools remain under Advanced."
   ]
 }
