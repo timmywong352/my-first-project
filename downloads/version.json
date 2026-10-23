@@ -1,9 +1,9 @@
 {
-  "version": "0.9.2",
-  "sha256": "4641A5E6880D45CC02C8E80B0C93ECACD58728D2AF1E060F109A0F7AA6ED4DA6",
+  "version": "0.9.3",
+  "sha256": "EC9EBE881761926AC4BEC851F9BF5100C43B7B5A00D3D420818C09F466EF5CD0",
   "notes": [
-    "Add a simple Quick Check workspace for colleagues: detect the current chat's login username, allow correction, choose Auto/English/Malay/Chinese, select Today or Last 7 days, then run Deposit, Promotion, or Withdrawal only.",
-    "Show the requested read-only fields in one consistent result card. Deposit includes status, amount, request/confirm times and reference; Promotion keeps claim status/remark separate from turnover status, required turnover and recorded bet; Withdrawal includes status, amount, times, reference and remark.",
-    "Keep username, language, period, category, result, confirmation and draft isolated by exact LiveChat chat ID. Late results cannot enter another chat; factual replies are rechecked, only fill an empty composer, and are never sent automatically. Existing detailed account tools remain under Advanced."
+    "Make the Smart Reply panel easier to read with 15px main text, 13px labels, controls and supporting text, and clearer heading sizes across Reply, Check, Promos, Withdrawal and Settings.",
+    "Enlarge Quick Check category buttons, result labels, warnings, metadata and reply controls. Result values now use 14px text and the main result status is more prominent.",
+    "Preserve the compact responsive layout: Quick Check fields, categories, actions and result rows continue stacking on narrow screens. This is a presentation-only update; backend checks, per-chat isolation, draft safeguards and manual sending are unchanged."
   ]
 }
