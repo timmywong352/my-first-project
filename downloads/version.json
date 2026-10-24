@@ -1,9 +1,9 @@
 {
-  "version": "0.9.4",
-  "sha256": "79ED9F30C05D1E770B5D4860C3D8B29D37F30964CADA2EC5E9B5B194E6CAB6E2",
+  "version": "0.9.5",
+  "sha256": "D61D38F97B7698F755946ADC8CDAADF00C579C8C20A1F51E5CFEE9183E73785C",
   "notes": [
-    "After a strictly verified Quick Check, prepare a complete customer-ready sentence in the selected or detected language. A matched successful deposit includes its MYR amount and exact backend confirmation time; an explicitly credited promotion includes its code and exact backend confirmation time.",
-    "Prepare the approved withdrawal wording for Payment closed and for a positive remaining turnover such as RM11. A calculated turnover amount requires one current unfinished promotion, matched deposit evidence, no newer pending deposit, no unfinished rebate, and no pagination or conflict.",
-    "Keep uncertain results safe: pending, unknown, missing-time, tied, mismatched, paginated or conflicting records prepare only the waiting/operator route. Every factual sentence is editable, rechecks the same chat and report fingerprints before Copy or Use, fills only an empty composer, and is never sent automatically."
+    "Make the Quick Check result header a visible shortcut: click it, or focus it and press Enter or Space, to place the prepared full sentence directly into the empty LiveChat message box. The shortcut never sends the message.",
+    "Reuse the same guarded Use in LiveChat path, including exact-chat and URL binding, five-minute expiry, backend report fingerprint rechecks, automatic-language freshness, empty-composer protection, and preservation of existing typed text.",
+    "When a withdrawal still needs exact-reference confirmation, the result shortcut inserts nothing and guides focus to the confirmation checkbox first. Stale results, switched chats, incomplete evidence, and detached old result controls cannot insert a reply."
   ]
 }
