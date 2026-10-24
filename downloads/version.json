@@ -1,9 +1,9 @@
 {
-  "version": "0.9.5",
-  "sha256": "D61D38F97B7698F755946ADC8CDAADF00C579C8C20A1F51E5CFEE9183E73785C",
+  "version": "0.9.6",
+  "sha256": "22253A71AF4BFBDE915217DFC1343061E9D636623C3B93C7E84AB71D3AC94823",
   "notes": [
-    "Make the Quick Check result header a visible shortcut: click it, or focus it and press Enter or Space, to place the prepared full sentence directly into the empty LiveChat message box. The shortcut never sends the message.",
-    "Reuse the same guarded Use in LiveChat path, including exact-chat and URL binding, five-minute expiry, backend report fingerprint rechecks, automatic-language freshness, empty-composer protection, and preservation of existing typed text.",
-    "When a withdrawal still needs exact-reference confirmation, the result shortcut inserts nothing and guides focus to the confirmation checkbox first. Stale results, switched chats, incomplete evidence, and detached old result controls cannot insert a reply."
+    "Recognize the variable withdrawal remarks used by the backend: Payment closed, Unfinished turnover with its exact RM amount, Please submit bank, Holder not same, get full name, and belum main fs. Prepare a deterministic customer-ready reply in English, Malay, or Chinese.",
+    "Let a recognized specific remark override a generic Payment closed status, so the customer receives the real required action. Different specific causes, conflicting turnover amounts, unknown remarks, and Contact LiveChat remain operator-only instead of being guessed.",
+    "Keep the existing guarded Quick Check workflow: exact-chat and report binding, five-minute expiry, automatic-language freshness, reference confirmation when required, empty-composer protection, and editable draft insertion only. Nothing is sent automatically."
   ]
 }

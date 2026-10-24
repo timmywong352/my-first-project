@@ -1,11 +1,11 @@
-# Smart Reply 0.9.5
+# Smart Reply 0.9.6
 
-Download `SMART-Reply-0.9.5.zip`, extract it, and use the contained `Smart Reply` folder as your unpacked browser extension.
+Download `SMART-Reply-0.9.6.zip`, extract it, and use the contained `Smart Reply` folder as your unpacked browser extension.
 
 SHA-256:
 
 ```text
-d61d38f97b7698f755946adc8cdaadf00c579c8c20a1f51e5cfee9183e73785c
+22253a71af4bfbde915217dfc1343061e9d636623c3b93c7e84ab71d3ac94823
 ```
 
-This release makes the highlighted Quick Check result directly clickable. Click it—or focus it and press Enter or Space—to place the prepared full sentence into an empty LiveChat message box. It uses the same chat, freshness, backend fingerprint, language, confirmation and empty-composer safeguards, and never sends automatically.
+This release recognizes the backend withdrawal remarks `Payment closed`, `Unfinished turnover RM…`, `Please submit bank`, `Holder not same`, `get full name`, and `belum main fs`, then prepares the corresponding English, Malay, or Chinese customer sentence. A recognized specific remark overrides generic `Payment closed`; conflicting, unknown, or `Contact LiveChat` remarks remain operator-only. Existing chat, freshness, report, language, confirmation, and empty-composer safeguards remain in place, and nothing sends automatically.
