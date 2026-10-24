@@ -1,9 +1,9 @@
 {
-  "version": "0.9.7",
-  "sha256": "E434F93E722388C4A78F52FCC96E4AA1B774A66FBA30E012730CEDDBCCF09EB5",
+  "version": "0.9.8",
+  "sha256": "461DD6B374329DA88DC59F741E25E669657CC4661EF06596294C26D87EA62CC3",
   "notes": [
-    "Fix explicit withdrawal turnover results such as Unfinished Turnover RM41 Be Closed being replaced by Kindly wait a moment when the backend page displayed pagination. One exact-member MYR row in Today, from the matching one-day report date, now prepares the exact RM41 sentence immediately and is labelled Exact row.",
-    "Keep the pagination warning visible and keep the exception deliberately narrow. Other recognized paginated outcomes require confirmation of the displayed withdrawal reference; unknown or conflicting wording, multiple or ambiguous rows, unconfirmed 7-day results, and amountless or calculated turnover under pagination remain guarded.",
-    "Retain every existing draft safeguard: exact chat and report fingerprints, five-minute freshness, current language, unchanged editable reply, empty-composer protection, and manual sending only. Clicking the result inserts the reviewed sentence but never sends it."
+    "Apply the Exact row Today workflow to every approved withdrawal mapping, not only an explicit turnover amount. Payment closed, Unfinished turnover RM42, Please submit bank, Holder not same, get full name, and belum main fs now prepare their mapped full sentence immediately when pagination is present but Today shows one exact-member MYR row whose valid request date matches the one-day report.",
+    "Keep the replies deterministic in English, Malay, or Chinese, including the exact dynamic RM turnover amount. Unknown or conflicting causes, Contact LiveChat or operator instructions, negated wording, invalid time/reference/amount data, multiple rows, date mismatches, unconfirmed 7-day results, and amountless or calculated turnover under pagination remain guarded.",
+    "Keep pagination visible as a coverage warning and retain the exact-chat, five-minute freshness, report-fingerprint, language, unchanged-draft, and empty-composer checks. The result click inserts an editable draft only and never sends a customer message."
   ]
 }
