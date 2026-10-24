@@ -1,11 +1,11 @@
-# Smart Reply 0.9.6
+# Smart Reply 0.9.7
 
-Download `SMART-Reply-0.9.6.zip`, extract it, and use the contained `Smart Reply` folder as your unpacked browser extension.
+Download `SMART-Reply-0.9.7.zip`, extract it, and use the contained `Smart Reply` folder as your unpacked browser extension.
 
 SHA-256:
 
 ```text
-22253a71af4bfbde915217dfc1343061e9d636623c3b93c7e84ab71d3ac94823
+e434f93e722388c4a78f52fcc96e4aa1b774a66fba30e012730ceddbccf09eb5
 ```
 
-This release recognizes the backend withdrawal remarks `Payment closed`, `Unfinished turnover RM…`, `Please submit bank`, `Holder not same`, `get full name`, and `belum main fs`, then prepares the corresponding English, Malay, or Chinese customer sentence. A recognized specific remark overrides generic `Payment closed`; conflicting, unknown, or `Contact LiveChat` remarks remain operator-only. Existing chat, freshness, report, language, confirmation, and empty-composer safeguards remain in place, and nothing sends automatically.
+This release fixes `Unfinished Turnover RM41 Be Closed` being replaced by `Kindly wait a moment` when page-level pagination is present. One exact-member MYR row from the matching Today report now prepares the precise RM41 sentence immediately and is labelled `Exact row`; the pagination warning remains visible. Ambiguous, unknown, multi-row, calculated, and unconfirmed wider-range results stay guarded. Existing chat, freshness, fingerprint, language, empty-composer, and no-auto-send protections remain in place.

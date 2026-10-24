@@ -1,9 +1,9 @@
 {
-  "version": "0.9.6",
-  "sha256": "22253A71AF4BFBDE915217DFC1343061E9D636623C3B93C7E84AB71D3AC94823",
+  "version": "0.9.7",
+  "sha256": "E434F93E722388C4A78F52FCC96E4AA1B774A66FBA30E012730CEDDBCCF09EB5",
   "notes": [
-    "Recognize the variable withdrawal remarks used by the backend: Payment closed, Unfinished turnover with its exact RM amount, Please submit bank, Holder not same, get full name, and belum main fs. Prepare a deterministic customer-ready reply in English, Malay, or Chinese.",
-    "Let a recognized specific remark override a generic Payment closed status, so the customer receives the real required action. Different specific causes, conflicting turnover amounts, unknown remarks, and Contact LiveChat remain operator-only instead of being guessed.",
-    "Keep the existing guarded Quick Check workflow: exact-chat and report binding, five-minute expiry, automatic-language freshness, reference confirmation when required, empty-composer protection, and editable draft insertion only. Nothing is sent automatically."
+    "Fix explicit withdrawal turnover results such as Unfinished Turnover RM41 Be Closed being replaced by Kindly wait a moment when the backend page displayed pagination. One exact-member MYR row in Today, from the matching one-day report date, now prepares the exact RM41 sentence immediately and is labelled Exact row.",
+    "Keep the pagination warning visible and keep the exception deliberately narrow. Other recognized paginated outcomes require confirmation of the displayed withdrawal reference; unknown or conflicting wording, multiple or ambiguous rows, unconfirmed 7-day results, and amountless or calculated turnover under pagination remain guarded.",
+    "Retain every existing draft safeguard: exact chat and report fingerprints, five-minute freshness, current language, unchanged editable reply, empty-composer protection, and manual sending only. Clicking the result inserts the reviewed sentence but never sends it."
   ]
 }
