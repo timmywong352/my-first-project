@@ -1,9 +1,9 @@
 {
-  "version": "0.10.0",
-  "sha256": "7AFC21E8484F48825B6E942A72BF4E0D519F2201500430F9DD2B403B6A72EB45",
+  "version": "0.10.1",
+  "sha256": "CADD8C7F424BC55ED5A0EAF806118F6BCD9333EBCDD5C31D1718518B6F432060",
   "notes": [
-    "Add a Dynamic Decision layer to every common-question draft. Direct approved templates are labelled Safe draft, AI-composed or historical answers are labelled Review, and missing, conflicting, credential, account-specific or transaction-specific facts are labelled Operator instead of being guessed.",
-    "Give every prepared operator request a stable SR case ID tied to that LiveChat enquiry, including Quick Check escalations. The handoff remains isolated by chat while staff copy it to WeChat, wait, and paste the confirmed answer back.",
-    "Add one-click Good, Needed edit, and Wrong/operator feedback plus a local Copilot quality summary. Only anonymous case IDs, route/source labels and counts are stored; customer messages and backend records are excluded. Global approved-topic search, empty-composer protection and manual sending remain unchanged."
+    "Fix Auto language for Malay chats whose messages contain weak shared words such as I and withdraw. Bahasa Melayu from the pre-chat form now remains authoritative unless the customer uses clear English wording, while common Malay shorthand such as x, dpat, sya, blh and bosku is recognized.",
+    "Recognize the backend status pattern Unfinish Turnover, Still Need RM-271 Be Closed as an explicit RM271 remaining-turnover result. The narrow mapping requires unfinished turnover plus Still Need/Need/Remaining wording; standalone or ambiguous negative amounts remain blocked.",
+    "Prepare the full turnover sentence in the detected language and make the clickable Quick Check result insert that sentence into an empty LiveChat composer instead of the waiting reply. Existing chat, freshness, report-fingerprint, unchanged-draft and no-send protections remain active."
   ]
 }
