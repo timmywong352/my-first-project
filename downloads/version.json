@@ -1,9 +1,9 @@
 {
-  "version": "0.9.8",
-  "sha256": "461DD6B374329DA88DC59F741E25E669657CC4661EF06596294C26D87EA62CC3",
+  "version": "0.9.9",
+  "sha256": "3C9522B0822631BB095038F310F3B6BB3BB3084CD522CDA77FFE5E92F88D1285",
   "notes": [
-    "Apply the Exact row Today workflow to every approved withdrawal mapping, not only an explicit turnover amount. Payment closed, Unfinished turnover RM42, Please submit bank, Holder not same, get full name, and belum main fs now prepare their mapped full sentence immediately when pagination is present but Today shows one exact-member MYR row whose valid request date matches the one-day report.",
-    "Keep the replies deterministic in English, Malay, or Chinese, including the exact dynamic RM turnover amount. Unknown or conflicting causes, Contact LiveChat or operator instructions, negated wording, invalid time/reference/amount data, multiple rows, date mismatches, unconfirmed 7-day results, and amountless or calculated turnover under pagination remain guarded.",
-    "Keep pagination visible as a coverage warning and retain the exact-chat, five-minute freshness, report-fingerprint, language, unchanged-draft, and empty-composer checks. The result click inserts an editable draft only and never sends a customer message."
+    "Remove the Quick Check withdrawal-reference confirmation checkbox. Withdrawal checks now prepare the approved result immediately, and clicking the highlighted status places that editable sentence directly into the empty LiveChat composer; the extension still never sends it.",
+    "Simplify the Withdrawal result by removing Requested time and Reference, while adding Promotion code, Promotion confirm time, Promotion turnover, and Promotion status from the matching promotion and turnover reports.",
+    "Make Withdrawal search all four required reports once and cache Deposit and Promotion results inside the same LiveChat conversation. Switching those buttons reuses the verified data without another search; a standalone Deposit or Promotion check still reads only the reports needed for that category. Chat isolation, five-minute expiry, report-fingerprint rechecks, language refresh, and empty-composer protection remain unchanged."
   ]
 }
