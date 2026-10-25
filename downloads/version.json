@@ -1,6 +1,6 @@
 {
   "version": "0.10.3",
-  "sha256": "9F7032BCD430C4909C53A8162CD7C3A35785ED25EABAA049F7039800513C20FA",
+  "sha256": "8B8E6BD545CC7753AAF265758D41EC8875B294D310240CBA33A53C09D4B4F1C3",
   "notes": [
     "Add a first-in, first-out Quick Check queue for busy LiveChat sessions. Start a Deposit, Promotion, or Withdrawal check in one conversation, switch to the next customer, and submit their check without waiting for the earlier backend pages to finish.",
     "Run only one queued customer through the shared backend report tabs at a time, show Queued #1 / #2 positions and a live Checking state, and prevent duplicate submissions or settings changes while that chat is waiting or running.",
