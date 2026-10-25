@@ -1,9 +1,9 @@
 {
-  "version": "0.10.2",
-  "sha256": "7B611B8A77950846F37EAB046E03B588123B5D302E42B4D8E52533B91BDF0BBE",
+  "version": "0.10.3",
+  "sha256": "9F7032BCD430C4909C53A8162CD7C3A35785ED25EABAA049F7039800513C20FA",
   "notes": [
-    "Add an exact Approved FAQ Engine for six owner-confirmed topics: Daily Rebate, Weekly Rescue Bonus, Turnover definition, deposit/withdrawal limits, MEGA888/918KISS/Pussy888 ID setup, and password reset. Matching answers bypass Knowledge Hub retrieval and Groq rewriting so policy amounts, times, exclusions, formulas and links remain unchanged.",
-    "Provide reviewed English, Malay and Chinese wording plus common multilingual, shorthand and misspelled question patterns. Recent customer messages are now evaluated newest-first, so a clear language switch overrides older messages while weak terms still fall back to the pre-chat language.",
-    "Keep the FAQ route fail-closed: customer-specific remaining-turnover questions, forgotten usernames, actual password/PIN disclosures, ambiguous matches and unsupported questions remain Operator or use the existing backend flow. Safe FAQ answers fill only an empty composer, remain editable and are never sent automatically."
+    "Add a first-in, first-out Quick Check queue for busy LiveChat sessions. Start a Deposit, Promotion, or Withdrawal check in one conversation, switch to the next customer, and submit their check without waiting for the earlier backend pages to finish.",
+    "Run only one queued customer through the shared backend report tabs at a time, show Queued #1 / #2 positions and a live Checking state, and prevent duplicate submissions or settings changes while that chat is waiting or running.",
+    "Keep every queued result bound to its original LiveChat chat ID, username, category, period and report fingerprints. You may continue switching chats; completed results are restored only in the matching conversation, and nothing is inserted or sent automatically."
   ]
 }
