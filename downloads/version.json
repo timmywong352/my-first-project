@@ -1,9 +1,9 @@
 {
-  "version": "0.9.9",
-  "sha256": "3C9522B0822631BB095038F310F3B6BB3BB3084CD522CDA77FFE5E92F88D1285",
+  "version": "0.10.0",
+  "sha256": "7AFC21E8484F48825B6E942A72BF4E0D519F2201500430F9DD2B403B6A72EB45",
   "notes": [
-    "Remove the Quick Check withdrawal-reference confirmation checkbox. Withdrawal checks now prepare the approved result immediately, and clicking the highlighted status places that editable sentence directly into the empty LiveChat composer; the extension still never sends it.",
-    "Simplify the Withdrawal result by removing Requested time and Reference, while adding Promotion code, Promotion confirm time, Promotion turnover, and Promotion status from the matching promotion and turnover reports.",
-    "Make Withdrawal search all four required reports once and cache Deposit and Promotion results inside the same LiveChat conversation. Switching those buttons reuses the verified data without another search; a standalone Deposit or Promotion check still reads only the reports needed for that category. Chat isolation, five-minute expiry, report-fingerprint rechecks, language refresh, and empty-composer protection remain unchanged."
+    "Add a Dynamic Decision layer to every common-question draft. Direct approved templates are labelled Safe draft, AI-composed or historical answers are labelled Review, and missing, conflicting, credential, account-specific or transaction-specific facts are labelled Operator instead of being guessed.",
+    "Give every prepared operator request a stable SR case ID tied to that LiveChat enquiry, including Quick Check escalations. The handoff remains isolated by chat while staff copy it to WeChat, wait, and paste the confirmed answer back.",
+    "Add one-click Good, Needed edit, and Wrong/operator feedback plus a local Copilot quality summary. Only anonymous case IDs, route/source labels and counts are stored; customer messages and backend records are excluded. Global approved-topic search, empty-composer protection and manual sending remain unchanged."
   ]
 }
