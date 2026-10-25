@@ -1,9 +1,9 @@
 {
-  "version": "0.10.1",
-  "sha256": "CADD8C7F424BC55ED5A0EAF806118F6BCD9333EBCDD5C31D1718518B6F432060",
+  "version": "0.10.2",
+  "sha256": "7B611B8A77950846F37EAB046E03B588123B5D302E42B4D8E52533B91BDF0BBE",
   "notes": [
-    "Fix Auto language for Malay chats whose messages contain weak shared words such as I and withdraw. Bahasa Melayu from the pre-chat form now remains authoritative unless the customer uses clear English wording, while common Malay shorthand such as x, dpat, sya, blh and bosku is recognized.",
-    "Recognize the backend status pattern Unfinish Turnover, Still Need RM-271 Be Closed as an explicit RM271 remaining-turnover result. The narrow mapping requires unfinished turnover plus Still Need/Need/Remaining wording; standalone or ambiguous negative amounts remain blocked.",
-    "Prepare the full turnover sentence in the detected language and make the clickable Quick Check result insert that sentence into an empty LiveChat composer instead of the waiting reply. Existing chat, freshness, report-fingerprint, unchanged-draft and no-send protections remain active."
+    "Add an exact Approved FAQ Engine for six owner-confirmed topics: Daily Rebate, Weekly Rescue Bonus, Turnover definition, deposit/withdrawal limits, MEGA888/918KISS/Pussy888 ID setup, and password reset. Matching answers bypass Knowledge Hub retrieval and Groq rewriting so policy amounts, times, exclusions, formulas and links remain unchanged.",
+    "Provide reviewed English, Malay and Chinese wording plus common multilingual, shorthand and misspelled question patterns. Recent customer messages are now evaluated newest-first, so a clear language switch overrides older messages while weak terms still fall back to the pre-chat language.",
+    "Keep the FAQ route fail-closed: customer-specific remaining-turnover questions, forgotten usernames, actual password/PIN disclosures, ambiguous matches and unsupported questions remain Operator or use the existing backend flow. Safe FAQ answers fill only an empty composer, remain editable and are never sent automatically."
   ]
 }
