@@ -1,11 +1,11 @@
-# Smart Reply 0.10.4 — validation build
+# Smart Reply 0.10.5
 
-[Download extension ZIP](SMART-Reply-0.10.4.zip) · [version.json](version.json) · [Live validation checklist](VALIDATION-0.10.4.md)
+[Extension ZIP](SMART-Reply-0.10.5.zip) · [version.json](version.json) · [Validation details](VALIDATION-0.10.5.md)
 
-Extract the archive and use its Smart Reply folder for the existing unpacked extension. Reload the extension and refresh LiveChat. Keep your working extension folder and Knowledge Hub backup before testing.
+Extract the ZIP into the existing Smart Reply extension folder, reload the extension, and refresh LiveChat. Click Resume queue once if interrupted checks are restored, then retry the affected username.
 
-Check Queue shows the current customer, waiting positions and controls. Username not found stops only that customer and continues. Loading failed pauses all checks until Retry current or Resume queue is chosen. Skip alone does not resume. Refreshing never restarts old searches automatically.
+This release fixes a member-precheck dependency on Currency All and the main-button retry path leaving replacement jobs paused. It retains exact-member verification, FIFO processing, explicit resume after failures, and draft-only replies.
 
-All 12 automated suites pass, including browser fixtures for queue and Member List behaviour. Three-chat live backend acceptance is pending; this is not yet a production-approved build.
+All 12 automated suites passed; live authenticated-backend validation remains pending.
 
-SHA-256: `7c0e12080799318ed3fc020c1796377cc6d41023fff5755e4aa6acf24cdfeb15`.
+SHA-256: `725fcaf02977f0f7ae98be2086e6d9bd2b12ef8aff07a5a01732e65c65c34d5c`.

@@ -1,9 +1,9 @@
 {
-  "version": "0.10.4",
-  "sha256": "7C0E12080799318ED3FC020C1796377CC6D41023FFF5755E4AA6ACF24CDFEB15",
+  "version": "0.10.5",
+  "sha256": "725FCAF02977F0F7AE98BE2086E6D9BD2B12EF8AFF07A5A01732E65C65C34D5C",
   "notes": [
-    "Add Check Queue with customer names, check types, waiting positions, cancel, retry, skip, resume and a configurable 60-second timeout. Searches run one customer at a time; switching chats preserves each customer's work.",
-    "Check Member List first. Only a verified empty exact-member search becomes Username not found and advances the queue. Logout, missing pages, ambiguous member evidence and technical failures become Loading failed and pause the queue until an explicit retry or resume.",
-    "Recover minimal task metadata after refresh without automatically searching. Interrupted tasks require manual retry. Late responses cannot commit results after timeout; report-tab searches are serialized and deferred submissions can be cancelled. Backend reports and reply text are never persisted by queue recovery."
+    "Fix the member pre-check rejecting a working Member List because it lacks Currency All or optional filter controls. A fresh valid exact-member row now proves the account exists even with MYR-only filters; an empty restricted search still never becomes Username not found.",
+    "Fix retrying a failed chat through the main Check button leaving its replacement stuck in a paused queue. Main controls now offer Retry or Resume queue and check, while the queue retains and displays the actual pause reason even after a failed card is skipped or removed.",
+    "Report member validation errors immediately once fresh results load, preserve multiline username parsing, and retain FIFO order, manual resume after loading failure, exact-chat results, late-response guards and draft-only replies."
   ]
 }

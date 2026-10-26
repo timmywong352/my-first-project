@@ -1,9 +1,9 @@
-# Smart Reply 0.10.4 — validation build
+# Smart Reply 0.10.5
 
-Download [SMART-Reply-0.10.4.zip](downloads/SMART-Reply-0.10.4.zip) and [version.json](downloads/version.json).
+[Download Smart Reply 0.10.5](downloads/SMART-Reply-0.10.5.zip) · [version.json](downloads/version.json)
 
-Adds a queue manager with Member List pre-checks, cancel/retry/skip/resume controls, timeout handling, and interrupted-task recovery. A verified missing username advances the queue; loading failures pause it.
+Fixes member lookup on MYR-only lists and paused checks getting stuck when retried with the main button. Exact-member matches no longer require Currency All; restricted empty results are still not treated as missing usernames. Queue controls show Retry or Resume queue and check, with the actual pause reason.
 
-All 12 automated suites passed. The manual test with three real LiveChat conversations and the authenticated backend is still pending. Follow [the validation checklist](downloads/VALIDATION-0.10.4.md) before production rollout.
+All 12 automated suites passed. Please confirm the previously affected Member List search on your authenticated backend after updating. [Validation details](downloads/VALIDATION-0.10.5.md).
 
-ZIP SHA-256: `7c0e12080799318ed3fc020c1796377cc6d41023fff5755e4aa6acf24cdfeb15`.
+SHA-256: `725fcaf02977f0f7ae98be2086e6d9bd2b12ef8aff07a5a01732e65c65c34d5c`.
