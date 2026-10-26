@@ -1,4 +1,8 @@
-# Smart Reply 0.10.6
+# Security notice — 0.10.6 detection unresolved
+
+Windows Defender reported Trojan:Script/Ulthar.A!ml in three JavaScript files inside the 0.10.6 ZIP. Do not override the detection or treat the older release instructions below as security clearance. See the [0.10.7 review candidate and limitations](security-review/README.md). No candidate has been promoted to version.json or Google Drive.
+
+## Previous 0.10.6 release information (not cleared for installation)
 
 [Extension ZIP](SMART-Reply-0.10.6.zip) · [version.json](version.json) · [Validation details](VALIDATION-0.10.6.md)
 

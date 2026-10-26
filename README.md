@@ -1,9 +1,9 @@
-# Smart Reply 0.10.6
+# Smart Reply — security review pending
 
-[Download Smart Reply 0.10.6](downloads/SMART-Reply-0.10.6.zip) · [version.json](downloads/version.json)
+Windows Defender reported `Trojan:Script/Ulthar.A!ml` in three JavaScript files in the 0.10.6 ZIP. The detection has not been cleared. Do not bypass warnings or install a detected package.
 
-Adds the owner-approved full Processing/Submitting withdrawal reply in English, Malay and Chinese, and fixes Promotion searches rejecting pages without optional currency/status controls. Present filters, exact-member checks and existing reply safeguards remain enforced. Clicking a result fills only an empty LiveChat composer; nothing is sent automatically.
+[0.10.7 security-review candidate](downloads/security-review/README.md) · [Validation and limitations](downloads/security-review/VALIDATION-0.10.7-review.md) · [Original detection review report](downloads/security-review/DEFENDER-REVIEW-0.10.6.txt)
 
-All 13 automated suites passed. Please confirm Promotion-only searches on your authenticated backend after updating. [Validation details](downloads/VALIDATION-0.10.6.md). Google Drive has not been updated.
+The candidate restricts background request senders and destinations, blocks authenticated redirects and removes execution-policy override advice. Fourteen automated suites passed, but Windows Defender and installed-extension verification remain incomplete. This is not a confirmed antivirus fix or a production release.
 
-SHA-256: `db2628e65dbf719b5dc88e728a23910e36bd0bb355e7889979ae7ad8d25663df`.
+The normal update metadata and Google Drive files are unchanged. No Knowledge Hub reset or deletion is required. Old releases sharing flagged files are not certified safe by this review.

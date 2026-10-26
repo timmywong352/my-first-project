@@ -1,0 +1,75 @@
+Microsoft Defender detection review request — Smart Reply 0.10.6
+
+Request
+Please investigate whether this detection is correct or a false positive. The
+application author has not established that the package is safe, and is not
+asking users to override Defender. Please identify any malicious content or
+behavior that should be removed, or correct the detection if appropriate.
+
+Detection reported by user
+Threat: Trojan:Script/Ulthar.A!ml
+Product: Windows Microsoft Defender
+Screenshot date: 26 October 2026, 2:42 PM (user's displayed local time)
+Status shown: Remediation incomplete; Quarantine failed
+The user says the browser blocked the download and they did not install/run
+this version. The screenshot alone does not establish code execution.
+Defender engine/platform/security-intelligence versions: not provided.
+
+Exact affected package
+Filename: SMART-Reply-0.10.6.zip
+Size: 4690277 bytes
+SHA-256: db2628e65dbf719b5dc88e728a23910e36bd0bb355e7889979ae7ad8d25663df
+Original public source, for analysis only (not an installation recommendation):
+https://raw.githubusercontent.com/timmywong352/my-first-project/b22c0f57f95a3efbc41212f7cb57f5af10b5e89a/downloads/SMART-Reply-0.10.6.zip
+
+Affected items listed in the screenshot
+Smart Reply/archive-core.js
+SHA-256: 05c721bc066fddbca0a0cccc29d7b8b0e970e7f52b2a05ba63a0da4e7939cf99
+Smart Reply/background.js
+SHA-256: 8e9f9b032eacf188f037d97c8ca9caa809256f913e2e024ec63a253baf4b020f
+Smart Reply/withdrawal-rules.js
+SHA-256: eeac32525d7f531a3593e5646989db71d84ed318351ca88c771c0cdd956eadb7
+
+Application purpose
+An unpacked Manifest V3 browser extension for LiveChat customer support. It
+reads permitted chat/report pages, retrieves user-configured knowledge, and
+prepares editable customer replies. It does not automatically send replies.
+The manifest requests storage and scripting permissions for specified sites.
+
+Reviewed file roles
+archive-core.js: local conversation preparation, masking, topic classification,
+statistics and CSV export; no network or system-command execution in this file.
+withdrawal-rules.js: deterministic status parsing, multilingual reply templates,
+report matching, freshness and pagination guards; no network or system-command
+execution in this file.
+background.js: extension message routing, local storage/index operations,
+LiveChat/Groq/Google requests, and packaged report scripts injected into the
+authorized backend pages. LiveChat/Groq credentials are read from the user's
+local extension settings; no actual credentials are embedded in this report.
+
+Comparison with 0.10.5
+The ZIP contains the same 46 file names, with no added executable files and no
+duplicate or path-traversal entries found. archive-core.js is byte-identical to
+0.10.5. The withdrawal-rules.js change adds the literal Submitting status alias.
+The background.js change validates optional Promotion currency/status filters.
+Manifest permissions and host permissions are unchanged. Existing Windows
+updater scripts are unchanged and were not named in the supplied detection.
+This comparison does NOT establish that either release is malware-free.
+
+Verification limitations
+The public download hash matches the development package. Static review did not
+identify malicious logic in the three named files. Thirteen functional test
+suites passed, but those tests are not antivirus scans or a security guarantee.
+No Windows Defender engine or Windows machine was available in the development
+workspace, so the detection has not been independently reproduced or cleared.
+No Microsoft submission has been made by the assistant, and no submission ID
+or Microsoft verdict is available.
+
+Handling guidance
+Do not restore/allow the detected file, disable protection, add exclusions, or
+repackage the files to get around detection. If a sample upload is required,
+an authorized developer/security reviewer should obtain it in their approved
+analysis environment rather than weakening protection on the user's PC.
+Microsoft submission portal: https://www.microsoft.com/en-us/wdsi/filesubmission
+Current portal access/requirements could not be checked from this workspace
+because Microsoft returned HTTP 403.
