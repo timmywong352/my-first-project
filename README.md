@@ -1,7 +1,9 @@
-# Smart Reply 0.10.3
+# Smart Reply 0.10.4 — validation build
 
-Public download branch for Smart Reply 0.10.3.
+Download [SMART-Reply-0.10.4.zip](downloads/SMART-Reply-0.10.4.zip) and [version.json](downloads/version.json).
 
-Download [SMART-Reply-0.10.3.zip](downloads/SMART-Reply-0.10.3.zip), extract it, and use the contained `Smart Reply` folder as your unpacked browser extension.
+Adds a queue manager with Member List pre-checks, cancel/retry/skip/resume controls, timeout handling, and interrupted-task recovery. A verified missing username advances the queue; loading failures pause it.
 
-The ZIP SHA-256 is `8b8e6bd545cc7753aaf265758d41ec8875b294d310240cba33a53c09d4b4f1c3`.
+All 12 automated suites passed. The manual test with three real LiveChat conversations and the authenticated backend is still pending. Follow [the validation checklist](downloads/VALIDATION-0.10.4.md) before production rollout.
+
+ZIP SHA-256: `7c0e12080799318ed3fc020c1796377cc6d41023fff5755e4aa6acf24cdfeb15`.

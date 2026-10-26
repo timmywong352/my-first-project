@@ -1,11 +1,11 @@
-# Smart Reply 0.10.3
+# Smart Reply 0.10.4 — validation build
 
-Download `SMART-Reply-0.10.3.zip`, extract it, and use the contained `Smart Reply` folder as your unpacked browser extension.
+[Download extension ZIP](SMART-Reply-0.10.4.zip) · [version.json](version.json) · [Live validation checklist](VALIDATION-0.10.4.md)
 
-SHA-256:
+Extract the archive and use its Smart Reply folder for the existing unpacked extension. Reload the extension and refresh LiveChat. Keep your working extension folder and Knowledge Hub backup before testing.
 
-```text
-8b8e6bd545cc7753aaf265758d41ec8875b294d310240cba33a53c09d4b4f1c3
-```
+Check Queue shows the current customer, waiting positions and controls. Username not found stops only that customer and continues. Loading failed pauses all checks until Retry current or Resume queue is chosen. Skip alone does not resume. Refreshing never restarts old searches automatically.
 
-This release adds a first-in, first-out Quick Check queue. You can submit Deposit, Promotion, or Withdrawal checks from several LiveChat conversations while an earlier check is still loading. Shared backend report tabs are searched one customer at a time, the panel shows each waiting position, and each completed result remains bound to its original chat. Drafts still require review, fill only an empty composer, and are never sent automatically.
+All 12 automated suites pass, including browser fixtures for queue and Member List behaviour. Three-chat live backend acceptance is pending; this is not yet a production-approved build.
+
+SHA-256: `7c0e12080799318ed3fc020c1796377cc6d41023fff5755e4aa6acf24cdfeb15`.

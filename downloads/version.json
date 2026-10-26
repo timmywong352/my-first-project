@@ -1,9 +1,9 @@
 {
-  "version": "0.10.3",
-  "sha256": "8B8E6BD545CC7753AAF265758D41EC8875B294D310240CBA33A53C09D4B4F1C3",
+  "version": "0.10.4",
+  "sha256": "7C0E12080799318ED3FC020C1796377CC6D41023FFF5755E4AA6ACF24CDFEB15",
   "notes": [
-    "Add a first-in, first-out Quick Check queue for busy LiveChat sessions. Start a Deposit, Promotion, or Withdrawal check in one conversation, switch to the next customer, and submit their check without waiting for the earlier backend pages to finish.",
-    "Run only one queued customer through the shared backend report tabs at a time, show Queued #1 / #2 positions and a live Checking state, and prevent duplicate submissions or settings changes while that chat is waiting or running.",
-    "Keep every queued result bound to its original LiveChat chat ID, username, category, period and report fingerprints. You may continue switching chats; completed results are restored only in the matching conversation, and nothing is inserted or sent automatically."
+    "Add Check Queue with customer names, check types, waiting positions, cancel, retry, skip, resume and a configurable 60-second timeout. Searches run one customer at a time; switching chats preserves each customer's work.",
+    "Check Member List first. Only a verified empty exact-member search becomes Username not found and advances the queue. Logout, missing pages, ambiguous member evidence and technical failures become Loading failed and pause the queue until an explicit retry or resume.",
+    "Recover minimal task metadata after refresh without automatically searching. Interrupted tasks require manual retry. Late responses cannot commit results after timeout; report-tab searches are serialized and deferred submissions can be cancelled. Backend reports and reply text are never persisted by queue recovery."
   ]
 }
