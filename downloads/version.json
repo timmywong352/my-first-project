@@ -1,9 +1,9 @@
 {
-  "version": "0.10.5",
-  "sha256": "725FCAF02977F0F7AE98BE2086E6D9BD2B12EF8AFF07A5A01732E65C65C34D5C",
+  "version": "0.10.6",
+  "sha256": "DB2628E65DBF719B5DC88E728A23910E36BD0BB355E7889979AE7AD8D25663DF",
   "notes": [
-    "Fix the member pre-check rejecting a working Member List because it lacks Currency All or optional filter controls. A fresh valid exact-member row now proves the account exists even with MYR-only filters; an empty restricted search still never becomes Username not found.",
-    "Fix retrying a failed chat through the main Check button leaving its replacement stuck in a paused queue. Main controls now offer Retry or Resume queue and check, while the queue retains and displays the actual pause reason even after a failed card is skipped or removed.",
-    "Report member validation errors immediately once fresh results load, preserve multiline username parsing, and retain FIFO order, manual resume after loading failure, exact-chat results, late-response guards and draft-only replies."
+    "Use the owner-approved full processing message for Processing or Submitting withdrawal statuses/remarks in English, Malay and Chinese. Clicking the result fills the empty LiveChat composer for manual review; nothing is sent automatically.",
+    "Fix Promotion checks incorrectly requiring currency/status controls when the report has none. Present filters must still be verified and set to MYR/All; ambiguous controls, unknown restrictive filters and logged-out pages remain blocked.",
+    "Keep exact-member verification, Today/7-day ranges, promotion credit evidence, per-chat queues, unchanged-report checks and existing-composer protection. Add browser regressions for real Promotion form submission/readback and multilingual withdrawal reply insertion."
   ]
 }
