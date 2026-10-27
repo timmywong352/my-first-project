@@ -1,0 +1,10 @@
+{
+  "version": "0.10.8",
+  "sha256": "8DF83CEB3A5B3526BF601EC25DD413797FC37EDA220176C22D679B4B4AFA9C1A",
+  "notes": [
+    "Fix Member List rejecting one exact username when other partial matches appear. A verified missing member shows No username found and stops that task before other report pages open.",
+    "Deposit validates the member, then searches only deposit_report.php. Promotion validates the member, then searches only promotion_report.php. Withdrawal retains its full report flow after member validation.",
+    "Keep per-chat queues and draft-only replies. Standalone Deposit and Promotion use their own explicit successful report evidence; Withdrawal-prefetched results retain turnover cross-checks.",
+    "Test candidate only. All 14 automated suites passed; live-backend acceptance and Windows scanning of this exact ZIP remain pending."
+  ]
+}

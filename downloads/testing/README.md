@@ -4,6 +4,8 @@ Published at the owner's request as a separate test candidate. The normal update
 
 [Download SMART-Reply-0.10.8-test.zip](./SMART-Reply-0.10.8-test.zip?raw=true)
 
+[Matching version.json](./version.json?raw=true) — this metadata matches only the 0.10.8 test ZIP above. It is separate from the normal update feed; do not pair it with an older ZIP.
+
 This fixes Member List rejecting a unique exact username alongside partial matches. Each button validates the member first. Deposit then searches only its deposit report; Promotion only its promotion report; Withdrawal keeps the full report flow. A verified missing member shows **No username found** and stops that task before other report pages open.
 
 All 14 automated suites passed. Live-backend acceptance and Windows scanning of this exact candidate remain pending. The earlier VirusTotal result for 0.10.6 does not cover this different ZIP. Test in the authorised test setup before a wider rollout; keep the working installation and Knowledge Hub intact.
