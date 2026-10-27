@@ -1,5 +1,7 @@
 # Smart Reply 0.10.7 — security-review candidate, not a cleared release
 
+Update, 27 October 2026: the user's 8:23 AM Malaysia-time screenshot reports Trojan:Script/Ulthar.A!ml for the 0.10.7 ZIP and status Removed. This candidate is now confirmed still blocked in the user's Defender environment; the security changes did not resolve that detection. The screenshot names the archive and source URL, without identifying an individual file inside it. The exact ZIP remains unchanged and is held for analysis.
+
 The user reported Microsoft Defender `Trojan:Script/Ulthar.A!ml` against three JavaScript files in the 0.10.6 ZIP. That detection has **not** been independently reproduced or cleared. This candidate contains concrete security hardening, not a verified antivirus fix. Do not deploy to colleagues, override warnings or disable protection to install it.
 
 ## Changes

@@ -1,0 +1,77 @@
+Microsoft Defender review request — Smart Reply 0.10.7
+
+Status: BLOCKED BY DEFENDER; NOT CLEARED FOR INSTALLATION.
+
+Please determine whether the detection below is correct or a false positive.
+The previous code-hardening revision did not resolve the reported detection.
+The author has not identified malware in the reviewed source, but does not
+claim that code inspection or functional tests establish that the package is
+safe. Please identify the offending content/behavior or correct the detection
+if appropriate.
+
+Latest user evidence
+Product: Microsoft Defender Antivirus, Windows Security
+Threat: Trojan:Script/Ulthar.A!ml
+Time shown in screenshot: 27 October 2026, 8:23 AM, Asia/Kuala_Lumpur
+Severity: Severe
+Heading: Threat blocked
+Status: Removed
+Affected filename: SMART-Reply-0.10.7-review.zip
+The screenshot lists the ZIP and its download URL as a webfile. It does not
+name an individual file inside this ZIP. The webfile and file records do not
+by themselves establish separate infections or prove execution. The user had
+previously stated that they had not downloaded/installed the blocked build.
+Defender platform/engine/security-intelligence versions: not supplied.
+
+Exact package available to an authorised malware-analysis reviewer
+Filename: SMART-Reply-0.10.7-review.zip
+Size: 4693581 bytes
+SHA-256: 29defe06ef294870daa05f357f26d38f8243d2f5591596649143c884a3e10e12
+Public sample location, for analysis only, not an installation recommendation:
+https://raw.githubusercontent.com/timmywong352/my-first-project/14b9c0fa9d9ccf835071aaeaeb8d4544b26442bf/downloads/security-review/SMART-Reply-0.10.7-review.zip
+
+Application purpose
+An unpacked Manifest V3 browser extension for LiveChat customer support. It
+reads authorised chat and report pages and prepares editable reply drafts.
+It does not automatically send replies. Credentials are saved by the user in
+browser extension storage, not embedded in the distributed source.
+
+Related earlier detection
+The 0.10.6 screenshot named archive-core.js, background.js, and
+withdrawal-rules.js. Its status was Quarantine failed. Its ZIP SHA-256 was:
+db2628e65dbf719b5dc88e728a23910e36bd0bb355e7889979ae7ad8d25663df
+
+0.10.7 code review and changes
+archive-core.js prepares/redacts archived text and exports CSV locally.
+withdrawal-rules.js parses report statuses and selects fixed reply templates.
+These two files are unchanged from 0.10.6. Their respective SHA-256 hashes:
+05c721bc066fddbca0a0cccc29d7b8b0e970e7f52b2a05ba63a0da4e7939cf99
+eeac32525d7f531a3593e5646989db71d84ed318351ca88c771c0cdd956eadb7
+background.js handles documented service requests, storage and extension
+messages. This revision restricted caller pages and request destinations,
+blocked authenticated redirects and omitted ambient cookies. Its SHA-256:
+50e2193a2813a26c6f17dbd781c03be7f158e65999071c51c05b962cad5a3071
+The batch updater no longer sets ExecutionPolicy Bypass; instructions to use
+Run anyway were removed. No browser/host permissions were added.
+These are defense-in-depth changes, not confirmed causes/remedies of the alert.
+
+Verification limits
+Fourteen functional/security-boundary test suites passed; these are not AV
+scans. Windows Defender is unavailable in the development environment. No
+independent ClamAV scan could run because the signature download was blocked.
+An installed-browser smoke test was blocked by environment administrator
+policy on unpacked extensions; that policy was not changed. No Microsoft
+analysis submission, submission ID or vendor verdict currently exists.
+
+Handling
+The candidate is held and should not be installed or distributed to colleagues.
+Do not disable protection, add exclusions, allow/restore a detected file, or
+repackage it to get around the warning. An authorised reviewer should retrieve
+the sample in their approved analysis environment. The user's working PC
+does not need a restored sample or a Knowledge Hub reset for this review.
+
+Microsoft file-submission portal:
+https://www.microsoft.com/en-us/wdsi/filesubmission
+The signed-in submission must be completed by an authorised person with access
+to that portal and the analysis sample. The assistant cannot complete that
+sign-in/upload from the present workspace.

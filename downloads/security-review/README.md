@@ -1,6 +1,8 @@
-# Smart Reply 0.10.7 — review candidate only
+# Smart Reply 0.10.7 — BLOCKED BY DEFENDER
 
-[Security-review ZIP](SMART-Reply-0.10.7-review.zip) · [Validation and limitations](VALIDATION-0.10.7-review.md) · [Original Defender report](DEFENDER-REVIEW-0.10.6.txt)
+[Latest Microsoft review report](DEFENDER-REVIEW-0.10.7.txt) · [Validation and limitations](VALIDATION-0.10.7-review.md) · [Original Defender report](DEFENDER-REVIEW-0.10.6.txt)
+
+The user's 27 October 2026, 8:23 AM Malaysia-time screenshot confirms `Trojan:Script/Ulthar.A!ml` and **Removed** for `SMART-Reply-0.10.7-review.zip`. This revision did not resolve the detection. The latest screenshot names the entire ZIP and source URL, without naming an individual archive member. The sample is retained for authorised analysis; it is not recommended for another installation attempt.
 
 **This candidate is not a confirmed fix for the Defender alert. Do not deploy it, force a blocked download, restore a detected file, add exclusions or disable protection.** An authorised reviewer should assess the exact package in an approved testing environment.
 
